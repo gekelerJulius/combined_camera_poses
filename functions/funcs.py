@@ -1,8 +1,28 @@
 import cv2
 import mediapipe as mp
+import numpy as np
+
 from classes.custom_point import CustomPoint
 
 mp_pose = mp.solutions.pose
+
+
+def normalize_points(points):
+    centroid = np.mean(points, axis=0)
+    avg_dist = np.mean(np.linalg.norm(points - centroid, axis=1))
+
+    if avg_dist == 0:
+        print("Points are the same")
+        return points, np.eye(3)
+
+    scale = np.sqrt(2) / avg_dist
+    translation = -scale * centroid
+    T = np.array([[scale, 0, translation[0]], [0, scale, translation[1]], [0, 0, 1]])
+
+    points_norm = np.hstack((points, np.ones((points.shape[0], 1))))
+    points_norm = np.dot(T, points_norm.T).T[:, :2]
+
+    return points_norm, T
 
 
 def box_to_landmarks_list(img, box):
@@ -57,13 +77,13 @@ def get_pose(image):
 def get_landmarks_as_coordinates(results, image):
     # Check for NoneType
     if results.pose_landmarks is None:
-        print("No pose landmarks found")
         return []
 
     image_height = image.shape[0]
     image_width = image.shape[1]
     return [
-        CustomPoint(landmark.x * image_width, landmark.y * image_height) for landmark in results.pose_landmarks.landmark
+        CustomPoint(landmark.x * image_width, landmark.y * image_height)
+        for landmark in results.pose_landmarks.landmark
     ]
 
 
