@@ -1,8 +1,8 @@
 import cv2
 import time
 
-# Load the video file
-cap = cv2.VideoCapture("sim.mp4")
+# Get webcam feed
+cap = cv2.VideoCapture(1)
 
 # Get the first frame
 ret1, frame1 = cap.read()
@@ -22,7 +22,6 @@ while True:
     # Remove pixels that are identical to the last frame
     calc_time = time.time()
     diff = cv2.absdiff(frame, last_frame)
-    print(time.time() - calc_time)
 
     # Get YOLO bounding boxes and draw them on the current frame in green
     # bounding_boxes: List[BoundingBox] = getYoloBoundingBoxes(frame1)

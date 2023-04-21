@@ -10,14 +10,20 @@ mp_pose = mp.solutions.pose
 
 
 class Person:
-    def __init__(self, person_id: int, frame_count: int, bounding_box: BoundingBox, landmarks: List[CustomPoint]):
+    def __init__(
+        self,
+        person_id: int,
+        frame_count: int,
+        bounding_box: BoundingBox,
+        landmarks: List[CustomPoint],
+    ):
         self.id = person_id
         self.frame_count = frame_count
         self.bounding_box = bounding_box
         self.landmarks = landmarks
 
     def draw(self, image):
-        return draw_landmarks_list(self.landmarks, image)
+        return draw_landmarks_list(image, self.landmarks)
 
     def __str__(self):
         return f"ID: {self.id} | Frame: {self.frame_count} | Bounding Box: {self.bounding_box} | Landmarks: {self.landmarks}"

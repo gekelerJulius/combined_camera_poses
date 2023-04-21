@@ -1,6 +1,7 @@
 from typing import List
 
 from yolov5 import YOLOv5
+from yolov5.models.common import Detections
 
 from classes.bounding_box import BoundingBox
 
@@ -9,11 +10,18 @@ device = "cpu"
 model = YOLOv5(model_path, device)
 
 
-def getYoloBoundingBoxes(image):
-    boxes = model.predict(image)
-    bb_np = boxes.xyxy[0].numpy()
+def get_yolo_bounding_boxes(image):
+    results: Detections = model.predict(image)
+
+    # Filter for persons
+    predictions = results.pred[0]
+    categories = predictions[:, 5]
+    label_mask = [results.names[int(c)] for c in categories]
+    person_indexes = [i for i, x in enumerate(label_mask) if x == "person"]
+    bb_np = results.xyxy[0].numpy()
     bounding_boxes: List[BoundingBox] = []
-    for box in bb_np:
+    for i in range(len(person_indexes)):
+        box = bb_np[person_indexes[i]]
         min_x = int(box[0])
         min_y = int(box[1])
         max_x = int(box[2])

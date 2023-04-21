@@ -1,0 +1,21 @@
+{
+  "intrinsic": {
+    "focalLengthX": 1.299038,
+    "focalLengthY": 1.73205078,
+    "principalPointX": 0.0,
+    "principalPointY": 0.0,
+    "aspectRatio": 1.33333337
+  },
+  "extrinsic": {
+    "position": {
+      "x": 0.0,
+      "y": -0.596712351,
+      "z": -4.837027
+    },
+    "rotation": {
+      "x": 0.0419414639,
+      "y": 0.0,
+      "z": 0.0
+    }
+  }
+}

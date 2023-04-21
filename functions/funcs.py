@@ -1,6 +1,7 @@
 import cv2
 import mediapipe as mp
 import numpy as np
+import xml.etree.ElementTree as ET
 
 from classes.custom_point import CustomPoint
 
@@ -29,12 +30,19 @@ def box_to_landmarks_list(img, box):
     min_x, min_y, max_x, max_y = box.min_x, box.min_y, box.max_x, box.max_y
     cropped = img[min_y:max_y, min_x:max_x]
     cropped, results = get_pose(cropped)
+
     landmarks = get_landmarks_as_coordinates(results, cropped)
     for landmark in landmarks:
         landmark.x += min_x
         landmark.y += min_y
-    frame = draw_landmarks_list(landmarks, img)
-    return frame, landmarks
+
+    # Remove indexes
+    landmarks = landmarks[:1] + landmarks[11:]
+
+    landmarks = [
+        landmark for landmark in landmarks if landmark.x != 0 and landmark.y != 0
+    ]
+    return img, landmarks
 
 
 def are_landmarks_the_same(landmarks1, landmarks2):
@@ -82,7 +90,7 @@ def get_landmarks_as_coordinates(results, image):
     image_height = image.shape[0]
     image_width = image.shape[1]
     return [
-        CustomPoint(landmark.x * image_width, landmark.y * image_height)
+        CustomPoint(landmark.x * image_width, landmark.y * image_height, landmark.z)
         for landmark in results.pose_landmarks.landmark
     ]
 
@@ -94,7 +102,101 @@ def draw_landmarks(results, image):
     return image
 
 
-def draw_landmarks_list(landmarks, image):
+def draw_landmarks_list(image, landmarks):
     for landmark in landmarks:
         cv2.circle(image, (int(landmark.x), int(landmark.y)), 2, (0, 255, 0), -1)
     return image
+
+
+def extract_extrinsics_from_xml(xml_file):
+    # Extract the rotation vector (rvec) and translation vector (tvec) from the extrinsics file
+    tree = ET.parse(xml_file)
+    root = tree.getroot()
+
+    # Extract the rotation vector (rvec)
+    rvec = np.zeros((3,), dtype=np.float64)
+    for i, value in enumerate(root[0].text.split()):
+        rvec[i] = float(value)
+
+    # Extract the translation vector (tvec)
+    tvec = np.zeros((3,), dtype=np.float64)
+    for i, value in enumerate(root[1].text.split()):
+        tvec[i] = float(value)
+
+    return rvec, tvec
+
+
+def extract_intrinsics_from_xml(xml_file):
+    # Extract the camera matrix (camera_matrix) and distortion coefficients (dist_coeffs) from the intrinsics file
+    tree = ET.parse(xml_file)
+    root = tree.getroot()
+
+    # Extract the camera matrix (camera_matrix)
+    camera_matrix = np.zeros((3, 3), dtype=np.float64)
+    for i, child in enumerate(root[0]):
+        if child.tag == "rows" or child.tag == "cols":
+            assert int(child.text) == 3
+        elif child.tag == "dt":
+            assert child.text == "d"
+        elif child.tag == "data":
+            split = child.text.split()
+            assert len(split) == 9
+            camera_matrix[0, 0] = float(split[0])
+            camera_matrix[0, 1] = float(split[1])
+            camera_matrix[0, 2] = float(split[2])
+            camera_matrix[1, 0] = float(split[3])
+            camera_matrix[1, 1] = float(split[4])
+            camera_matrix[1, 2] = float(split[5])
+            camera_matrix[2, 0] = float(split[6])
+            camera_matrix[2, 1] = float(split[7])
+            camera_matrix[2, 2] = float(split[8])
+        else:
+            raise ValueError("Invalid tag in XML file")
+
+    # Extract the distortion coefficients (dist_coeffs)
+    dist_coeffs = np.zeros((5, 1), dtype=np.float64)
+    for i, child in enumerate(root[1]):
+        if child.tag == "rows":
+            assert int(child.text) == 5
+        elif child.tag == "cols":
+            assert int(child.text) == 1
+        elif child.tag == "dt":
+            assert child.text == "d"
+        elif child.tag == "data":
+            split = child.text.split()
+            assert len(split) == 5
+            dist_coeffs[0, 0] = float(split[0])
+            dist_coeffs[1, 0] = float(split[1])
+            dist_coeffs[2, 0] = float(split[2])
+            dist_coeffs[3, 0] = float(split[3])
+            dist_coeffs[4, 0] = float(split[4])
+        else:
+            raise ValueError("Invalid tag in XML file")
+
+    return camera_matrix, dist_coeffs
+
+
+def match_features(img1, img2):
+    sift = cv2.SIFT_create()
+    kp1, des1 = sift.detectAndCompute(img1, None)
+    kp2, des2 = sift.detectAndCompute(img2, None)
+
+    bf = cv2.BFMatcher()
+    matches = bf.knnMatch(des1, des2, k=2)
+
+    # Apply ratio test to filter good matches
+    good_matches = []
+    for m, n in matches:
+        if m.distance < 0.75 * n.distance:
+            good_matches.append(m)
+
+    return np.array([kp1[m.queryIdx].pt for m in good_matches]), np.array(
+        [kp2[m.trainIdx].pt for m in good_matches]
+    )
+
+
+def points_are_close(x1, y1, x2, y2, threshold=None):
+    if threshold is None:
+        # Set threshold to 5% of biggest number
+        threshold = max(x1, x2, y1, y2) * 0.05
+    return abs(x1 - x2) < threshold and abs(y1 - y2) < threshold
