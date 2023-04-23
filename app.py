@@ -2,7 +2,7 @@ import os
 import time
 import cv2.cv2 as cv
 import mediapipe as mp
-from typing import List
+from typing import List, Tuple
 
 import numpy as np
 
@@ -15,8 +15,9 @@ from functions.funcs import (
     box_to_landmarks_list,
     draw_landmarks_list,
     compare_landmarks,
-    rotate_points_y,
 )
+from functions.get_person_pairs import get_person_pairs
+from functions.get_pose import get_pose
 from functions.get_yolo_boxes import get_yolo_bounding_boxes
 
 mp_drawing = mp.solutions.drawing_utils
@@ -126,38 +127,32 @@ def annotate_video_multi(
         bounding_boxes2: List[BoundingBox] = get_yolo_bounding_boxes(img2)
 
         for box in bounding_boxes1:
-            img1, landmarks1 = box_to_landmarks_list(img1, box)
+            img1, results1 = get_pose(img1, box)
             # img1 = draw_landmarks_list(img1, landmarks1, with_index=True)
-            persons1.append(Person(len(persons1), frame_count, box, landmarks1))
+            persons1.append(
+                Person(f"Person1 {len(persons1)}", frame_count, box, results1)
+            )
 
         for box in bounding_boxes2:
-            img2, landmarks2 = box_to_landmarks_list(img2, box)
+            img2, results2 = get_pose(img2, box)
             # img2 = draw_landmarks_list(img2, landmarks2, with_index=True)
-            persons2.append(Person(len(persons2), frame_count, box, landmarks2))
+            persons2.append(
+                Person(f"Person1 {len(persons2)}", frame_count, box, results2)
+            )
 
-        for person in persons1:
-            copy_img1 = img1.copy()
-            copy_img1 = person.draw(copy_img1)
-            cv.imshow("Frame 1", copy_img1)
-            cv.waitKey(0)
+        pairs: List[Tuple[Person, Person]] = get_person_pairs(persons1, persons2)
 
-            smallest_diff = 1000
-            smallest_diff_person = None
-            smallest_diff_rotation = None
-            for person2 in persons2:
-                diff, rotation = person.get_landmark_diff(person2)
-                if diff < smallest_diff:
-                    smallest_diff = diff
-                    smallest_diff_person = person2
-                    smallest_diff_rotation = rotation
-            if smallest_diff_person is not None:
-                print(f"Smallest diff: {smallest_diff}")
-                print(f"Rotation: {smallest_diff_rotation}")
-                copy_img2 = img2.copy()
-                copy_img2 = smallest_diff_person.draw(copy_img2)
-                cv.imshow("Frame 2", copy_img2)
-            cv.waitKey(0)
-            cv.destroyAllWindows()
+        for p1, p2 in pairs:
+            img1 = p1.draw(img1)
+            img2 = p2.draw(img2)
+
+        # print(f"Smallest diff: {smallest_diff}")
+        # print(f"Rotation: {smallest_diff_rotation}")
+        # copy_img2 = img2.copy()
+        # copy_img2 = smallest_diff_person.draw(copy_img2)
+        # cv.imshow("Frame 2", copy_img2)
+        # cv.waitKey(0)
+        # cv.destroyAllWindows()
 
         # for person in persons1:
         #     img1 = person.draw(img1)
@@ -165,9 +160,9 @@ def annotate_video_multi(
         # for person in persons2:
         #     img2 = person.draw(img2)
 
-        # cv.imshow("Frame 1", img1)
-        # cv.imshow("Frame 2", img2)
-        # cv.waitKey(0)
+        cv.imshow("Frame 1", img1)
+        cv.imshow("Frame 2", img2)
+        cv.waitKey(0)
         # out1.write(img1)
         # out2.write(img2)
 

@@ -1,14 +1,14 @@
-from typing import List
+import xml.etree.ElementTree as ET
+from typing import Tuple, Union
 
 import cv2
 import mediapipe as mp
 import numpy as np
-import xml.etree.ElementTree as ET
-
+from numpy import ndarray
 from scipy.linalg import orthogonal_procrustes
-from scipy.spatial import procrustes
 
 from classes.custom_point import CustomPoint
+from functions.get_pose import get_pose
 
 mp_pose = mp.solutions.pose
 
@@ -36,13 +36,10 @@ def box_to_landmarks_list(img, box):
     cropped = img[min_y:max_y, min_x:max_x]
     cropped, results = get_pose(cropped)
 
-    landmarks = get_landmarks_as_coordinates(results, cropped)
+    landmarks = get_landmarks_as_pixel_coordinates(results, cropped)
     for landmark in landmarks:
         landmark.x += min_x
         landmark.y += min_y
-
-    # Remove indexes
-    landmarks = landmarks[:1] + landmarks[11:]
 
     landmarks = [
         landmark for landmark in landmarks if landmark.x != 0 and landmark.y != 0
@@ -56,36 +53,62 @@ def are_landmarks_the_same(landmarks1, landmarks2):
     return avg_diff < 5
 
 
-def compare_landmarks(landmarks1, landmarks2):
+def calc_cos_sim(v1: ndarray, v2: ndarray) -> float:
+    """
+    Returns the cosine similarity between two vectors
+    """
+    dot = np.dot(v1, v2)
+    norm1 = np.linalg.norm(v1)
+    norm2 = np.linalg.norm(v2)
+    norm = norm1 * norm2
+
+    if norm == 0:
+        return 0
+
+    return dot / norm
+
+
+def compare_landmarks(
+    landmarks1, landmarks2
+) -> Tuple[Union[float, None], Union[float, None]]:
+    if len(landmarks1) != len(landmarks2):
+        print("Landmarks are not the same length")
+        return None, None
+
     pose1 = np.array([[landmark.x, landmark.y, landmark.z] for landmark in landmarks1])
     pose2 = np.array([[landmark.x, landmark.y, landmark.z] for landmark in landmarks2])
 
-    centroid1 = pose1[0]
-    centroid2 = pose2[0]
-
-    pose1 -= centroid1
-    pose2 -= centroid2
+    # Use center of hips as origin
+    # left_hip1 = pose1[mp_pose.PoseLandmark.LEFT_HIP]
+    # right_hip1 = pose1[mp_pose.PoseLandmark.RIGHT_HIP]
+    # centroid1 = (left_hip1 + right_hip1) / 2
+    # left_hip2 = pose2[mp_pose.PoseLandmark.LEFT_HIP]
+    # right_hip2 = pose2[mp_pose.PoseLandmark.RIGHT_HIP]
+    # centroid2 = (left_hip2 + right_hip2) / 2
+    #
+    # pose1 -= centroid1
+    # pose2 -= centroid2
 
     # Scale to same size
     pose1 /= np.linalg.norm(pose1)
     pose2 /= np.linalg.norm(pose2)
 
-    start_diff = np.linalg.norm(pose1 - pose2)
-
     # Brute force 360-degree rotation around y-axis to find best match
-    best_diff = start_diff
+    best_cos_sim = 0
     best_rotation = 0
     for i in range(360):
-        pose1_rotated = np.copy(pose1)
-        
-        diff = np.linalg.norm(pose1_rotated - pose2)
-        if diff < best_diff:
-            best_diff = diff
-            best_rotation = i
-    # print(f"Best diff: {best_diff}")
-    # print(f"Best rotation: {best_rotation}")
+        p1_rotated = rotate_points_y(np.copy(pose1), i)
+        avg_cos_sim = 0
+        for j in range(len(p1_rotated)):
+            avg_cos_sim += calc_cos_sim(p1_rotated[j], pose2[j])
 
-    return best_diff, best_rotation
+        # print(f"Summed cos sim: {avg_cos_sim} for rotation {i} degrees")
+        cos_sim = avg_cos_sim / len(p1_rotated) if len(p1_rotated) > 0 else 0
+        # print(f"Avg Cos sim: {cos_sim}")
+        if cos_sim > best_cos_sim:
+            best_cos_sim = cos_sim
+            best_rotation = i
+    return 1 - best_cos_sim, best_rotation
 
     # if not len(pose1) == len(pose2):
     #     # raise Exception("Landmarks are not the same length")
@@ -121,20 +144,7 @@ def compare_landmarks(landmarks1, landmarks2):
     # return summed / len(diffs)
 
 
-def get_pose(image):
-    # Annotate
-    with mp_pose.Pose(
-        static_image_mode=True,
-        min_detection_confidence=0.5,
-        min_tracking_confidence=0.5,
-    ) as pose:
-        image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
-        results = pose.process(image)
-        image = cv2.cvtColor(image, cv2.COLOR_RGB2BGR)
-    return image, results
-
-
-def get_landmarks_as_coordinates(results, image):
+def get_landmarks_as_pixel_coordinates(results, image):
     # Check for NoneType
     if results.pose_landmarks is None:
         return []
@@ -148,13 +158,13 @@ def get_landmarks_as_coordinates(results, image):
 
 
 def draw_landmarks(results, image):
-    landmarks = get_landmarks_as_coordinates(results, image)
+    landmarks = get_landmarks_as_pixel_coordinates(results, image)
     for landmark in landmarks:
         cv2.circle(image, (int(landmark.x), int(landmark.y)), 2, (0, 255, 0), -1)
     return image
 
 
-def draw_landmarks_list(image, landmarks, with_index=False):
+def draw_landmarks_list(image, landmarks, with_index=False, color=(0, 255, 0)):
     if with_index:
         for i, landmark in enumerate(landmarks):
             cv2.putText(
@@ -163,7 +173,7 @@ def draw_landmarks_list(image, landmarks, with_index=False):
                 (int(landmark.x), int(landmark.y)),
                 cv2.FONT_HERSHEY_SIMPLEX,
                 0.25,
-                (0, 0, 255),
+                color,
                 1,
             )
     else:
@@ -266,45 +276,38 @@ def points_are_close(x1, y1, x2, y2, threshold=None):
     return abs(x1 - x2) < threshold and abs(y1 - y2) < threshold
 
 
-# def rotate_points_y(points: List[CustomPoint], angle: int, center: CustomPoint = None):
-#     """
-#     Rotate points around the y-axis by a given angle.
-#     Args:
-#         points: List of CustomPoint objects, containing x, y, z coordinates.
-#         angle: Angle to rotate by, in degrees (int).
-#         center: Center of rotation (CustomPoint object).
-#     """
-#     return [rotate_point_y(point, angle, center) for point in points]
-#
-#
-# def rotate_point_y(point: CustomPoint, angle: int, center: CustomPoint = None):
-#     """
-#     Rotate a point around the y-axis by a given angle.
-#     Args:
-#         point: CustomPoint object, containing x, y, z coordinates.
-#         angle: Angle to rotate by, in degrees (int).
-#         center: Center of rotation (CustomPoint object).
-#     """
-#     theta = np.deg2rad(angle)
-#     if center is None:
-#         center = CustomPoint(0, 0, 0)
-#
-#     # Translate point so that center is at origin
-#     point.x -= center.x
-#     point.y -= center.y
-#     point.z -= center.z
-#
-#     # Rotate point around y-axis
-#     x = point.x * np.cos(theta) + point.z * np.sin(theta)
-#     y = point.y
-#     z = -point.x * np.sin(theta) + point.z * np.cos(theta)
-#
-#     # Translate point back to original position
-#     point.x = x + center.x
-#     point.y = y + center.y
-#     point.z = z + center.z
-#
-#     return point
+def rotate_points_y(points: ndarray, angle: int, center: CustomPoint = None):
+    """
+    Rotate points around the y-axis by a given angle.
+    Args:
+        points: List of CustomPoint objects, containing x, y, z coordinates.
+        angle: Angle to rotate by, in degrees (int).
+        center: Center of rotation (CustomPoint object).
+    """
+    return [rotate_point_y(point, angle, center) for point in points]
+
+
+def rotate_point_y(point: ndarray, angle: int, center: ndarray = None):
+    """
+    Rotate a point around the y-axis by a given angle.
+    Args:
+        point: CustomPoint object, containing x, y, z coordinates.
+        angle: Angle to rotate by, in degrees (int).
+        center: Center of rotation (CustomPoint object).
+    """
+    theta = np.deg2rad(angle)
+    if center is None:
+        center = np.array([0, 0, 0])
+    point -= center
+    point = np.array(
+        [
+            point[0] * np.cos(theta) + point[2] * np.sin(theta),
+            point[1],
+            -point[0] * np.sin(theta) + point[2] * np.cos(theta),
+        ]
+    )
+    point += center
+    return point
 
 
 def my_procrustes(a: np.ndarray, b: np.ndarray):

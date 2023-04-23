@@ -8,6 +8,12 @@ class BoundingBox:
         self.max_x = max_x
         self.max_y = max_y
 
+    def get_width(self):
+        return self.max_x - self.min_x
+
+    def get_height(self):
+        return self.max_y - self.min_y
+    
     def __str__(self):
         return f"Min X: {self.min_x} | Min Y: {self.min_y} | Max X: {self.max_x} | Max Y: {self.max_y}"
 
