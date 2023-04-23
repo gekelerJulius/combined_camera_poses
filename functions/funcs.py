@@ -1,7 +1,12 @@
+from typing import List
+
 import cv2
 import mediapipe as mp
 import numpy as np
 import xml.etree.ElementTree as ET
+
+from scipy.linalg import orthogonal_procrustes
+from scipy.spatial import procrustes
 
 from classes.custom_point import CustomPoint
 
@@ -52,21 +57,68 @@ def are_landmarks_the_same(landmarks1, landmarks2):
 
 
 def compare_landmarks(landmarks1, landmarks2):
-    diffs = []
-    if len(landmarks1) != len(landmarks2):
-        print("Landmarks are not the same length")
-        return False
-    for i in range(len(landmarks1)):
-        diffs.append(landmarks1[i].distance(landmarks2[i]))
+    pose1 = np.array([[landmark.x, landmark.y, landmark.z] for landmark in landmarks1])
+    pose2 = np.array([[landmark.x, landmark.y, landmark.z] for landmark in landmarks2])
 
-    if max(diffs) > 10:
-        print("Landmarks are not the same")
-        return False
+    centroid1 = pose1[0]
+    centroid2 = pose2[0]
 
-    summed = 0
-    for diff in diffs:
-        summed += diff
-    return summed / len(diffs)
+    pose1 -= centroid1
+    pose2 -= centroid2
+
+    # Scale to same size
+    pose1 /= np.linalg.norm(pose1)
+    pose2 /= np.linalg.norm(pose2)
+
+    start_diff = np.linalg.norm(pose1 - pose2)
+
+    # Brute force 360-degree rotation around y-axis to find best match
+    best_diff = start_diff
+    best_rotation = 0
+    for i in range(360):
+        pose1_rotated = np.copy(pose1)
+        
+        diff = np.linalg.norm(pose1_rotated - pose2)
+        if diff < best_diff:
+            best_diff = diff
+            best_rotation = i
+    # print(f"Best diff: {best_diff}")
+    # print(f"Best rotation: {best_rotation}")
+
+    return best_diff, best_rotation
+
+    # if not len(pose1) == len(pose2):
+    #     # raise Exception("Landmarks are not the same length")
+    #     return None, None
+    #
+    # Q, Scale = orthogonal_procrustes(pose1, pose2)
+
+    # with np.printoptions(precision=3, suppress=True):
+    #     print("Scale:")
+    #     print(Scale)
+    #     print("Q (computed by orthogonal_procrustes):")
+    #     print(Q)
+    # print("\nCompare Pose1 @ Q with B0.")
+    # print("A0 @ Q:")
+    # print(pose1 @ Q)
+    # print("B0 (should be close to A0 @ Q if the noise parameter was small):")
+    # print(pose2)
+    # print("Difference:")
+    # print(np.linalg.norm(pose1 @ Q - pose2))
+
+    # return np.linalg.norm(pose1 @ Q - pose2)
+
+    # diffs = []
+    # if len(landmarks1) != len(landmarks2):
+    #     print("Landmarks are not the same length")
+    #     return False
+    # for i in range(len(landmarks1)):
+    #     diffs.append(landmarks1[i].distance(landmarks2[i]))
+    #
+    # summed = 0
+    # for diff in diffs:
+    #     summed += diff
+    # return summed / len(diffs)
 
 
 def get_pose(image):
@@ -102,9 +154,21 @@ def draw_landmarks(results, image):
     return image
 
 
-def draw_landmarks_list(image, landmarks):
-    for landmark in landmarks:
-        cv2.circle(image, (int(landmark.x), int(landmark.y)), 2, (0, 255, 0), -1)
+def draw_landmarks_list(image, landmarks, with_index=False):
+    if with_index:
+        for i, landmark in enumerate(landmarks):
+            cv2.putText(
+                image,
+                str(i),
+                (int(landmark.x), int(landmark.y)),
+                cv2.FONT_HERSHEY_SIMPLEX,
+                0.25,
+                (0, 0, 255),
+                1,
+            )
+    else:
+        for landmark in landmarks:
+            cv2.circle(image, (int(landmark.x), int(landmark.y)), 2, (0, 255, 0), -1)
     return image
 
 
@@ -200,3 +264,79 @@ def points_are_close(x1, y1, x2, y2, threshold=None):
         # Set threshold to 5% of biggest number
         threshold = max(x1, x2, y1, y2) * 0.05
     return abs(x1 - x2) < threshold and abs(y1 - y2) < threshold
+
+
+# def rotate_points_y(points: List[CustomPoint], angle: int, center: CustomPoint = None):
+#     """
+#     Rotate points around the y-axis by a given angle.
+#     Args:
+#         points: List of CustomPoint objects, containing x, y, z coordinates.
+#         angle: Angle to rotate by, in degrees (int).
+#         center: Center of rotation (CustomPoint object).
+#     """
+#     return [rotate_point_y(point, angle, center) for point in points]
+#
+#
+# def rotate_point_y(point: CustomPoint, angle: int, center: CustomPoint = None):
+#     """
+#     Rotate a point around the y-axis by a given angle.
+#     Args:
+#         point: CustomPoint object, containing x, y, z coordinates.
+#         angle: Angle to rotate by, in degrees (int).
+#         center: Center of rotation (CustomPoint object).
+#     """
+#     theta = np.deg2rad(angle)
+#     if center is None:
+#         center = CustomPoint(0, 0, 0)
+#
+#     # Translate point so that center is at origin
+#     point.x -= center.x
+#     point.y -= center.y
+#     point.z -= center.z
+#
+#     # Rotate point around y-axis
+#     x = point.x * np.cos(theta) + point.z * np.sin(theta)
+#     y = point.y
+#     z = -point.x * np.sin(theta) + point.z * np.cos(theta)
+#
+#     # Translate point back to original position
+#     point.x = x + center.x
+#     point.y = y + center.y
+#     point.z = z + center.z
+#
+#     return point
+
+
+def my_procrustes(a: np.ndarray, b: np.ndarray):
+    mtx1 = np.array(a, dtype=np.double, copy=True)
+    mtx2 = np.array(b, dtype=np.double, copy=True)
+
+    if mtx1.ndim != 2 or mtx2.ndim != 2:
+        raise ValueError("Input matrices must be two-dimensional")
+    if mtx1.shape != mtx2.shape:
+        raise ValueError("Input matrices must be of same shape")
+    if mtx1.size == 0:
+        raise ValueError("Input matrices must be >0 rows and >0 cols")
+
+    # translate all the data to the origin
+    mtx1 -= np.mean(mtx1, 0)
+    mtx2 -= np.mean(mtx2, 0)
+
+    norm1 = np.linalg.norm(mtx1)
+    norm2 = np.linalg.norm(mtx2)
+
+    if norm1 == 0 or norm2 == 0:
+        raise ValueError("Input matrices must contain >1 unique points")
+
+    # change scaling of data (in rows) such that trace(mtx*mtx') = 1
+    mtx1 /= norm1
+    mtx2 /= norm2
+
+    # transform mtx2 to minimize disparity
+    R, s = orthogonal_procrustes(mtx1, mtx2)
+    mtx2 = np.dot(mtx2, R.T) * s
+
+    # measure the dissimilarity between the two datasets
+    disparity = np.sum(np.square(mtx1 - mtx2))
+
+    return mtx1, mtx2, disparity, R

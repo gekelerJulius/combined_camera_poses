@@ -9,53 +9,70 @@ from functions.funcs import points_are_close
 
 
 class CameraData:
-    def __init__(self, json_path: str):
-        self.json_path = json_path
-        self.json = self.load_json()
-        # Extract the intrinsic and extrinsic parameters
-        intrinsic = self.json["intrinsic"]
-        extrinsic = self.json["extrinsic"]
-
-        # Extract the individual parameters from intrinsic
-        self.focal_length_x = intrinsic["focalLengthX"]
-        self.focal_length_y = intrinsic["focalLengthY"]
-        self.principal_point_x = intrinsic["principalPointX"]
-        self.principal_point_y = intrinsic["principalPointY"]
-        self.aspect_ratio = intrinsic["aspectRatio"]
+    def __init__(self, fx, fy, cx, cy, aspect_ratio, position, rotation):
+        self.fx = fx
+        self.fy = fy
+        self.cx = cx
+        self.cy = cy
+        self.aspect_ratio = aspect_ratio
+        self.position = position
+        self.rotation = rotation
 
         self.intrinsic_matrix = np.array(
             [
-                [self.focal_length_x, 0, self.principal_point_x],
-                [0, self.focal_length_y, self.principal_point_y],
+                [fx, 0, cx],
+                [0, fy, cy],
                 [0, 0, 1],
             ]
         )
 
+        R, _ = cv2.Rodrigues(rotation)
+        self.R = R
+        self.extrinsic_matrix = np.array(
+            [
+                [R[0][0], R[0][1], R[0][2], position[0]],
+                [R[1][0], R[1][1], R[1][2], position[1]],
+                [R[2][0], R[2][1], R[2][2], position[2]],
+                [0, 0, 0, 1],
+            ]
+        )
+
+    @staticmethod
+    def create_from_json(json_path):
+        # Extract the intrinsic and extrinsic parameters
+        json_data = CameraData.load_json(json_path)
+        intrinsic = json_data["intrinsic"]
+        extrinsic = json_data["extrinsic"]
+
+        # Extract the individual parameters from intrinsic
+        fx = intrinsic["focalLengthX"]
+        fy = intrinsic["focalLengthY"]
+        cx = intrinsic["principalPointX"]
+        cy = intrinsic["principalPointY"]
+        aspect_ratio = intrinsic["aspectRatio"]
+
         # Extract the individual parameters from extrinsic
-        self.position = np.array(
+        position = np.array(
             [
                 extrinsic["position"]["x"],
                 extrinsic["position"]["y"],
                 extrinsic["position"]["z"],
             ]
         )
-        rotation = extrinsic["rotation"]
-        rvec = np.array([rotation["x"], rotation["y"], rotation["z"]])
-        R, _ = cv2.Rodrigues(rvec)
-        self.rotation = R
-
-        self.extrinsic_matrix = np.array(
+        rotation = np.array(
             [
-                [R[0][0], R[0][1], R[0][2], self.position[0]],
-                [R[1][0], R[1][1], R[1][2], self.position[1]],
-                [R[2][0], R[2][1], R[2][2], self.position[2]],
-                [0, 0, 0, 1],
+                extrinsic["rotation"]["x"],
+                extrinsic["rotation"]["y"],
+                extrinsic["rotation"]["z"],
             ]
         )
 
-    def load_json(self):
-        with open(self.json_path, "r") as f:
-            return json.load(f)
+        return CameraData(fx, fy, cx, cy, aspect_ratio, position, rotation)
+
+    @staticmethod
+    def load_json(json_path):
+        with open(json_path) as json_file:
+            return json.load(json_file)
 
     def transform_points_to_world(self, points: List[List[float]]):
         """Transforms points from camera coordinates to world coordinates"""

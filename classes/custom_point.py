@@ -16,6 +16,20 @@ class CustomPoint:
     def __repr__(self):
         return f"CustomPoint({self.x}, {self.y}, {self.z})"
 
+    def __iter__(self):
+        yield self.x
+        yield self.y
+        yield self.z
+
+    def __getitem__(self, index):
+        if index == 0:
+            return self.x
+        if index == 1:
+            return self.y
+        if index == 2:
+            return self.z
+        raise IndexError("Index out of range")
+
     def __eq__(self, other):
         return self.x == other.x and self.y == other.y and self.z == other.z
 

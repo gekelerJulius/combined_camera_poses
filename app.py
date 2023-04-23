@@ -3,11 +3,20 @@ import time
 import cv2.cv2 as cv
 import mediapipe as mp
 from typing import List
+
+import numpy as np
+
 from classes.bounding_box import BoundingBox
 
 from classes.camera_data import CameraData
+from classes.custom_point import CustomPoint
 from classes.person import Person
-from functions.funcs import box_to_landmarks_list, draw_landmarks_list
+from functions.funcs import (
+    box_to_landmarks_list,
+    draw_landmarks_list,
+    compare_landmarks,
+    rotate_points_y,
+)
 from functions.get_yolo_boxes import get_yolo_bounding_boxes
 
 mp_drawing = mp.solutions.drawing_utils
@@ -74,12 +83,12 @@ def annotate_video_multi(
     if not os.path.exists(cam2_data_path):
         raise ValueError(f"cam2_data_path does not exist: {cam2_data_path}")
 
-    cam1_data: CameraData = CameraData(cam1_data_path)
-    cam2_data: CameraData = CameraData(cam2_data_path)
+    cam1_data: CameraData = CameraData.create_from_json(cam1_data_path)
+    cam2_data: CameraData = CameraData.create_from_json(cam2_data_path)
+
     cam1_data.test_valid()
     cam2_data.test_valid()
     print("Checks passed, starting video...")
-    time.sleep(2.5)
 
     # fourcc = cv.VideoWriter_fourcc(*"mp4v")
     # file1_pre, file1_ext = os.path.splitext(file1_name)
@@ -116,37 +125,49 @@ def annotate_video_multi(
         bounding_boxes1: List[BoundingBox] = get_yolo_bounding_boxes(img1)
         bounding_boxes2: List[BoundingBox] = get_yolo_bounding_boxes(img2)
 
-        box = bounding_boxes1[0]
-        img1, landmarks1 = box_to_landmarks_list(img1, box)
+        for box in bounding_boxes1:
+            img1, landmarks1 = box_to_landmarks_list(img1, box)
+            # img1 = draw_landmarks_list(img1, landmarks1, with_index=True)
+            persons1.append(Person(len(persons1), frame_count, box, landmarks1))
 
-        world_points = [
-            cam1_data.transform_point_to_world(lmk.as_list()) for lmk in landmarks1
-        ]
-        print(world_points)
+        for box in bounding_boxes2:
+            img2, landmarks2 = box_to_landmarks_list(img2, box)
+            # img2 = draw_landmarks_list(img2, landmarks2, with_index=True)
+            persons2.append(Person(len(persons2), frame_count, box, landmarks2))
 
-        img1 = draw_landmarks_list(img1, landmarks1)
-        persons1.append(Person(len(persons1), frame_count, box, landmarks1))
+        for person in persons1:
+            copy_img1 = img1.copy()
+            copy_img1 = person.draw(copy_img1)
+            cv.imshow("Frame 1", copy_img1)
+            cv.waitKey(0)
 
-        box = bounding_boxes2[0]
-        img2, landmarks2 = box_to_landmarks_list(img2, box)
+            smallest_diff = 1000
+            smallest_diff_person = None
+            smallest_diff_rotation = None
+            for person2 in persons2:
+                diff, rotation = person.get_landmark_diff(person2)
+                if diff < smallest_diff:
+                    smallest_diff = diff
+                    smallest_diff_person = person2
+                    smallest_diff_rotation = rotation
+            if smallest_diff_person is not None:
+                print(f"Smallest diff: {smallest_diff}")
+                print(f"Rotation: {smallest_diff_rotation}")
+                copy_img2 = img2.copy()
+                copy_img2 = smallest_diff_person.draw(copy_img2)
+                cv.imshow("Frame 2", copy_img2)
+            cv.waitKey(0)
+            cv.destroyAllWindows()
 
-        world_points = [
-            cam2_data.transform_point_to_world(lmk.as_list()) for lmk in landmarks2
-        ]
-        print(world_points)
-
-        img2 = draw_landmarks_list(img2, landmarks2)
-        persons2.append(Person(len(persons2), frame_count, box, landmarks2))
-        #
         # for person in persons1:
         #     img1 = person.draw(img1)
         #
         # for person in persons2:
         #     img2 = person.draw(img2)
 
-        cv.imshow("Frame 1", img1)
-        cv.imshow("Frame 2", img2)
-        cv.waitKey(0)
+        # cv.imshow("Frame 1", img1)
+        # cv.imshow("Frame 2", img2)
+        # cv.waitKey(0)
         # out1.write(img1)
         # out2.write(img2)
 
