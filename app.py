@@ -1,21 +1,14 @@
 import os
-import time
 import cv2.cv2 as cv
 import mediapipe as mp
 from typing import List, Tuple
 
-import numpy as np
-
 from classes.bounding_box import BoundingBox
 
 from classes.camera_data import CameraData
-from classes.custom_point import CustomPoint
+from classes.logger import Logger
 from classes.person import Person
-from functions.funcs import (
-    box_to_landmarks_list,
-    draw_landmarks_list,
-    compare_landmarks,
-)
+from enums.logging_levels import LoggingLevel
 from functions.get_person_pairs import get_person_pairs
 from functions.get_pose import get_pose
 from functions.get_yolo_boxes import get_yolo_bounding_boxes
@@ -89,7 +82,7 @@ def annotate_video_multi(
 
     cam1_data.test_valid()
     cam2_data.test_valid()
-    print("Checks passed, starting video...")
+    Logger.log(LoggingLevel.INFO, "Checks passed, starting video...")
 
     # fourcc = cv.VideoWriter_fourcc(*"mp4v")
     # file1_pre, file1_ext = os.path.splitext(file1_name)
@@ -97,7 +90,7 @@ def annotate_video_multi(
     cap1 = cv.VideoCapture(file1_name)
     # file2_pre, file2_ext = os.path.splitext(file2_name)
     # out2 = cv.VideoWriter(f"{file2_pre}_annotated{file2_ext}", fourcc, 24, (640, 480))
-    cap2 = cv.VideoCapture(file2_name) if file2_name else cv.VideoCapture(1)
+    cap2 = cv.VideoCapture(file2_name)
     frame_count = 0
 
     while cap1.isOpened() and cap2.isOpened():
@@ -106,13 +99,17 @@ def annotate_video_multi(
         if not (ret1 and ret2):
             break
 
+        frame_count += 1
+
         if (
             img1.shape[0] == 0
             or img1.shape[1] == 0
             or img2.shape[0] == 0
             or img2.shape[1] == 0
         ):
-            print("Bad frame shape")
+            Logger.log(
+                LoggingLevel.ERROR, f"Invalid frame size: {img1.shape}, {img2.shape}"
+            )
             break
 
         if img1.shape[0] != 480 or img1.shape[1] != 640:
@@ -122,7 +119,6 @@ def annotate_video_multi(
 
         persons1: List[Person] = []
         persons2: List[Person] = []
-        frame_count += 1
         bounding_boxes1: List[BoundingBox] = get_yolo_bounding_boxes(img1)
         bounding_boxes2: List[BoundingBox] = get_yolo_bounding_boxes(img2)
 
@@ -140,14 +136,24 @@ def annotate_video_multi(
                 Person(f"Person1 {len(persons2)}", frame_count, box, results2)
             )
 
-        pairs: List[Tuple[Person, Person]] = get_person_pairs(persons1, persons2)
+        pairs: List[Tuple[Person, Person]] = get_person_pairs(
+            persons1, persons2, img1, img2
+        )
 
-        for p1, p2 in pairs:
-            img1 = p1.draw(img1)
-            img2 = p2.draw(img2)
+        def get_color(index):
+            if index == 0:
+                return 0, 0, 255
+            elif index == 1:
+                return 0, 255, 0
+            elif index == 2:
+                return 255, 0, 0
+            else:
+                raise ValueError(f"Invalid index: {index}")
 
-        # print(f"Smallest diff: {smallest_diff}")
-        # print(f"Rotation: {smallest_diff_rotation}")
+        for i, (p1, p2) in enumerate(pairs):
+            img1 = p1.draw(img1, color=get_color(i))
+            img2 = p2.draw(img2, color=get_color(i))
+
         # copy_img2 = img2.copy()
         # copy_img2 = smallest_diff_person.draw(copy_img2)
         # cv.imshow("Frame 2", copy_img2)
@@ -162,21 +168,23 @@ def annotate_video_multi(
 
         cv.imshow("Frame 1", img1)
         cv.imshow("Frame 2", img2)
-        cv.waitKey(0)
+        cv.waitKey(5)
         # out1.write(img1)
         # out2.write(img2)
 
         if frame_count % 10 == 0:
-            print(f"Frame {frame_count} done")
+            Logger.log(LoggingLevel.INFO, f"Frame: {frame_count}")
 
         # Debug
-        if frame_count == 50:
-            break
+        # if frame_count == 50:
+        #     break
 
     cap1.release()
     cap2.release()
     # out1.release()
     # out2.release()
+    cv.waitKey(0)
+    cv.destroyAllWindows()
 
 
 annotate_video_multi(

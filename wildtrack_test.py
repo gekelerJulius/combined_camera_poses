@@ -6,6 +6,8 @@ import numpy as np
 from matplotlib import pyplot as plt
 
 from classes.camera_data import CameraData
+from classes.logger import Logger
+from enums.logging_levels import LoggingLevel
 from functions.funcs import (
     extract_extrinsics_from_xml,
     extract_intrinsics_from_xml,
@@ -58,8 +60,9 @@ for i in range(1, 8):
 
 used_camera_indexes = [0, 5]
 
-print(
-    f"Using cameras: {used_camera_indexes} with Extrinsics from {[extrinsics_paths[i] for i in used_camera_indexes]} and Intrinsics from {[intrinsics_paths[i] for i in used_camera_indexes]}"
+Logger.log(
+    LoggingLevel.INFO,
+    f"Using cameras: {used_camera_indexes} with Extrinsics from {[extrinsics_paths[i] for i in used_camera_indexes]} and Intrinsics from {[intrinsics_paths[i] for i in used_camera_indexes]}",
 )
 
 first_image_paths = [

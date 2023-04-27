@@ -1,5 +1,6 @@
+import time
 import xml.etree.ElementTree as ET
-from typing import Tuple, Union
+from typing import Tuple, Union, List
 
 import cv2
 import mediapipe as mp
@@ -7,7 +8,10 @@ import numpy as np
 from numpy import ndarray
 from scipy.linalg import orthogonal_procrustes
 
+from classes.colored_landmark import ColoredLandmark
 from classes.custom_point import CustomPoint
+from classes.logger import Logger
+from enums.logging_levels import LoggingLevel
 from functions.get_pose import get_pose
 
 mp_pose = mp.solutions.pose
@@ -18,7 +22,7 @@ def normalize_points(points):
     avg_dist = np.mean(np.linalg.norm(points - centroid, axis=1))
 
     if avg_dist == 0:
-        print("Points are the same")
+        Logger.log(LoggingLevel.INFO, "All points are the same")
         return points, np.eye(3)
 
     scale = np.sqrt(2) / avg_dist
@@ -47,12 +51,6 @@ def box_to_landmarks_list(img, box):
     return img, landmarks
 
 
-def are_landmarks_the_same(landmarks1, landmarks2):
-    avg_diff = compare_landmarks(landmarks1, landmarks2)
-    print(f"Average difference: {avg_diff}")
-    return avg_diff < 5
-
-
 def calc_cos_sim(v1: ndarray, v2: ndarray) -> float:
     """
     Returns the cosine similarity between two vectors
@@ -69,32 +67,91 @@ def calc_cos_sim(v1: ndarray, v2: ndarray) -> float:
 
 
 def compare_landmarks(
-    landmarks1, landmarks2
-) -> Tuple[Union[float, None], Union[float, None]]:
+    landmarks1: List[ColoredLandmark], landmarks2: List[ColoredLandmark]
+) -> [Union[float, None]]:
     if len(landmarks1) != len(landmarks2):
-        print("Landmarks are not the same length")
-        return None, None
+        Logger.log(LoggingLevel.WARNING, f"Landmarks have different lengths")
+        return None
 
-    pose1 = np.array([[landmark.x, landmark.y, landmark.z] for landmark in landmarks1])
-    pose2 = np.array([[landmark.x, landmark.y, landmark.z] for landmark in landmarks2])
+    if len(landmarks1) < mp_pose.PoseLandmark.RIGHT_HIP.value:
+        Logger.log(LoggingLevel.WARNING, f"Landmarks have length {len(landmarks1)}")
+        return None
+
+    pose1 = np.array(
+        [
+            [
+                landmark.x,
+                landmark.y,
+                landmark.z,
+            ]
+            for landmark in landmarks1
+        ]
+    )
+
+    pose1_avg_colors = np.array(
+        [
+            [
+                landmark.avg_color,
+            ]
+            for landmark in landmarks1
+        ]
+    )
+
+    pose1_dom_colors = np.array(
+        [
+            [
+                landmark.dom_color,
+            ]
+            for landmark in landmarks1
+        ]
+    )
+
+    pose2 = np.array(
+        [
+            [
+                landmark.x,
+                landmark.y,
+                landmark.z,
+            ]
+            for landmark in landmarks2
+        ]
+    )
+
+    pose2_avg_colors = np.array(
+        [
+            [
+                landmark.avg_color,
+            ]
+            for landmark in landmarks2
+        ]
+    )
+
+    pose2_dom_colors = np.array(
+        [
+            [
+                landmark.dom_color,
+            ]
+            for landmark in landmarks2
+        ]
+    )
 
     # Use center of hips as origin
-    # left_hip1 = pose1[mp_pose.PoseLandmark.LEFT_HIP]
-    # right_hip1 = pose1[mp_pose.PoseLandmark.RIGHT_HIP]
-    # centroid1 = (left_hip1 + right_hip1) / 2
-    # left_hip2 = pose2[mp_pose.PoseLandmark.LEFT_HIP]
-    # right_hip2 = pose2[mp_pose.PoseLandmark.RIGHT_HIP]
-    # centroid2 = (left_hip2 + right_hip2) / 2
-    #
-    # pose1 -= centroid1
-    # pose2 -= centroid2
+    left_hip1 = pose1[mp_pose.PoseLandmark.LEFT_HIP]
+    right_hip1 = pose1[mp_pose.PoseLandmark.RIGHT_HIP]
+    centroid1 = (left_hip1 + right_hip1) / 2
+    left_hip2 = pose2[mp_pose.PoseLandmark.LEFT_HIP]
+    right_hip2 = pose2[mp_pose.PoseLandmark.RIGHT_HIP]
+    centroid2 = (left_hip2 + right_hip2) / 2
+
+    pose1 -= centroid1
+    pose2 -= centroid2
 
     # Scale to same size
     pose1 /= np.linalg.norm(pose1)
     pose2 /= np.linalg.norm(pose2)
 
     # Brute force 360-degree rotation around y-axis to find best match
-    best_cos_sim = 0
+    best_cos_sim = -1
     best_rotation = 0
     for i in range(360):
         p1_rotated = rotate_points_y(np.copy(pose1), i)
@@ -102,46 +159,50 @@ def compare_landmarks(
         for j in range(len(p1_rotated)):
             avg_cos_sim += calc_cos_sim(p1_rotated[j], pose2[j])
 
-        # print(f"Summed cos sim: {avg_cos_sim} for rotation {i} degrees")
         cos_sim = avg_cos_sim / len(p1_rotated) if len(p1_rotated) > 0 else 0
-        # print(f"Avg Cos sim: {cos_sim}")
         if cos_sim > best_cos_sim:
             best_cos_sim = cos_sim
             best_rotation = i
-    return 1 - best_cos_sim, best_rotation
 
-    # if not len(pose1) == len(pose2):
-    #     # raise Exception("Landmarks are not the same length")
-    #     return None, None
-    #
-    # Q, Scale = orthogonal_procrustes(pose1, pose2)
+    # Make the cos sim be between 0 and 1 instead of -1 and 1
+    best_cos_sim = (best_cos_sim + 1) / 2
 
-    # with np.printoptions(precision=3, suppress=True):
-    #     print("Scale:")
-    #     print(Scale)
-    #     print("Q (computed by orthogonal_procrustes):")
-    #     print(Q)
-    # print("\nCompare Pose1 @ Q with B0.")
-    # print("A0 @ Q:")
-    # print(pose1 @ Q)
-    # print("B0 (should be close to A0 @ Q if the noise parameter was small):")
-    # print(pose2)
-    # print("Difference:")
-    # print(np.linalg.norm(pose1 @ Q - pose2))
+    dom_color_sim = None
+    # Check if any value in one of the dom color arrays is [None, None, None]
+    if np.any(pose1_dom_colors == [None, None, None]) or np.any(
+        pose2_dom_colors == [None, None, None]
+    ):
+        Logger.log(LoggingLevel.WARNING, "Dominant colors are None")
+    else:
+        # dom_color_sim = 1 - colors_diff(pose1_dom_colors, pose2_dom_colors)
+        pass
 
-    # return np.linalg.norm(pose1 @ Q - pose2)
+    res = best_cos_sim
+    if dom_color_sim is not None:
+        res -= dom_color_sim * 0.1
+        res /= 2
+    return res
 
-    # diffs = []
-    # if len(landmarks1) != len(landmarks2):
-    #     print("Landmarks are not the same length")
-    #     return False
-    # for i in range(len(landmarks1)):
-    #     diffs.append(landmarks1[i].distance(landmarks2[i]))
-    #
-    # summed = 0
-    # for diff in diffs:
-    #     summed += diff
-    # return summed / len(diffs)
+
+def colors_diff(colors1, colors2):
+    if len(colors1) != len(colors2):
+        Logger.log(LoggingLevel.WARNING, f"Colors have different lengths")
+        return None
+
+    if len(colors1) == 0:
+        Logger.log(LoggingLevel.WARNING, f"Colors have length 0")
+        return None
+
+    avg_color_diff = 0
+
+    for i in range(len(colors1)):
+        avg_color_diff += np.linalg.norm(colors1[i] - colors2[i])
+    avg_color_diff /= len(colors1)
+
+    max_possible_color_diff = np.linalg.norm(
+        np.array([255, 255, 255]) - np.array([0, 0, 0])
+    )
+    return avg_color_diff / max_possible_color_diff
 
 
 def get_landmarks_as_pixel_coordinates(results, image):
@@ -177,8 +238,8 @@ def draw_landmarks_list(image, landmarks, with_index=False, color=(0, 255, 0)):
                 1,
             )
     else:
-        for landmark in landmarks:
-            cv2.circle(image, (int(landmark.x), int(landmark.y)), 2, (0, 255, 0), -1)
+        for landmark in landmarks[10:]:
+            cv2.circle(image, (int(landmark.x), int(landmark.y)), 2, color, -1)
     return image
 
 
@@ -343,3 +404,54 @@ def my_procrustes(a: np.ndarray, b: np.ndarray):
     disparity = np.sum(np.square(mtx1 - mtx2))
 
     return mtx1, mtx2, disparity, R
+
+
+def get_avg_color(image, x, y, patch_size):
+    # Get Average Color of a patch of the image, ignore out of bounds values for calculating average
+    colors = []
+    count = 0
+
+    for i in range(x - patch_size, x + patch_size):
+        for j in range(y - patch_size, y + patch_size):
+            if i < 0 or j < 0 or i >= image.shape[0] or j >= image.shape[1]:
+                continue
+
+            colors.append(image[i][j])
+            count += 1
+
+    avg_color = [None, None, None]
+    if count > 0:
+        avg_color = np.mean(colors, axis=0)
+    return avg_color[0], avg_color[1], avg_color[2]
+
+
+def get_dominant_color(image, x, y, patch_size):
+    # First get all color values in the patch that are not out of bounds
+    colors = []
+
+    for i in range(x - patch_size, x + patch_size):
+        for j in range(y - patch_size, y + patch_size):
+            if i < 0 or j < 0 or i >= image.shape[0] or j >= image.shape[1]:
+                continue
+
+            colors.append(image[i][j])
+
+    if len(colors) == 0:
+        Logger.log(LoggingLevel.WARNING, "No colors found in patch")
+        return [None, None, None]
+
+    # Use KMeans to find the dominant color
+    n_colors = 5
+    criteria = (cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, 200, 0.1)
+    flags = cv2.KMEANS_RANDOM_CENTERS
+    pixels = np.float32(colors)
+    _, labels, palette = cv2.kmeans(pixels, n_colors, None, criteria, 10, flags)
+    _, counts = np.unique(labels, return_counts=True)
+    dominant = palette[np.argmax(counts)]
+
+    # Check if dominant is a tuple of 3 numbers
+    res = dominant[0], dominant[1], dominant[2]
+    if len(res) != 3:
+        Logger.log(LoggingLevel.WARNING, "Dominant color is not a tuple of 3 numbers")
+        return [None, None, None]
+    return res

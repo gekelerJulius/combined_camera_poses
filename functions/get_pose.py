@@ -21,4 +21,5 @@ def get_pose(image, box: BoundingBox):
         for landmark in results.pose_landmarks.landmark:
             landmark.x = landmark.x * box.get_width() + box.min_x
             landmark.y = landmark.y * box.get_height() + box.min_y
+
     return image, results

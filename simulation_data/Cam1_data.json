@@ -1,10 +1,10 @@
 {
   "intrinsic": {
-    "focalLengthX": 1.299038,
+    "focalLengthX": 0.790419936,
     "focalLengthY": 1.73205078,
     "principalPointX": 0.0,
     "principalPointY": 0.0,
-    "aspectRatio": 1.33333337
+    "aspectRatio": 2.19130445
   },
   "extrinsic": {
     "position": {
