@@ -5,6 +5,7 @@ from typing import Tuple, Union, List
 import cv2
 import mediapipe as mp
 import numpy as np
+from mediapipe.python.solutions.pose import PoseLandmark
 from numpy import ndarray
 from scipy.linalg import orthogonal_procrustes
 
@@ -235,10 +236,10 @@ def draw_landmarks_list(image, landmarks, with_index=False, color=(0, 255, 0)):
                 cv2.FONT_HERSHEY_SIMPLEX,
                 0.25,
                 color,
-                1,
+                3,
             )
     else:
-        for landmark in landmarks[10:]:
+        for i, landmark in enumerate(landmarks):
             cv2.circle(image, (int(landmark.x), int(landmark.y)), 2, color, -1)
     return image
 

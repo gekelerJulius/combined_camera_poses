@@ -1,6 +1,8 @@
 from typing import NamedTuple, List
-from mediapipe.tasks.python.components.containers.landmark import Landmark
+
 import mediapipe as mp
+import plotly.graph_objects as go
+from mediapipe.tasks.python.components.containers.landmark import Landmark
 
 from classes.bounding_box import BoundingBox
 from classes.colored_landmark import ColoredLandmark
@@ -68,7 +70,10 @@ class Person:
 
     def draw(self, image, color=(0, 255, 0)):
         return draw_landmarks_list(
-            image, self.get_pose_landmarks(), with_index=False, color=color
+            image,
+            self.get_pose_landmarks(),
+            with_index=False,
+            color=color,
         )
 
     def __str__(self):
@@ -87,3 +92,29 @@ class Person:
             self.get_pose_landmarks_with_color(img1),
             person2.get_pose_landmarks_with_color(img2),
         )
+
+    def plot_3d(self):
+        go.Figure(
+            data=[
+                go.Scatter3d(
+                    x=[lmk.x for lmk in self.get_world_landmarks()],
+                    y=[lmk.z for lmk in self.get_world_landmarks()],
+                    z=[lmk.y for lmk in self.get_world_landmarks()],
+                    mode="markers",
+                    marker=dict(
+                        size=12,
+                        color=[lmk.z for lmk in self.get_world_landmarks()],
+                        colorscale="Viridis",
+                        opacity=0.8,
+                    ),
+                )
+            ],
+            layout=go.Layout(
+                scene=dict(
+                    aspectmode="data",
+                    xaxis=dict(range=[-1, 1]),
+                    yaxis=dict(range=[-1, 1]),
+                    zaxis=dict(range=[-1, 1]),
+                )
+            ),
+        ).show()

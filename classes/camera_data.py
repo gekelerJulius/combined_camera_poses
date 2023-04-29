@@ -124,3 +124,6 @@ class CameraData:
         og_point = self.transform_point_to_camera(world_point)
         if not points_are_close(point[0], point[1], og_point[0], og_point[1]):
             raise ValueError("Point transformation is not working")
+
+    def get_camera_matrix(self):
+        return self.intrinsic_matrix

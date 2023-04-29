@@ -1,4 +1,6 @@
 import os
+import time
+
 import cv2.cv2 as cv
 import mediapipe as mp
 from typing import List, Tuple
@@ -137,7 +139,7 @@ def annotate_video_multi(
             )
 
         pairs: List[Tuple[Person, Person]] = get_person_pairs(
-            persons1, persons2, img1, img2
+            persons1, persons2, img1, img2, cam1_data, cam2_data
         )
 
         def get_color(index):
@@ -153,6 +155,12 @@ def annotate_video_multi(
         for i, (p1, p2) in enumerate(pairs):
             img1 = p1.draw(img1, color=get_color(i))
             img2 = p2.draw(img2, color=get_color(i))
+
+            # Plot in 3D
+            p1.plot_3d()
+            p2.plot_3d()
+            
+            time.sleep(5)
 
         # copy_img2 = img2.copy()
         # copy_img2 = smallest_diff_person.draw(copy_img2)
@@ -188,8 +196,8 @@ def annotate_video_multi(
 
 
 annotate_video_multi(
-    "simulation_data/sim1.mp4",
+    "simulation_data/sim3.mp4",
     "simulation_data/sim2.mp4",
-    "simulation_data/Cam1_data.json",
+    "simulation_data/Cam3_data.json",
     "simulation_data/Cam2_data.json",
 )
