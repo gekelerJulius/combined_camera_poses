@@ -1,7 +1,7 @@
 import os
 import time
 
-import cv2.cv2 as cv
+import cv2 as cv
 import mediapipe as mp
 from typing import List, Tuple
 
@@ -57,10 +57,10 @@ LANDMARK_NAMES = {
 
 
 def annotate_video_multi(
-    file1_name: str,
-    file2_name: str,
-    cam1_data_path: str = None,
-    cam2_data_path: str = None,
+        file1_name: str,
+        file2_name: str,
+        cam1_data_path: str = None,
+        cam2_data_path: str = None,
 ):
     if cam1_data_path is None:
         raise ValueError("cam1_data_path must be specified")
@@ -81,10 +81,14 @@ def annotate_video_multi(
 
     cam1_data: CameraData = CameraData.create_from_json(cam1_data_path)
     cam2_data: CameraData = CameraData.create_from_json(cam2_data_path)
-
+    #
     cam1_data.test_valid()
     cam2_data.test_valid()
-    Logger.log(LoggingLevel.INFO, "Checks passed, starting video...")
+
+    Logger.log(str(cam1_data), LoggingLevel.INFO)
+    Logger.log(str(cam2_data), LoggingLevel.INFO)
+
+    Logger.log("Checks passed, starting video...", LoggingLevel.INFO)
 
     # fourcc = cv.VideoWriter_fourcc(*"mp4v")
     # file1_pre, file1_ext = os.path.splitext(file1_name)
@@ -103,21 +107,25 @@ def annotate_video_multi(
 
         frame_count += 1
 
+        if frame_count < 50:
+            continue
+
         if (
-            img1.shape[0] == 0
-            or img1.shape[1] == 0
-            or img2.shape[0] == 0
-            or img2.shape[1] == 0
+                img1.shape[0] == 0
+                or img1.shape[1] == 0
+                or img2.shape[0] == 0
+                or img2.shape[1] == 0
         ):
-            Logger.log(
-                LoggingLevel.ERROR, f"Invalid frame size: {img1.shape}, {img2.shape}"
-            )
+            Logger.log(f"Invalid frame size: {img1.shape}, {img2.shape}", LoggingLevel.ERROR)
             break
 
         if img1.shape[0] != 480 or img1.shape[1] != 640:
             img1 = cv.resize(img1, (640, 480))
         if img2.shape[0] != 480 or img2.shape[1] != 640:
             img2 = cv.resize(img2, (640, 480))
+
+        # Save img1 to disk
+        # cv.imwrite(f"img1_{frame_count}.jpg", img1)
 
         persons1: List[Person] = []
         persons2: List[Person] = []
@@ -157,10 +165,9 @@ def annotate_video_multi(
             img2 = p2.draw(img2, color=get_color(i))
 
             # Plot in 3D
-            p1.plot_3d()
-            p2.plot_3d()
-            
-            time.sleep(5)
+            # p1.plot_3d()
+            # p2.plot_3d()
+            # time.sleep(5)
 
         # copy_img2 = img2.copy()
         # copy_img2 = smallest_diff_person.draw(copy_img2)
@@ -176,12 +183,12 @@ def annotate_video_multi(
 
         cv.imshow("Frame 1", img1)
         cv.imshow("Frame 2", img2)
-        cv.waitKey(5)
+        cv.waitKey(0)
         # out1.write(img1)
         # out2.write(img2)
 
         if frame_count % 10 == 0:
-            Logger.log(LoggingLevel.INFO, f"Frame: {frame_count}")
+            Logger.log(f"Frame: {frame_count}", LoggingLevel.INFO)
 
         # Debug
         # if frame_count == 50:
@@ -196,8 +203,8 @@ def annotate_video_multi(
 
 
 annotate_video_multi(
-    "simulation_data/sim3.mp4",
+    "simulation_data/sim1.mp4",
     "simulation_data/sim2.mp4",
-    "simulation_data/Cam3_data.json",
-    "simulation_data/Cam2_data.json",
+    "simulation_data/cam1.json",
+    "simulation_data/cam2.json",
 )

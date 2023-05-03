@@ -22,11 +22,11 @@ mp_pose = mp.solutions.pose
 
 class Person:
     def __init__(
-        self,
-        person_id: str,
-        frame_count: int,
-        bounding_box: BoundingBox,
-        results: NamedTuple,
+            self,
+            person_id: str,
+            frame_count: int,
+            bounding_box: BoundingBox,
+            results: NamedTuple,
     ):
         self.id = person_id
         self.frame_count = frame_count
@@ -39,22 +39,19 @@ class Person:
 
     def get_pose_landmarks(self) -> List[Landmark]:
         if self.results is None or self.results.pose_landmarks is None:
-            Logger.log(LoggingLevel.WARNING, "No pose landmarks found")
             return []
         return [lmk for lmk in self.results.pose_landmarks.landmark]
 
     def get_world_landmarks(self) -> List[Landmark]:
         if self.results is None or self.results.pose_world_landmarks is None:
-            Logger.log(LoggingLevel.WARNING, "No world landmarks found")
             return []
         return [lmk for lmk in self.results.pose_world_landmarks.landmark]
 
     def get_pose_landmarks_with_color(self, image) -> List[ColoredLandmark]:
         if self.results is None or self.results.pose_landmarks is None:
-            Logger.log(LoggingLevel.WARNING, "No pose landmarks found")
             return []
         if image is None:
-            Logger.log(LoggingLevel.WARNING, "No image found")
+            Logger.log("No image found", LoggingLevel.WARNING)
             return []
 
         lmks = [
@@ -81,11 +78,11 @@ class Person:
 
     def get_landmark_sim(self, person2: "Person", img1, img2):
         if person2 is None:
-            Logger.log(LoggingLevel.WARNING, "No person found")
+            Logger.log("No person found", LoggingLevel.WARNING)
             return 0
 
         if img1 is None or img2 is None:
-            Logger.log(LoggingLevel.WARNING, "No image found")
+            Logger.log("No image found", LoggingLevel.WARNING)
             return 0
 
         return compare_landmarks(

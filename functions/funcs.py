@@ -8,6 +8,7 @@ import numpy as np
 from mediapipe.python.solutions.pose import PoseLandmark
 from numpy import ndarray
 from scipy.linalg import orthogonal_procrustes
+from scipy.optimize import least_squares
 
 from classes.colored_landmark import ColoredLandmark
 from classes.custom_point import CustomPoint
@@ -23,7 +24,7 @@ def normalize_points(points):
     avg_dist = np.mean(np.linalg.norm(points - centroid, axis=1))
 
     if avg_dist == 0:
-        Logger.log(LoggingLevel.INFO, "All points are the same")
+        Logger.log("All points are the same", LoggingLevel.INFO)
         return points, np.eye(3)
 
     scale = np.sqrt(2) / avg_dist
@@ -68,14 +69,14 @@ def calc_cos_sim(v1: ndarray, v2: ndarray) -> float:
 
 
 def compare_landmarks(
-    landmarks1: List[ColoredLandmark], landmarks2: List[ColoredLandmark]
+        landmarks1: List[ColoredLandmark], landmarks2: List[ColoredLandmark]
 ) -> [Union[float, None]]:
     if len(landmarks1) != len(landmarks2):
-        Logger.log(LoggingLevel.WARNING, f"Landmarks have different lengths")
+        Logger.log(f"Landmarks have different lengths", LoggingLevel.WARNING)
         return None
 
     if len(landmarks1) < mp_pose.PoseLandmark.RIGHT_HIP.value:
-        Logger.log(LoggingLevel.WARNING, f"Landmarks have length {len(landmarks1)}")
+        Logger.log(f"Landmarks have length {len(landmarks1)}", LoggingLevel.WARNING)
         return None
 
     pose1 = np.array(
@@ -170,28 +171,23 @@ def compare_landmarks(
 
     dom_color_sim = None
     # Check if any value in one of the dom color arrays is [None, None, None]
-    if np.any(pose1_dom_colors == [None, None, None]) or np.any(
-        pose2_dom_colors == [None, None, None]
+    if not np.any(pose1_dom_colors == [None, None, None]) and not np.any(
+            pose2_dom_colors == [None, None, None]
     ):
-        Logger.log(LoggingLevel.WARNING, "Dominant colors are None")
-    else:
-        # dom_color_sim = 1 - colors_diff(pose1_dom_colors, pose2_dom_colors)
-        pass
+        dom_color_sim = 1 - colors_diff(pose1_dom_colors, pose2_dom_colors)
 
     res = best_cos_sim
     if dom_color_sim is not None:
-        res -= dom_color_sim * 0.1
-        res /= 2
+        # res -= dom_color_sim * 0.1
+        res = dom_color_sim
     return res
 
 
 def colors_diff(colors1, colors2):
     if len(colors1) != len(colors2):
-        Logger.log(LoggingLevel.WARNING, f"Colors have different lengths")
         return None
 
     if len(colors1) == 0:
-        Logger.log(LoggingLevel.WARNING, f"Colors have length 0")
         return None
 
     avg_color_diff = 0
@@ -438,7 +434,7 @@ def get_dominant_color(image, x, y, patch_size):
             colors.append(image[i][j])
 
     if len(colors) == 0:
-        Logger.log(LoggingLevel.WARNING, "No colors found in patch")
+        Logger.log("No colors found in patch", LoggingLevel.WARNING)
         return [None, None, None]
 
     # Use KMeans to find the dominant color
@@ -453,6 +449,152 @@ def get_dominant_color(image, x, y, patch_size):
     # Check if dominant is a tuple of 3 numbers
     res = dominant[0], dominant[1], dominant[2]
     if len(res) != 3:
-        Logger.log(LoggingLevel.WARNING, "Dominant color is not a tuple of 3 numbers")
+        Logger.log("Dominant color is not a tuple of 3 numbers", LoggingLevel.WARNING)
         return [None, None, None]
     return res
+
+
+def sampson_distance(x1: ndarray, x2: ndarray, F: ndarray):
+    """
+    Computes the Sampson distance for the given points and fundamental matrix.
+
+    Args:
+    x1 (array-like): Homogeneous coordinates of a point in the first image.
+    x2 (array-like): Homogeneous coordinates of a point in the second image.
+    F (array-like): The fundamental matrix (3x3).
+
+    Returns:
+    float: The Sampson distance for the given points and fundamental matrix.
+    """
+    constraint = x2.T @ F @ x1
+    grad_x1 = (x2.T @ F).reshape(-1, 1)
+    grad_x2 = (F @ x1).reshape(-1, 1)
+    second_term = 1 / (grad_x1.T @ grad_x1 + grad_x2.T @ grad_x2)
+    return constraint ** 2 * second_term
+
+
+def sampson_error(P1: ndarray, P2: ndarray, points1: ndarray, points2: ndarray, F):
+    error = 0
+    for i in range(len(points1)):
+        x1 = np.append(points1[i], [1])
+        x2 = np.append(points2[i], [1])
+        p1 = np.matmul(P1, x1)
+        p2 = np.matmul(P2, x2)
+        error += sampson_distance(p1, p2, F)
+    return error
+
+
+def sampson_distance_derivative(x1, x2, F):
+    """
+    Computes the derivative of the Sampson distance with respect to the elements of the fundamental matrix F.
+
+    Args:
+    x1 (array-like): Homogeneous coordinates of a point in the first image.
+    x2 (array-like): Homogeneous coordinates of a point in the second image.
+    F (array-like): The fundamental matrix (3x3).
+
+    Returns:
+    dS_dF (numpy array): The derivative of the Sampson distance with respect to the elements of F (3x3).
+    """
+    # Ensure inputs are numpy arrays
+    x1 = np.asarray(x1)
+    x2 = np.asarray(x2)
+    F = np.asarray(F)
+
+    # Compute the fundamental matrix constraint: x2^T * F * x1
+    constraint = x2.T @ F @ x1
+
+    # Compute the gradients of the constraint with respect to x1 and x2
+    grad_x1 = (x2.T @ F).reshape(-1, 1)
+    grad_x2 = (F @ x1).reshape(-1, 1)
+
+    # Compute the second term in the Sampson distance formula
+    second_term = 1 / (grad_x1.T @ grad_x1 + grad_x2.T @ grad_x2)
+
+    # Compute the derivative of the Sampson distance with respect to the elements of F
+    outer_product = np.outer(x1, x2)
+    dS_dF = 2 * constraint * second_term * outer_product
+    return dS_dF
+
+
+def project_points(params, points_3d, camera_indices, point_indices, num_cameras, num_points):
+    """
+    Projects the 3D points onto the image plane using the given camera parameters.
+
+    Args:
+    params (array-like): The camera parameters and 3D point coordinates.
+    points_3d (array-like): The 3D points in the scene.
+    camera_indices (array-like): The indices of the cameras corresponding to each observation.
+    point_indices (array-like): The indices of the points corresponding to each observation.
+    num_cameras (int): The number of cameras.
+    num_points (int): The number of 3D points.
+
+    Returns:
+    projected_points (numpy array): The 2D points projected onto the image plane.
+    """
+    camera_params = params[:num_cameras * 6].reshape((num_cameras, 6))
+    points_3d = params[num_cameras * 6:].reshape((num_points, 3))
+
+    camera_params = camera_params[camera_indices]
+    points_3d = points_3d[point_indices]
+
+    R = cv2.Rodrigues(camera_params[:, :3])[0]
+    t = camera_params[:, 3:]
+    P = np.hstack((R, t))
+
+    projected_points = (P @ points_3d.T).T
+    projected_points /= projected_points[:, 2, np.newaxis]
+
+    return projected_points[:, :2]
+
+
+def reprojection_error(params, points_2d, points_3d, camera_indices, point_indices, num_cameras, num_points):
+    """
+    Computes the reprojection error between the observed 2D points and the reprojected 3D points.
+
+    Args:
+    params (array-like): The camera parameters and 3D point coordinates.
+    points_2d (array-like): The observed 2D points in the image.
+    points_3d (array-like): The 3D points in the scene.
+    camera_indices (array-like): The indices of the cameras corresponding to each observation.
+    point_indices (array-like): The indices of the points corresponding to each observation.
+    num_cameras (int): The number of cameras.
+    num_points (int): The number of 3D points.
+
+    Returns:
+    error (numpy array): The reprojection error for each observation.
+    """
+    projected_points = project_points(params, points_3d, camera_indices, point_indices, num_cameras, num_points)
+    error = projected_points - points_2d
+    return error.ravel()
+
+
+def bundle_adjustment(points_2d, points_3d, camera_indices, point_indices, camera_params, points_3d_initial):
+    """
+    Performs bundle adjustment to refine the camera parameters and 3D point coordinates.
+
+    Args:
+    points_2d (array-like): The observed 2D points in the image.
+    points_3d (array-like): The initial estimates of the 3D points in the scene.
+    camera_indices (array-like): The indices of the cameras corresponding to each observation.
+    point_indices (array-like): The indices of the points corresponding to each observation.
+    camera_params (array-like): The initial estimates of the camera parameters.
+    points_3d_initial (array-like): The initial estimates of the 3D point coordinates.
+
+    Returns:
+    result (OptimizeResult): The optimization result from the SciPy least_squares function.
+    """
+    num_cameras = camera_params.shape[0]
+    num_points = points_3d_initial.shape[0]
+    points_3d = points_3d_initial.copy()
+
+    # Convert the camera parameters and 3D points into a 1D parameter array
+    params_initial = np.hstack((camera_params.ravel(), points_3d_initial.ravel()))
+
+    # Define the reprojection error function
+    error_func = lambda params: reprojection_error(params, points_2d, points_3d, camera_indices, point_indices,
+                                                   num_cameras, num_points)
+
+    # Perform the bundle adjustment using the least_squares function from SciPy
+    result = least_squares(error_func, params_initial, method='lm', verbose=2)
+    return result

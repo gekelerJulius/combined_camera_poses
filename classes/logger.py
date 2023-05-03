@@ -14,7 +14,11 @@ class Logger:
         raise RuntimeError("Use static methods")
 
     @staticmethod
-    def log(level, message):
+    def divider():
+        print("#" * 80)
+
+    @staticmethod
+    def log(message: str, level: LoggingLevel = LoggingLevel.INFO):
         if level not in Logger.active_levels:
             return
 

@@ -2,21 +2,18 @@ import json
 import random
 from typing import List
 
-import cv2
 import numpy as np
 
 from functions.funcs import points_are_close
 
 
 class CameraData:
-    def __init__(self, fx, fy, cx, cy, aspect_ratio, position, rotation):
+    def __init__(self, fx, fy, cx, cy, aspect_ratio, R, t):
         self.fx = fx
         self.fy = fy
         self.cx = cx
         self.cy = cy
         self.aspect_ratio = aspect_ratio
-        self.position = position
-        self.rotation = rotation
 
         self.intrinsic_matrix = np.array(
             [
@@ -26,13 +23,20 @@ class CameraData:
             ]
         )
 
-        R, _ = cv2.Rodrigues(rotation)
         self.R = R
-        self.extrinsic_matrix = np.array(
+        self.t = t
+        self.extrinsic_matrix3x4 = np.array(
             [
-                [R[0][0], R[0][1], R[0][2], position[0]],
-                [R[1][0], R[1][1], R[1][2], position[1]],
-                [R[2][0], R[2][1], R[2][2], position[2]],
+                [R[0][0], R[0][1], R[0][2], t[0]],
+                [R[1][0], R[1][1], R[1][2], t[1]],
+                [R[2][0], R[2][1], R[2][2], t[2]],
+            ]
+        )
+        self.extrinsic_matrix4x4 = np.array(
+            [
+                [R[0][0], R[0][1], R[0][2], t[0]],
+                [R[1][0], R[1][1], R[1][2], t[1]],
+                [R[2][0], R[2][1], R[2][2], t[2]],
                 [0, 0, 0, 1],
             ]
         )
@@ -45,34 +49,34 @@ class CameraData:
         extrinsic = json_data["extrinsic"]
 
         # Extract the individual parameters from intrinsic
-        fx = intrinsic["focalLengthX"]
-        fy = intrinsic["focalLengthY"]
-        cx = intrinsic["principalPointX"]
-        cy = intrinsic["principalPointY"]
-        aspect_ratio = intrinsic["aspectRatio"]
+        fx = intrinsic["fx"]
+        fy = intrinsic["fy"]
+        cx = intrinsic["cx"]
+        cy = intrinsic["cy"]
+        width = intrinsic["width"]
+        height = intrinsic["height"]
+        aspect_ratio = width / height
 
         # Extract the individual parameters from extrinsic
-        position = np.array(
-            [
-                extrinsic["position"]["x"],
-                extrinsic["position"]["y"],
-                extrinsic["position"]["z"],
-            ]
-        )
-        rotation = np.array(
-            [
-                extrinsic["rotation"]["x"],
-                extrinsic["rotation"]["y"],
-                extrinsic["rotation"]["z"],
-            ]
-        )
+        R = np.array([
+            [extrinsic["r00"], extrinsic["r01"], extrinsic["r02"]],
+            [extrinsic["r10"], extrinsic["r11"], extrinsic["r12"]],
+            [extrinsic["r20"], extrinsic["r21"], extrinsic["r22"]],
+        ])
+        t = np.array([extrinsic["tx"], extrinsic["ty"], extrinsic["tz"]])
 
-        return CameraData(fx, fy, cx, cy, aspect_ratio, position, rotation)
+        return CameraData(fx, fy, cx, cy, aspect_ratio, R, t)
 
     @staticmethod
     def load_json(json_path):
         with open(json_path) as json_file:
             return json.load(json_file)
+
+    def __str__(self):
+        return f"CameraData(fx={self.fx}, fy={self.fy}, cx={self.cx}, cy={self.cy}, aspect_ratio={self.aspect_ratio}, R={self.R}, t={self.t})"
+
+    def __repr__(self):
+        return self.__str__()
 
     def transform_points_to_world(self, points: List[List[float]]):
         """Transforms points from camera coordinates to world coordinates"""
@@ -83,7 +87,7 @@ class CameraData:
         u = point[0]
         v = point[1]
         K = self.intrinsic_matrix
-        extrinsic_matrix = self.extrinsic_matrix
+        extrinsic_matrix = self.extrinsic_matrix4x4
 
         # convert the image point to normalized camera coordinates
         p_cam = np.dot(np.linalg.inv(K), np.array([u, v, 1]))
@@ -107,7 +111,7 @@ class CameraData:
         Y = point[1]
         Z = point[2]
         K = self.intrinsic_matrix
-        extrinsic_matrix = self.extrinsic_matrix
+        extrinsic_matrix = self.extrinsic_matrix4x4
 
         # convert the world point to normalized camera coordinates
         p_cam_homogeneous = np.dot(extrinsic_matrix, np.array([X, Y, Z, 1]))
@@ -124,6 +128,3 @@ class CameraData:
         og_point = self.transform_point_to_camera(world_point)
         if not points_are_close(point[0], point[1], og_point[0], og_point[1]):
             raise ValueError("Point transformation is not working")
-
-    def get_camera_matrix(self):
-        return self.intrinsic_matrix

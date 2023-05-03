@@ -61,9 +61,8 @@ for i in range(1, 8):
 used_camera_indexes = [0, 5]
 
 Logger.log(
-    LoggingLevel.INFO,
     f"Using cameras: {used_camera_indexes} with Extrinsics from {[extrinsics_paths[i] for i in used_camera_indexes]} and Intrinsics from {[intrinsics_paths[i] for i in used_camera_indexes]}",
-)
+    LoggingLevel.INFO)
 
 first_image_paths = [
     os.path.join(cam_path, "00000000.png") for cam_path in camera_paths
@@ -88,7 +87,7 @@ for index in used_camera_indexes:
     )
 
     x, y, w, h = roi
-    dst = dst[y : y + h, x : x + w]
+    dst = dst[y: y + h, x: x + w]
     undistorted_images.append(dst)
 
 # for i in range(len(undistorted_images)):

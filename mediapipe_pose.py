@@ -14,7 +14,7 @@ with mp_pose.Pose(min_detection_confidence=0.5, min_tracking_confidence=0.5) as 
     while cap.isOpened():
         success, image = cap.read()
         if not success:
-            Logger.log(LoggingLevel.ERROR, "Ignoring empty camera frame.")
+            Logger.log("Ignoring empty camera frame.", LoggingLevel.ERROR)
             # If loading a video, use 'break' instead of 'continue'.
             continue
 
