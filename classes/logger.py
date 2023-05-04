@@ -1,4 +1,14 @@
+from typing import Any
+
 from enums.logging_levels import LoggingLevel
+
+color_dict = {
+    LoggingLevel.DEBUG: "\033[94m",
+    LoggingLevel.INFO: "\033[92m",
+    LoggingLevel.WARNING: "\033[93m",
+    LoggingLevel.ERROR: "\033[91m",
+    LoggingLevel.CRITICAL: "\033[91m",
+}
 
 
 class Logger:
@@ -18,16 +28,13 @@ class Logger:
         print("#" * 80)
 
     @staticmethod
-    def log(message: str, level: LoggingLevel = LoggingLevel.INFO):
+    def log(logVal: Any, level: LoggingLevel = LoggingLevel.INFO):
         if level not in Logger.active_levels:
             return
 
-        color_dict = {
-            LoggingLevel.DEBUG: "\033[94m",
-            LoggingLevel.INFO: "\033[92m",
-            LoggingLevel.WARNING: "\033[93m",
-            LoggingLevel.ERROR: "\033[91m",
-            LoggingLevel.CRITICAL: "\033[91m",
-        }
+        if type(logVal) == str:
+            message = logVal
+        else:
+            message = str(logVal)
 
         print(f"{color_dict[level]}[{level.name}] \n{message}\033[0m")

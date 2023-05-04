@@ -7,7 +7,7 @@ from classes.camera_data import CameraData
 from classes.logger import Logger
 from classes.person import Person
 from enums.logging_levels import LoggingLevel
-from functions.funcs import bundle_adjustment
+from functions.funcs import triangulate_points, project_points
 
 
 def get_person_pairs(
@@ -129,16 +129,18 @@ def proof_by_refutation(
             points1 = np.vstack((points1, point1))
             points2 = np.vstack((points2, point2))
 
-    # Think about what can be done with the pose points to compare the two images
+    if points1.shape[0] < 8:
+        Logger.log("Not enough points to calculate fundamental matrix", LoggingLevel.WARNING)
+        return False
 
     # Draw Lines between corresponding points
     # copy1 = img1.copy()
     # copy2 = img2.copy()
     # concat = np.concatenate((copy1, copy2), axis=1)
     #
-    # for i in range(p1.shape[0]):
-    #     x1, y1 = int(p1[i][0]), int(p1[i][1])
-    #     x2, y2 = int(p2[i][0] + copy1.shape[1]), int(p2[i][1])
+    # for i in range(points1.shape[0]):
+    #     x1, y1 = int(points1[i][0]), int(points1[i][1])
+    #     x2, y2 = int(points2[i][0] + copy1.shape[1]), int(points2[i][1])
     #     concat = cv.line(concat, (x1, y1), (x2, y2), (0, 255, 0), 1)
     #
     # cv.imshow("concat", concat)
@@ -160,37 +162,49 @@ def proof_by_refutation(
     E = K1.T @ F @ K2
     Logger.log(E, LoggingLevel.DEBUG)
 
-    def triangulate_points(points1, points2, P1, P2):
-        points_3d_homogeneous = cv.triangulatePoints(P1, P2, points1.T, points2.T)
-        points_3d = cv.convertPointsFromHomogeneous(points_3d_homogeneous.T)
-        return points_3d.reshape(-1, 3)
-
-    def project_points(points_3d, intrinsic_matrix, extrinsic_matrix):
-
-        Logger.divider()
-        Logger.log(points_3d, LoggingLevel.DEBUG)
-        Logger.log(intrinsic_matrix, LoggingLevel.DEBUG)
-        Logger.log(extrinsic_matrix, LoggingLevel.DEBUG)
-        Logger.divider()
-
-        points_3d_homogeneous = np.hstack((points_3d, np.ones((points_3d.shape[0], 1)))).T
-        points_2d_homogeneous = np.dot(intrinsic_matrix, np.dot(extrinsic_matrix, points_3d_homogeneous))
-        points_2d = cv.convertPointsFromHomogeneous(points_2d_homogeneous.T)
-        return points_2d.reshape(-1, 2)
-
     P1 = np.dot(K1, cam_data1.extrinsic_matrix3x4)
     P2 = np.dot(K2, cam_data2.extrinsic_matrix3x4)
 
     points1_2d = points1[:, :2]
     points2_2d = points2[:, :2]
 
-    Logger.log(points1_2d, LoggingLevel.DEBUG)
-    Logger.log(points2_2d, LoggingLevel.DEBUG)
+    # Logger.log(points1_2d, LoggingLevel.DEBUG)
+    # Logger.log(points2_2d, LoggingLevel.DEBUG)
 
     points_3d = triangulate_points(points1_2d, points2_2d, P1, P2)
     reprojected_points1 = project_points(points_3d, K1, cam_data1.extrinsic_matrix3x4)
-    reprojection_error = np.mean(np.linalg.norm(points1_2d - reprojected_points1, axis=1))
-    Logger.log(reprojection_error, LoggingLevel.DEBUG)
+    reprojected_points2 = project_points(points_3d, K2, cam_data2.extrinsic_matrix3x4)
+
+    for i in range(len(points1_2d)):
+        Logger.log(points1_2d[i], LoggingLevel.DEBUG)
+        Logger.log(reprojected_points1[i], LoggingLevel.DEBUG)
+
+    for i in range(len(points2_2d)):
+        Logger.log(points2_2d[i], LoggingLevel.DEBUG)
+        Logger.log(reprojected_points2[i], LoggingLevel.DEBUG)
+
+    reprojection_error1 = np.mean(np.linalg.norm(points1_2d - reprojected_points1, axis=1))
+    Logger.log(reprojection_error1, LoggingLevel.DEBUG)
+
+    reprojection_error2 = np.mean(np.linalg.norm(points2_2d - reprojected_points2, axis=1))
+    Logger.log(reprojection_error2, LoggingLevel.DEBUG)
+
+    for point in reprojected_points1:
+        cv.circle(img1, tuple(point.astype(int)), 2, (0, 0, 255), -1)
+
+    for point in points1_2d:
+        cv.circle(img1, tuple(point.astype(int)), 2, (0, 255, 0), -1)
+
+    for point in reprojected_points2:
+        cv.circle(img2, tuple(point.astype(int)), 2, (0, 0, 255), -1)
+
+    for point in points2_2d:
+        cv.circle(img2, tuple(point.astype(int)), 2, (0, 255, 0), -1)
+
+    cv.imshow("img1", img1)
+    cv.imshow("img2", img2)
+    cv.waitKey(0)
+    cv.destroyAllWindows()
 
     # R1, R2, t = cv.decomposeEssentialMat(essential_matrix)
 

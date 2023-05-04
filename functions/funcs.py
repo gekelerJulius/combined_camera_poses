@@ -454,6 +454,25 @@ def get_dominant_color(image, x, y, patch_size):
     return res
 
 
+def triangulate_points(points1, points2, P1, P2):
+    points_3d_homogeneous = cv2.triangulatePoints(P1, P2, points1.T, points2.T)
+    points_3d = cv2.convertPointsFromHomogeneous(points_3d_homogeneous.T)
+    return points_3d.reshape(-1, 3)
+
+
+def project_points(points_3d, intrinsic_matrix, extrinsic_matrix):
+    Logger.divider()
+    Logger.log(points_3d, LoggingLevel.DEBUG)
+    Logger.log(intrinsic_matrix, LoggingLevel.DEBUG)
+    Logger.log(extrinsic_matrix, LoggingLevel.DEBUG)
+    Logger.divider()
+
+    points_3d_homogeneous = np.hstack((points_3d, np.ones((points_3d.shape[0], 1)))).T
+    points_2d_homogeneous = np.dot(intrinsic_matrix, np.dot(extrinsic_matrix, points_3d_homogeneous))
+    points_2d = cv2.convertPointsFromHomogeneous(points_2d_homogeneous.T)
+    return points_2d.reshape(-1, 2)
+
+
 def sampson_distance(x1: ndarray, x2: ndarray, F: ndarray):
     """
     Computes the Sampson distance for the given points and fundamental matrix.
@@ -516,85 +535,53 @@ def sampson_distance_derivative(x1, x2, F):
     dS_dF = 2 * constraint * second_term * outer_product
     return dS_dF
 
-
-def project_points(params, points_3d, camera_indices, point_indices, num_cameras, num_points):
-    """
-    Projects the 3D points onto the image plane using the given camera parameters.
-
-    Args:
-    params (array-like): The camera parameters and 3D point coordinates.
-    points_3d (array-like): The 3D points in the scene.
-    camera_indices (array-like): The indices of the cameras corresponding to each observation.
-    point_indices (array-like): The indices of the points corresponding to each observation.
-    num_cameras (int): The number of cameras.
-    num_points (int): The number of 3D points.
-
-    Returns:
-    projected_points (numpy array): The 2D points projected onto the image plane.
-    """
-    camera_params = params[:num_cameras * 6].reshape((num_cameras, 6))
-    points_3d = params[num_cameras * 6:].reshape((num_points, 3))
-
-    camera_params = camera_params[camera_indices]
-    points_3d = points_3d[point_indices]
-
-    R = cv2.Rodrigues(camera_params[:, :3])[0]
-    t = camera_params[:, 3:]
-    P = np.hstack((R, t))
-
-    projected_points = (P @ points_3d.T).T
-    projected_points /= projected_points[:, 2, np.newaxis]
-
-    return projected_points[:, :2]
-
-
-def reprojection_error(params, points_2d, points_3d, camera_indices, point_indices, num_cameras, num_points):
-    """
-    Computes the reprojection error between the observed 2D points and the reprojected 3D points.
-
-    Args:
-    params (array-like): The camera parameters and 3D point coordinates.
-    points_2d (array-like): The observed 2D points in the image.
-    points_3d (array-like): The 3D points in the scene.
-    camera_indices (array-like): The indices of the cameras corresponding to each observation.
-    point_indices (array-like): The indices of the points corresponding to each observation.
-    num_cameras (int): The number of cameras.
-    num_points (int): The number of 3D points.
-
-    Returns:
-    error (numpy array): The reprojection error for each observation.
-    """
-    projected_points = project_points(params, points_3d, camera_indices, point_indices, num_cameras, num_points)
-    error = projected_points - points_2d
-    return error.ravel()
-
-
-def bundle_adjustment(points_2d, points_3d, camera_indices, point_indices, camera_params, points_3d_initial):
-    """
-    Performs bundle adjustment to refine the camera parameters and 3D point coordinates.
-
-    Args:
-    points_2d (array-like): The observed 2D points in the image.
-    points_3d (array-like): The initial estimates of the 3D points in the scene.
-    camera_indices (array-like): The indices of the cameras corresponding to each observation.
-    point_indices (array-like): The indices of the points corresponding to each observation.
-    camera_params (array-like): The initial estimates of the camera parameters.
-    points_3d_initial (array-like): The initial estimates of the 3D point coordinates.
-
-    Returns:
-    result (OptimizeResult): The optimization result from the SciPy least_squares function.
-    """
-    num_cameras = camera_params.shape[0]
-    num_points = points_3d_initial.shape[0]
-    points_3d = points_3d_initial.copy()
-
-    # Convert the camera parameters and 3D points into a 1D parameter array
-    params_initial = np.hstack((camera_params.ravel(), points_3d_initial.ravel()))
-
-    # Define the reprojection error function
-    error_func = lambda params: reprojection_error(params, points_2d, points_3d, camera_indices, point_indices,
-                                                   num_cameras, num_points)
-
-    # Perform the bundle adjustment using the least_squares function from SciPy
-    result = least_squares(error_func, params_initial, method='lm', verbose=2)
-    return result
+# def reprojection_error(params, points_2d, points_3d, camera_indices, point_indices, num_cameras, num_points):
+#     """
+#     Computes the reprojection error between the observed 2D points and the reprojected 3D points.
+#
+#     Args:
+#     params (array-like): The camera parameters and 3D point coordinates.
+#     points_2d (array-like): The observed 2D points in the image.
+#     points_3d (array-like): The 3D points in the scene.
+#     camera_indices (array-like): The indices of the cameras corresponding to each observation.
+#     point_indices (array-like): The indices of the points corresponding to each observation.
+#     num_cameras (int): The number of cameras.
+#     num_points (int): The number of 3D points.
+#
+#     Returns:
+#     error (numpy array): The reprojection error for each observation.
+#     """
+#     projected_points = project_points(params, points_3d, camera_indices, point_indices, num_cameras, num_points)
+#     error = projected_points - points_2d
+#     return error.ravel()
+#
+#
+# def bundle_adjustment(points_2d, points_3d, camera_indices, point_indices, camera_params, points_3d_initial):
+#     """
+#     Performs bundle adjustment to refine the camera parameters and 3D point coordinates.
+#
+#     Args:
+#     points_2d (array-like): The observed 2D points in the image.
+#     points_3d (array-like): The initial estimates of the 3D points in the scene.
+#     camera_indices (array-like): The indices of the cameras corresponding to each observation.
+#     point_indices (array-like): The indices of the points corresponding to each observation.
+#     camera_params (array-like): The initial estimates of the camera parameters.
+#     points_3d_initial (array-like): The initial estimates of the 3D point coordinates.
+#
+#     Returns:
+#     result (OptimizeResult): The optimization result from the SciPy least_squares function.
+#     """
+#     num_cameras = camera_params.shape[0]
+#     num_points = points_3d_initial.shape[0]
+#     points_3d = points_3d_initial.copy()
+#
+#     # Convert the camera parameters and 3D points into a 1D parameter array
+#     params_initial = np.hstack((camera_params.ravel(), points_3d_initial.ravel()))
+#
+#     # Define the reprojection error function
+#     error_func = lambda params: reprojection_error(params, points_2d, points_3d, camera_indices, point_indices,
+#                                                    num_cameras, num_points)
+#
+#     # Perform the bundle adjustment using the least_squares function from SciPy
+#     result = least_squares(error_func, params_initial, method='lm', verbose=2)
+#     return result
