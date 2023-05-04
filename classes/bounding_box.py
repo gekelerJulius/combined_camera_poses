@@ -1,4 +1,5 @@
 import cv2
+import numpy as np
 
 
 class BoundingBox:
@@ -13,7 +14,7 @@ class BoundingBox:
 
     def get_height(self):
         return self.max_y - self.min_y
-    
+
     def __str__(self):
         return f"Min X: {self.min_x} | Min Y: {self.min_y} | Max X: {self.max_x} | Max Y: {self.max_y}"
 
@@ -21,3 +22,9 @@ class BoundingBox:
         cv2.rectangle(
             img, (self.min_x, self.min_y), (self.max_x, self.max_y), (0, 255, 0), 2
         )
+
+    def get_center(self):
+        return (self.min_x + self.max_x) / 2, (self.min_y + self.max_y) / 2
+
+    def to_numpy(self):
+        return np.array([self.min_x, self.min_y, self.max_x, self.max_y])

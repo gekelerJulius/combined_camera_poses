@@ -28,13 +28,9 @@ class Logger:
         print("#" * 80)
 
     @staticmethod
-    def log(logVal: Any, level: LoggingLevel = LoggingLevel.INFO):
+    def log(log_val: Any, level: LoggingLevel = LoggingLevel.INFO, label: str = None):
         if level not in Logger.active_levels:
             return
+        message = str(log_val)
 
-        if type(logVal) == str:
-            message = logVal
-        else:
-            message = str(logVal)
-
-        print(f"{color_dict[level]}[{level.name}] \n{message}\033[0m")
+        print(f"{color_dict[level]}[{level.name}] {label + ': ' if label is not None else ''} \n{message}\033[0m")

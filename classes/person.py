@@ -1,7 +1,7 @@
 from typing import NamedTuple, List
 
 import mediapipe as mp
-import plotly.graph_objects as go
+import numpy as np
 from mediapipe.tasks.python.components.containers.landmark import Landmark
 
 from classes.bounding_box import BoundingBox
@@ -14,6 +14,7 @@ from functions.funcs import (
     get_avg_color,
     get_dominant_color,
 )
+from functions.visualize import visualize
 
 mp_drawing = mp.solutions.drawing_utils
 mp_drawing_styles = mp.solutions.drawing_styles
@@ -42,10 +43,20 @@ class Person:
             return []
         return [lmk for lmk in self.results.pose_landmarks.landmark]
 
+    def get_pose_landmarks_numpy(self) -> np.ndarray:
+        if self.results is None or self.results.pose_landmarks is None:
+            return np.array([])
+        return np.array([[lmk.x, lmk.y, lmk.z] for lmk in self.results.pose_landmarks.landmark])
+
     def get_world_landmarks(self) -> List[Landmark]:
         if self.results is None or self.results.pose_world_landmarks is None:
             return []
         return [lmk for lmk in self.results.pose_world_landmarks.landmark]
+
+    def get_world_landmarks_numpy(self) -> np.ndarray:
+        if self.results is None or self.results.pose_world_landmarks is None:
+            return np.array([])
+        return np.array([np.array([lmk.x, lmk.y, lmk.z]) for lmk in self.results.pose_world_landmarks.landmark])
 
     def get_pose_landmarks_with_color(self, image) -> List[ColoredLandmark]:
         if self.results is None or self.results.pose_landmarks is None:
@@ -90,28 +101,5 @@ class Person:
             person2.get_pose_landmarks_with_color(img2),
         )
 
-    def plot_3d(self):
-        go.Figure(
-            data=[
-                go.Scatter3d(
-                    x=[lmk.x for lmk in self.get_world_landmarks()],
-                    y=[lmk.z for lmk in self.get_world_landmarks()],
-                    z=[lmk.y for lmk in self.get_world_landmarks()],
-                    mode="markers",
-                    marker=dict(
-                        size=12,
-                        color=[lmk.z for lmk in self.get_world_landmarks()],
-                        colorscale="Viridis",
-                        opacity=0.8,
-                    ),
-                )
-            ],
-            layout=go.Layout(
-                scene=dict(
-                    aspectmode="data",
-                    xaxis=dict(range=[-1, 1]),
-                    yaxis=dict(range=[-1, 1]),
-                    zaxis=dict(range=[-1, 1]),
-                )
-            ),
-        ).show()
+    def plot_3d(self, image=None):
+        visualize(image, [self.bounding_box], self.get_world_landmarks_numpy())

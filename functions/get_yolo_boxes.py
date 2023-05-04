@@ -1,16 +1,11 @@
 from typing import List
-
 from yolov5 import YOLOv5
 from yolov5.models.common import Detections
 
 from classes.bounding_box import BoundingBox
 
-model_path = "yolov5s.pt"
-device = "cpu"
-model = YOLOv5(model_path, device)
 
-
-def get_yolo_bounding_boxes(image):
+def get_yolo_bounding_boxes(image, model: YOLOv5):
     results: Detections = model.predict(image)
 
     # Filter for persons

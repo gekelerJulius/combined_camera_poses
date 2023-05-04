@@ -3,11 +3,10 @@ import mediapipe as mp
 
 from classes.bounding_box import BoundingBox
 
-mp_pose = mp.solutions.pose
-
 
 def get_pose(image, box: BoundingBox):
-    cropped_image = image[box.min_y : box.max_y, box.min_x : box.max_x]
+    mp_pose = mp.solutions.pose
+    cropped_image = image[box.min_y: box.max_y, box.min_x: box.max_x]
     pose = mp_pose.Pose(
         static_image_mode=True,
         min_detection_confidence=0.5,

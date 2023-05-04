@@ -1,6 +1,4 @@
 from typing import Tuple
-
-import mediapipe as mp
 from mediapipe.tasks.python.components.containers.landmark import Landmark
 
 
@@ -14,10 +12,10 @@ class ColoredLandmark:
     visibility: float
 
     def __init__(
-        self,
-        landmark: Landmark,
-        avg_color: Tuple[int, int, int],
-        dom_color: Tuple[int, int, int],
+            self,
+            landmark: Landmark,
+            avg_color: Tuple[int, int, int],
+            dom_color: Tuple[int, int, int],
     ):
         self.landmark = landmark
         self.avg_color = avg_color

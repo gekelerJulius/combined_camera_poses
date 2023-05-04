@@ -1,14 +1,11 @@
-import time
 import xml.etree.ElementTree as ET
-from typing import Tuple, Union, List
+from typing import Union, List
 
 import cv2
 import mediapipe as mp
 import numpy as np
-from mediapipe.python.solutions.pose import PoseLandmark
 from numpy import ndarray
 from scipy.linalg import orthogonal_procrustes
-from scipy.optimize import least_squares
 
 from classes.colored_landmark import ColoredLandmark
 from classes.custom_point import CustomPoint

@@ -41,16 +41,17 @@ def get_person_pairs(
 
     sorted_record = sorted(record, key=sort_key)
 
-    first_pair = sorted_record[0]
+    if len(sorted_record) > 0:
+        first_pair = sorted_record[0]
 
-    # Show first pair for confirmation by user
-    # if img1 is not None and img2 is not None:
-    #     cv.imshow("First pair1", first_pair[0].draw(img1))
-    #     cv.imshow("First pair2", first_pair[1].draw(img2))
-    #     cv.waitKey(0)
-    #     cv.destroyAllWindows()
+        # Show first pair for confirmation by user
+        # if img1 is not None and img2 is not None:
+        #     cv.imshow("First pair1", first_pair[0].draw(img1))
+        #     cv.imshow("First pair2", first_pair[1].draw(img2))
+        #     cv.waitKey(0)
+        #     cv.destroyAllWindows()
 
-    proof_by_refutation(first_pair[0], first_pair[1], img1, img2, cam_data1, cam_data2)
+        proof_by_refutation(first_pair[0], first_pair[1], img1, img2, cam_data1, cam_data2)
 
     # Take pairs from the beginning of the sorted record until there are no more people in a or b
     pairs = []
@@ -189,22 +190,22 @@ def proof_by_refutation(
     reprojection_error2 = np.mean(np.linalg.norm(points2_2d - reprojected_points2, axis=1))
     Logger.log(reprojection_error2, LoggingLevel.DEBUG)
 
-    for point in reprojected_points1:
-        cv.circle(img1, tuple(point.astype(int)), 2, (0, 0, 255), -1)
-
-    for point in points1_2d:
-        cv.circle(img1, tuple(point.astype(int)), 2, (0, 255, 0), -1)
-
-    for point in reprojected_points2:
-        cv.circle(img2, tuple(point.astype(int)), 2, (0, 0, 255), -1)
-
-    for point in points2_2d:
-        cv.circle(img2, tuple(point.astype(int)), 2, (0, 255, 0), -1)
-
-    cv.imshow("img1", img1)
-    cv.imshow("img2", img2)
-    cv.waitKey(0)
-    cv.destroyAllWindows()
+    # for point in reprojected_points1:
+    #     cv.circle(img1, tuple(point.astype(int)), 2, (0, 0, 255), -1)
+    #
+    # for point in points1_2d:
+    #     cv.circle(img1, tuple(point.astype(int)), 2, (0, 255, 0), -1)
+    #
+    # for point in reprojected_points2:
+    #     cv.circle(img2, tuple(point.astype(int)), 2, (0, 0, 255), -1)
+    #
+    # for point in points2_2d:
+    #     cv.circle(img2, tuple(point.astype(int)), 2, (0, 255, 0), -1)
+    #
+    # cv.imshow("img1", img1)
+    # cv.imshow("img2", img2)
+    # cv.waitKey(0)
+    # cv.destroyAllWindows()
 
     # R1, R2, t = cv.decomposeEssentialMat(essential_matrix)
 
