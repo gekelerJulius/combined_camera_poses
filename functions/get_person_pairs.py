@@ -1,11 +1,15 @@
+import time
 from typing import List
 
 import numpy as np
 import cv2 as cv
+from mediapipe.python.solutions.pose_connections import POSE_CONNECTIONS
+from poseviz import PoseViz
 
 from classes.camera_data import CameraData
 from classes.logger import Logger
 from classes.person import Person
+from consts.consts import LANDMARK_NAMES, CONNECTIONS_LIST, NAMES_LIST
 from enums.logging_levels import LoggingLevel
 from functions.funcs import triangulate_points, project_points
 
@@ -110,15 +114,24 @@ def proof_by_refutation(
     points1: np.ndarray = np.array([])
     points2: np.ndarray = np.array([])
 
+    used_indices = set()
+
     for i, lmk1 in enumerate(p1_landmarks):
         lmk2 = p2_landmarks[i]
         if (
                 lmk1 is None
                 or lmk2 is None
-                or lmk1.visibility < 0.5
+        ):
+            Logger.log(f"Skipping landmark {i} because it is None", LoggingLevel.ERROR)
+            continue
+
+        if (
+                lmk1.visibility < 0.5
                 or lmk2.visibility < 0.5
         ):
-            continue
+            pass
+            # Logger.log(f"Skipping landmark {i} because it is not visible", LoggingLevel.ERROR)
+            # continue
 
         point1 = np.array([lmk1.x, lmk1.y, 1])
         point2 = np.array([lmk2.x, lmk2.y, 1])
@@ -130,9 +143,21 @@ def proof_by_refutation(
             points1 = np.vstack((points1, point1))
             points2 = np.vstack((points2, point2))
 
+        used_indices.add(i)
+
     if points1.shape[0] < 8:
         Logger.log("Not enough points to calculate fundamental matrix", LoggingLevel.WARNING)
         return False
+
+    used_landmark_names = [LANDMARK_NAMES[i] for i in used_indices]
+    used_connections = []
+    for connection in POSE_CONNECTIONS:
+        first_index = connection[0]
+        second_index = connection[1]
+
+        if first_index in used_indices and second_index in used_indices:
+            Logger.log(f"first_index: {first_index}, second_index: {second_index}", LoggingLevel.DEBUG)
+            used_connections.append(connection)
 
     # Draw Lines between corresponding points
     # copy1 = img1.copy()
@@ -173,22 +198,45 @@ def proof_by_refutation(
     # Logger.log(points2_2d, LoggingLevel.DEBUG)
 
     points_3d = triangulate_points(points1_2d, points2_2d, P1, P2)
-    reprojected_points1 = project_points(points_3d, K1, cam_data1.extrinsic_matrix3x4)
-    reprojected_points2 = project_points(points_3d, K2, cam_data2.extrinsic_matrix3x4)
 
-    for i in range(len(points1_2d)):
-        Logger.log(points1_2d[i], LoggingLevel.DEBUG)
-        Logger.log(reprojected_points1[i], LoggingLevel.DEBUG)
+    # subtract from y-axis
+    points_3d[:, 1] -= 1
 
-    for i in range(len(points2_2d)):
-        Logger.log(points2_2d[i], LoggingLevel.DEBUG)
-        Logger.log(reprojected_points2[i], LoggingLevel.DEBUG)
+    # invert z axis
+    points_3d[:, 2] *= -1
 
-    reprojection_error1 = np.mean(np.linalg.norm(points1_2d - reprojected_points1, axis=1))
-    Logger.log(reprojection_error1, LoggingLevel.DEBUG)
+    # swap x and z axis
+    points_3d[:, [0, 2]] = points_3d[:, [2, 0]]
 
-    reprojection_error2 = np.mean(np.linalg.norm(points2_2d - reprojected_points2, axis=1))
-    Logger.log(reprojection_error2, LoggingLevel.DEBUG)
+    all_used_conn_indexes = []
+    for connection in used_connections:
+        all_used_conn_indexes.append(connection[0])
+        all_used_conn_indexes.append(connection[1])
+
+    min_conn_index = min(all_used_conn_indexes)
+    max_conn_index = max(all_used_conn_indexes)
+
+    # Logger.log(used_indices, LoggingLevel.DEBUG, label="Used Indices")
+    # Logger.log(len(used_landmark_names), LoggingLevel.DEBUG, label="Used Landmark Names Length")
+    # Logger.log(f"min_conn_index: {min_conn_index}, max_conn_index: {max_conn_index}", LoggingLevel.DEBUG)
+    # Logger.log(points_3d.shape, LoggingLevel.DEBUG, label="3D Points Shape")
+    viz = PoseViz(joint_names=NAMES_LIST, joint_edges=CONNECTIONS_LIST, world_up=(0, -1, 0))
+
+    Logger.log(f"points_3d: {points_3d}", LoggingLevel.DEBUG)
+    box1 = person1.bounding_box
+    viz.update(frame=img1, boxes=np.array([[box1.min_x, box1.min_y, box1.get_width(), box1.get_height()]]),
+               poses=np.array([points_3d * 6000]),
+               camera=cam_data1.as_cameralib_camera())
+    time.sleep(34)
+
+    # reprojected_points1 = project_points(points_3d, K1, cam_data1.extrinsic_matrix3x4)
+    # reprojected_points2 = project_points(points_3d, K2, cam_data2.extrinsic_matrix3x4)
+    #
+    # reprojection_error1 = np.mean(np.linalg.norm(points1_2d - reprojected_points1, axis=1))
+    # Logger.log(reprojection_error1, LoggingLevel.DEBUG)
+    #
+    # reprojection_error2 = np.mean(np.linalg.norm(points2_2d - reprojected_points2, axis=1))
+    # Logger.log(reprojection_error2, LoggingLevel.DEBUG)
 
     # for point in reprojected_points1:
     #     cv.circle(img1, tuple(point.astype(int)), 2, (0, 0, 255), -1)

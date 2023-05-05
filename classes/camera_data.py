@@ -2,6 +2,7 @@ import json
 import random
 from typing import List
 
+import cameralib
 import numpy as np
 
 from functions.funcs import points_are_close
@@ -121,6 +122,10 @@ class CameraData:
         p_img_homogeneous = np.dot(K, p_cam)
         p_img = p_img_homogeneous[:2] / p_img_homogeneous[2]
         return p_img
+
+    def as_cameralib_camera(self) -> cameralib.Camera:
+        return cameralib.Camera(world_up=(0, 1, 0), intrinsic_matrix=self.intrinsic_matrix,
+                                extrinsic_matrix=self.extrinsic_matrix4x4)
 
     def test_valid(self):
         point = [random.randint(0, 640), random.randint(0, 480)]

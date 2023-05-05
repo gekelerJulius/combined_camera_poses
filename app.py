@@ -7,7 +7,7 @@ import numpy as np
 import poseviz
 import cameralib
 import cv2 as cv
-from typing import List
+from typing import List, Tuple
 
 from mediapipe.python.solutions.pose_connections import POSE_CONNECTIONS
 
@@ -17,56 +17,12 @@ from classes.camera_data import CameraData
 from classes.logger import Logger
 from classes.person import Person
 from classes.timer import Timer
+from consts.consts import NAMES_LIST, CONNECTIONS_LIST
 from enums.logging_levels import LoggingLevel
+from functions.get_person_pairs import get_person_pairs
 from functions.get_pose import get_pose
 from functions.get_yolo_boxes import get_yolo_bounding_boxes
 
-LANDMARK_NAMES = {
-    0: "nose",
-    1: "left_eye_inner",
-    2: "left_eye",
-    3: "left_eye_outer",
-    4: "right_eye_inner",
-    5: "right_eye",
-    6: "right_eye_outer",
-    7: "left_ear",
-    8: "right_ear",
-    9: "mouth_left",
-    10: "mouth_right",
-    11: "left_shoulder",
-    12: "right_shoulder",
-    13: "left_elbow",
-    14: "right_elbow",
-    15: "left_wrist",
-    16: "right_wrist",
-    17: "left_pinky",
-    18: "right_pinky",
-    19: "left_index",
-    20: "right_index",
-    21: "left_thumb",
-    22: "right_thumb",
-    23: "left_hip",
-    24: "right_hip",
-    25: "left_knee",
-    26: "right_knee",
-    27: "left_ankle",
-    28: "right_ankle",
-    29: "left_heel",
-    30: "right_heel",
-    31: "left_foot_index",
-    32: "right_foot_index",
-}
-
-NAMES_LIST = list(LANDMARK_NAMES.values())
-
-# Logger.log(NAMES_LIST, level=LoggingLevel.DEBUG, label="NAMES_LIST")
-
-CONNECTIONS_LIST = [
-    [a[0], a[1]] for a in POSE_CONNECTIONS
-]
-
-
-# Logger.log(CONNECTIONS_LIST, level=LoggingLevel.DEBUG, label="CONNECTIONS_LIST")
 
 def annotate_video_multi(
         file1_name: str,
@@ -107,13 +63,13 @@ def annotate_video_multi(
     with Timer("Create YOLOv5"):
         model = YOLOv5(model_path, device)
 
-    test_joint_names = ['l_wrist', 'l_elbow']
+    # test_joint_names = ['l_wrist', 'l_elbow']
 
     # Joint index pairs specifying which ones should be connected with a line (i.e., the bones of
     # the body, e.g. wrist-elbow, elbow-shoulder)
-    test_joint_edges = [[0, 1]]
-    # viz = poseviz.PoseViz(NAMES_LIST, POSE_CONNECTIONS)
-    viz = poseviz.PoseViz(test_joint_names, test_joint_edges)
+    # test_joint_edges = [[0, 1]]
+    # viz = poseviz.PoseViz(NAMES_LIST, CONNECTIONS_LIST)
+    # viz = poseviz.PoseViz(test_joint_names, test_joint_edges)
 
     # fourcc = cv.VideoWriter_fourcc(*"mp4v")
     # file1_pre, file1_ext = os.path.splitext(file1_name)
@@ -171,9 +127,9 @@ def annotate_video_multi(
                 Person(f"Person1 {len(persons2)}", frame_count, box, results2)
             )
 
-        # pairs: List[Tuple[Person, Person]] = get_person_pairs(
-        #     persons1, persons2, img1, img2, cam1_data, cam2_data
-        # )
+        pairs: List[Tuple[Person, Person]] = get_person_pairs(
+            persons1, persons2, img1, img2, cam1_data, cam2_data
+        )
         #
         # def get_color(index):
         #     if index == 0:
@@ -216,28 +172,30 @@ def annotate_video_multi(
             person1 = persons1[0]
             # person1.plot_3d(img1)
 
-            real_camera = cameralib.Camera(world_up=(0, 1, 0), intrinsic_matrix=cam1_data.intrinsic_matrix,
-                                           extrinsic_matrix=cam1_data.extrinsic_matrix4x4)
+            # real_camera = cameralib.Camera(world_up=(0, 1, 0), intrinsic_matrix=cam1_data.intrinsic_matrix,
+            #                                extrinsic_matrix=cam1_data.extrinsic_matrix4x4)
+            #
+            # real_boxes = np.array(
+            #     [[box.min_x, box.min_y, box.get_width(), box.get_height()] for box in bounding_boxes1], np.float32)
+            #
+            # real_poses = np.array([person1.get_pose_landmarks_numpy()])
 
-            real_boxes = np.array(
-                [[box.min_x, box.min_y, box.get_width(), box.get_height()] for box in bounding_boxes1], np.float32)
+            # Switch the x and y axes
+            # real_poses[:, :, [0, 1]] = real_poses[:, :, [1, 0]]
+            #
+            # Logger.log(real_poses, LoggingLevel.INFO, label="Real Poses")
+            #
+            # test_camera = cameralib.Camera.from_fov(55, img1.shape[:2])
+            #
+            # test_boxes = np.array([[10, 20, 100, 100]], np.float32)
+            #
+            # test_poses = np.array([[[100, 100, 2000], [-100, 100, 2000]]], np.float32)
 
-            real_poses = np.array([person1.get_pose_landmarks_numpy()])
-
-            Logger.log(real_poses, LoggingLevel.INFO, label="Real Poses")
-
-            test_camera = cameralib.Camera.from_fov(55, img1.shape[:2])
-
-            test_boxes = np.array([[10, 20, 100, 100]], np.float32)
-
-            test_poses = np.array([[[100, 100, 2000], [-100, 100, 2000]]], np.float32)
-
-            # TODO: Find out why the poses are not being drawn correctly
-            viz.update(frame=img1, boxes=real_boxes,
-                       poses=real_poses,
-                       camera=real_camera)
+            # viz.update(frame=img1, boxes=real_boxes,
+            #            poses=real_poses,
+            #            camera=real_camera)
             # viz.update(frame=img1, boxes=test_boxes, poses=test_poses, camera=test_camera)
-            time.sleep(30)
+            # time.sleep(2)
             # cv.imshow("Person 1", img1)
             # cv.waitKey(2)
 

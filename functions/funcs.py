@@ -451,7 +451,7 @@ def get_dominant_color(image, x, y, patch_size):
     return res
 
 
-def triangulate_points(points1, points2, P1, P2):
+def triangulate_points(points1, points2, P1, P2) -> ndarray:
     points_3d_homogeneous = cv2.triangulatePoints(P1, P2, points1.T, points2.T)
     points_3d = cv2.convertPointsFromHomogeneous(points_3d_homogeneous.T)
     return points_3d.reshape(-1, 3)
