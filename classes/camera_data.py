@@ -124,8 +124,10 @@ class CameraData:
         return p_img
 
     def as_cameralib_camera(self) -> cameralib.Camera:
-        return cameralib.Camera(intrinsic_matrix=self.intrinsic_matrix,
-                                extrinsic_matrix=self.extrinsic_matrix4x4)
+        return cameralib.Camera(
+            extrinsic_matrix=self.extrinsic_matrix4x4,
+            intrinsic_matrix=self.intrinsic_matrix,
+        )
 
     def test_valid(self):
         point = [random.randint(0, 640), random.randint(0, 480)]

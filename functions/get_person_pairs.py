@@ -102,6 +102,9 @@ def proof_by_refutation(
     p1_landmarks = person1.get_pose_landmarks()
     p2_landmarks = person2.get_pose_landmarks()
 
+    camera1 = cam_data1.as_cameralib_camera()
+    camera2 = cam_data2.as_cameralib_camera()
+
     # right_hand1 = p1_landmarks[PoseLandmark.RIGHT_WRIST]
     # right_hand2 = p2_landmarks[PoseLandmark.RIGHT_WRIST]
     #
@@ -174,7 +177,6 @@ def proof_by_refutation(
     K1 = cam_data1.intrinsic_matrix
     K2 = cam_data2.intrinsic_matrix
     E = K1.T @ F @ K2
-    Logger.log(E, LoggingLevel.DEBUG)
 
     P1 = np.dot(K1, cam_data1.extrinsic_matrix3x4)
     P2 = np.dot(K2, cam_data2.extrinsic_matrix3x4)
@@ -187,14 +189,7 @@ def proof_by_refutation(
 
     points_3d = triangulate_points(points1_2d, points2_2d, P1, P2)
 
-    # subtract from y-axis
-    points_3d[:, 1] -= 1
-
-    # invert z axis
-    points_3d[:, 2] *= -1
-
-    # swap x and z axis
-    points_3d[:, [0, 2]] = points_3d[:, [2, 0]]
+    points_3d[:, 1] *= -1
 
     org_points_path = os.path.join(os.path.dirname(__file__), "./../simulation_data/p1posframe1.json")
     with open(org_points_path, "r") as f:
@@ -206,14 +201,7 @@ def proof_by_refutation(
     org_points = np.array(
         [[org_points_json[a]["x"], org_points_json[a]["y"], org_points_json[a]["z"]] for a in org_points_json])
 
-    # invert from y-axis
     org_points[:, 1] *= -1
-
-    # invert z axis
-    org_points[:, 2] *= -1
-
-    # swap x and z axis
-    org_points[:, [0, 2]] = org_points[:, [2, 0]]
 
     Logger.log(org_points, LoggingLevel.DEBUG, label="Original Points")
 
