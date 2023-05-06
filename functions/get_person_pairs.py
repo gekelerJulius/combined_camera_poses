@@ -1,17 +1,19 @@
+import json
+import os
 import time
 from typing import List
 
 import numpy as np
 import cv2 as cv
 from mediapipe.python.solutions.pose_connections import POSE_CONNECTIONS
-from poseviz import PoseViz
+from poseviz import PoseViz, ViewInfo
 
 from classes.camera_data import CameraData
 from classes.logger import Logger
 from classes.person import Person
 from consts.consts import LANDMARK_NAMES, CONNECTIONS_LIST, NAMES_LIST
 from enums.logging_levels import LoggingLevel
-from functions.funcs import triangulate_points, project_points
+from functions.funcs import triangulate_points
 
 
 def get_person_pairs(
@@ -114,8 +116,6 @@ def proof_by_refutation(
     points1: np.ndarray = np.array([])
     points2: np.ndarray = np.array([])
 
-    used_indices = set()
-
     for i, lmk1 in enumerate(p1_landmarks):
         lmk2 = p2_landmarks[i]
         if (
@@ -143,21 +143,9 @@ def proof_by_refutation(
             points1 = np.vstack((points1, point1))
             points2 = np.vstack((points2, point2))
 
-        used_indices.add(i)
-
-    if points1.shape[0] < 8:
+    if points1.shape[0] < 8 or points2.shape[0] < 8:
         Logger.log("Not enough points to calculate fundamental matrix", LoggingLevel.WARNING)
         return False
-
-    used_landmark_names = [LANDMARK_NAMES[i] for i in used_indices]
-    used_connections = []
-    for connection in POSE_CONNECTIONS:
-        first_index = connection[0]
-        second_index = connection[1]
-
-        if first_index in used_indices and second_index in used_indices:
-            Logger.log(f"first_index: {first_index}, second_index: {second_index}", LoggingLevel.DEBUG)
-            used_connections.append(connection)
 
     # Draw Lines between corresponding points
     # copy1 = img1.copy()
@@ -208,27 +196,69 @@ def proof_by_refutation(
     # swap x and z axis
     points_3d[:, [0, 2]] = points_3d[:, [2, 0]]
 
-    all_used_conn_indexes = []
-    for connection in used_connections:
-        all_used_conn_indexes.append(connection[0])
-        all_used_conn_indexes.append(connection[1])
+    org_points_path = os.path.join(os.path.dirname(__file__), "./../simulation_data/p1posframe1.json")
+    with open(org_points_path, "r") as f:
+        org_points_json = json.load(f)
 
-    min_conn_index = min(all_used_conn_indexes)
-    max_conn_index = max(all_used_conn_indexes)
+    for i, a in enumerate(org_points_json):
+        Logger.log("", LoggingLevel.DEBUG, label=f"{a} {i}")
 
-    # Logger.log(used_indices, LoggingLevel.DEBUG, label="Used Indices")
-    # Logger.log(len(used_landmark_names), LoggingLevel.DEBUG, label="Used Landmark Names Length")
-    # Logger.log(f"min_conn_index: {min_conn_index}, max_conn_index: {max_conn_index}", LoggingLevel.DEBUG)
-    # Logger.log(points_3d.shape, LoggingLevel.DEBUG, label="3D Points Shape")
-    viz = PoseViz(joint_names=NAMES_LIST, joint_edges=CONNECTIONS_LIST, world_up=(0, -1, 0))
+    org_points = np.array(
+        [[org_points_json[a]["x"], org_points_json[a]["y"], org_points_json[a]["z"]] for a in org_points_json])
 
-    Logger.log(f"points_3d: {points_3d}", LoggingLevel.DEBUG)
+    # invert from y-axis
+    org_points[:, 1] *= -1
+
+    # invert z axis
+    org_points[:, 2] *= -1
+
+    # swap x and z axis
+    org_points[:, [0, 2]] = org_points[:, [2, 0]]
+
+    Logger.log(org_points, LoggingLevel.DEBUG, label="Original Points")
+
+    org_conns = [[1, 3], [4, 5], [10, 9], [14, 15], [18, 21], [24, 21], [18, 48], [48, 51]]
+
     box1 = person1.bounding_box
-    viz.update(frame=img1, boxes=np.array([[box1.min_x, box1.min_y, box1.get_width(), box1.get_height()]]),
-               poses=np.array([points_3d * 6000]),
-               camera=cam_data1.as_cameralib_camera())
-    time.sleep(34)
+    box2 = person2.bounding_box
 
+    viz = PoseViz(joint_names=NAMES_LIST, joint_edges=CONNECTIONS_LIST, world_up=(0, -1, 0), n_views=2)
+    view_info_1: ViewInfo = ViewInfo(
+        frame=img1,
+        boxes=np.array([[box1.min_x, box1.min_y, box1.get_width(), box1.get_height()]]),
+        poses=np.array([points_3d * 6000]),
+        camera=cam_data1.as_cameralib_camera(),
+        poses_alt=[],
+        poses_true=[],
+    )
+
+    view_info_2: ViewInfo = ViewInfo(
+        frame=img2,
+        boxes=np.array([[box2.min_x, box2.min_y, box2.get_width(), box2.get_height()]]),
+        poses=np.array([]),
+        camera=cam_data2.as_cameralib_camera(),
+        poses_alt=[],
+        poses_true=[],
+    )
+
+    # viz_org = PoseViz(joint_names=[a for a in org_points_json], joint_edges=org_conns, world_up=(0, -1, 0), n_views=1)
+    # view_info_org: ViewInfo = ViewInfo(
+    #     frame=img1,
+    #     boxes=np.array([[box1.min_x, box1.min_y, box1.get_width(), box1.get_height()]]),
+    #     poses=np.array([org_points * 6000]),
+    #     camera=cam_data1.as_cameralib_camera(),
+    #     poses_alt=[],
+    #     poses_true=[],
+    # )
+
+    # viz.update(frame=img1, boxes=np.array([[box1.min_x, box1.min_y, box1.get_width(), box1.get_height()]]),
+    #            poses=np.array([points_3d * 6000]),
+    #            camera=cam_data1.as_cameralib_camera())
+
+    viz.update_multiview([view_info_1, view_info_2])
+    # viz_org.update_multiview([view_info_org])
+
+    time.sleep(15)
     # reprojected_points1 = project_points(points_3d, K1, cam_data1.extrinsic_matrix3x4)
     # reprojected_points2 = project_points(points_3d, K2, cam_data2.extrinsic_matrix3x4)
     #

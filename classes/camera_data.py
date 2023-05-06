@@ -124,7 +124,7 @@ class CameraData:
         return p_img
 
     def as_cameralib_camera(self) -> cameralib.Camera:
-        return cameralib.Camera(world_up=(0, 1, 0), intrinsic_matrix=self.intrinsic_matrix,
+        return cameralib.Camera(intrinsic_matrix=self.intrinsic_matrix,
                                 extrinsic_matrix=self.extrinsic_matrix4x4)
 
     def test_valid(self):
