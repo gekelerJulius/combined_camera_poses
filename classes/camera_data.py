@@ -1,10 +1,13 @@
 import json
 import random
-from typing import List
+from typing import List, Tuple
 
 import cameralib
 import numpy as np
+import cv2
 
+from classes.logger import Logger
+from enums.logging_levels import LoggingLevel
 from functions.funcs import points_are_close
 
 
@@ -124,13 +127,23 @@ class CameraData:
         return p_img
 
     def as_cameralib_camera(self) -> cameralib.Camera:
+        # R as rotation vector
+        r = cv2.Rodrigues(self.R)[0]
+
+        # Invert y
+        r[1] = -r[1]
+
+        # As matrix
+        R, _ = cv2.Rodrigues(r)
+
         return cameralib.Camera(
-            extrinsic_matrix=self.extrinsic_matrix4x4,
+            optical_center=np.array([self.t[0], self.t[1], self.t[2]]) * 1000,
+            rot_world_to_cam=R,
             intrinsic_matrix=self.intrinsic_matrix,
         )
 
-    def test_valid(self):
-        point = [random.randint(0, 640), random.randint(0, 480)]
+    def test_valid(self, resolution: Tuple[int, int]):
+        point = [random.randint(0, resolution[0]), random.randint(0, resolution[1])]
         world_point = self.transform_point_to_world(point)
         og_point = self.transform_point_to_camera(world_point)
         if not points_are_close(point[0], point[1], og_point[0], og_point[1]):

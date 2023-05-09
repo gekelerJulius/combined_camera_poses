@@ -12,8 +12,9 @@ from classes.camera_data import CameraData
 from classes.logger import Logger
 from classes.person import Person
 from consts.consts import LANDMARK_NAMES, CONNECTIONS_LIST, NAMES_LIST
+from consts.mixamo_mapping import from_mixamo
 from enums.logging_levels import LoggingLevel
-from functions.funcs import triangulate_points
+from functions.funcs import triangulate_points, project_points
 
 
 def get_person_pairs(
@@ -47,29 +48,25 @@ def get_person_pairs(
 
     sorted_record = sorted(record, key=sort_key)
 
-    if len(sorted_record) > 0:
-        first_pair = sorted_record[0]
+    # if len(sorted_record) > 0:
+    #     first_pair = sorted_record[0]
 
-        # Show first pair for confirmation by user
-        # if img1 is not None and img2 is not None:
-        #     cv.imshow("First pair1", first_pair[0].draw(img1))
-        #     cv.imshow("First pair2", first_pair[1].draw(img2))
-        #     cv.waitKey(0)
-        #     cv.destroyAllWindows()
-
-        proof_by_refutation(first_pair[0], first_pair[1], img1, img2, cam_data1, cam_data2)
+    # Show first pair for confirmation by user
+    # if img1 is not None and img2 is not None:
+    #     cv.imshow("First pair1", first_pair[0].draw(img1))
+    #     cv.imshow("First pair2", first_pair[1].draw(img2))
+    #     cv.waitKey(0)
+    #     cv.destroyAllWindows()
+    # proof_by_refutation(first_pair[0], first_pair[1], img1, img2, cam_data1, cam_data2)
 
     # Take pairs from the beginning of the sorted record until there are no more people in a or b
     pairs = []
-    used_a = set()
-    used_b = set()
 
     for p1, p2, diff1, diff2 in sorted_record:
-        if p1 in used_a or p2 in used_b:
+        # If p1 or p2 are already in a pair, skip them
+        if p1 in [pair[0] for pair in pairs] or p2 in [pair[1] for pair in pairs]:
             continue
         pairs.append((p1, p2))
-        used_a.add(p1)
-        used_b.add(p2)
 
     return pairs
 
@@ -102,8 +99,8 @@ def proof_by_refutation(
     p1_landmarks = person1.get_pose_landmarks()
     p2_landmarks = person2.get_pose_landmarks()
 
-    camera1 = cam_data1.as_cameralib_camera()
-    camera2 = cam_data2.as_cameralib_camera()
+    Logger.log(cam_data1.intrinsic_matrix, LoggingLevel.DEBUG, label="cam_data1.intrinsic_matrix")
+    Logger.log(cam_data2.intrinsic_matrix, LoggingLevel.DEBUG, label="cam_data2.intrinsic_matrix")
 
     # right_hand1 = p1_landmarks[PoseLandmark.RIGHT_WRIST]
     # right_hand2 = p2_landmarks[PoseLandmark.RIGHT_WRIST]
@@ -184,52 +181,103 @@ def proof_by_refutation(
     points1_2d = points1[:, :2]
     points2_2d = points2[:, :2]
 
-    # Logger.log(points1_2d, LoggingLevel.DEBUG)
-    # Logger.log(points2_2d, LoggingLevel.DEBUG)
-
     points_3d = triangulate_points(points1_2d, points2_2d, P1, P2)
-
-    points_3d[:, 1] *= -1
+    # points_3d_b = triangulate_points(points2_2d, points1_2d, P2, P1)
+    # points_3d[:, 1] -= 2 * np.max(points_3d[:, 1])
 
     org_points_path = os.path.join(os.path.dirname(__file__), "./../simulation_data/p1posframe1.json")
     with open(org_points_path, "r") as f:
         org_points_json = json.load(f)
 
-    for i, a in enumerate(org_points_json):
-        Logger.log("", LoggingLevel.DEBUG, label=f"{a} {i}")
+    org_dict = {}
 
-    org_points = np.array(
-        [[org_points_json[a]["x"], org_points_json[a]["y"], org_points_json[a]["z"]] for a in org_points_json])
+    strings_to_remove = ["mixamorig:", "Ch42_", "Walking_Man", "Walking_Woman"]
+    old_names = [a for a in org_points_json]
+    for i in range(len(org_points_json)):
+        name = old_names[i]
+        new_name = str(name)
+        for s in strings_to_remove:
+            new_name = new_name.replace(s, "")
 
-    org_points[:, 1] *= -1
+        if len(new_name) == 0:
+            continue
+        org_points_json[new_name] = org_points_json[name]
 
-    Logger.log(org_points, LoggingLevel.DEBUG, label="Original Points")
+    for name in old_names:
+        del org_points_json[name]
 
-    org_conns = [[1, 3], [4, 5], [10, 9], [14, 15], [18, 21], [24, 21], [18, 48], [48, 51]]
+    for name in [a for a in org_points_json]:
+        if name not in from_mixamo:
+            del org_points_json[name]
+        else:
+            mapped: List[str] = from_mixamo[name]
+            print(mapped)
+            for m in mapped:
+                org_dict[m] = org_points_json[name]
+    print(org_dict)
+
+    org_points = []
+    for name in NAMES_LIST:
+        if name in org_dict:
+            val = org_dict[name]
+            org_points.append([val["x"], val["y"], val["z"]])
+
+    org_points = np.array(org_points)
+
+    Logger.divider()
+    print(org_points)
+    print(points_3d)
+    Logger.log(np.mean(np.linalg.norm(org_points - points_3d, axis=1)), LoggingLevel.INFO, label="Mean error")
+    Logger.divider()
+
+    # org_points = np.array(
+    #     [[org_points_json[a]["x"], org_points_json[a]["y"], org_points_json[a]["z"]] for a in org_points_json]
+    # )
+    #
+    # org_points[:, 1] *= -1
+    #
+    # org_names = [a for a in org_points_json]
+
+    # Logger.divider()
+    # for name in NAMES_LIST:
+    #     print(name)
+    # Logger.divider()
+    # for name in org_names:
+    #     strings_to_remove = ["mixamorig:", "Ch42_", "Walking_Man"]
+    #     for s in strings_to_remove:
+    #         name = name.replace(s, "")
+    #     print(name)
+    # Logger.divider()
+
+    # org_conns = [[1, 3], [4, 5], [10, 9], [14, 15], [18, 21], [24, 21], [18, 48], [48, 51]]
 
     box1 = person1.bounding_box
     box2 = person2.bounding_box
 
-    viz = PoseViz(joint_names=NAMES_LIST, joint_edges=CONNECTIONS_LIST, world_up=(0, -1, 0), n_views=2)
-    view_info_1: ViewInfo = ViewInfo(
-        frame=img1,
-        boxes=np.array([[box1.min_x, box1.min_y, box1.get_width(), box1.get_height()]]),
-        poses=np.array([points_3d * 6000]),
-        camera=cam_data1.as_cameralib_camera(),
-        poses_alt=[],
-        poses_true=[],
-    )
+    # viz = PoseViz(joint_names=NAMES_LIST, joint_edges=CONNECTIONS_LIST, world_up=(0, -1, 0), n_views=2)
+    # view_info_1: ViewInfo = ViewInfo(
+    #     frame=img1,
+    #     boxes=np.array([[box1.min_x, box1.min_y, box1.get_width(), box1.get_height()]]),
+    #     # poses=np.array([points_3d * 1000]),
+    #     poses=np.array([org_points * 1000]),
+    #     camera=cam_data1.as_cameralib_camera(),
+    #     poses_alt=[],
+    #     poses_true=[],
+    # )
+    #
+    # view_info_2: ViewInfo = ViewInfo(
+    #     frame=img2,
+    #     boxes=np.array([[box2.min_x, box2.min_y, box2.get_width(), box2.get_height()]]),
+    #     poses=np.array([]),
+    #     camera=cam_data2.as_cameralib_camera(),
+    #     poses_alt=[],
+    #     poses_true=[],
+    # )
 
-    view_info_2: ViewInfo = ViewInfo(
-        frame=img2,
-        boxes=np.array([[box2.min_x, box2.min_y, box2.get_width(), box2.get_height()]]),
-        poses=np.array([]),
-        camera=cam_data2.as_cameralib_camera(),
-        poses_alt=[],
-        poses_true=[],
-    )
-
-    # viz_org = PoseViz(joint_names=[a for a in org_points_json], joint_edges=org_conns, world_up=(0, -1, 0), n_views=1)
+    # viz_org = PoseViz(joint_names=org_names,
+    #                   joint_edges=org_conns,
+    #                   world_up=(0, -1, 0), n_views=1
+    #                   )
     # view_info_org: ViewInfo = ViewInfo(
     #     frame=img1,
     #     boxes=np.array([[box1.min_x, box1.min_y, box1.get_width(), box1.get_height()]]),
@@ -242,36 +290,35 @@ def proof_by_refutation(
     # viz.update(frame=img1, boxes=np.array([[box1.min_x, box1.min_y, box1.get_width(), box1.get_height()]]),
     #            poses=np.array([points_3d * 6000]),
     #            camera=cam_data1.as_cameralib_camera())
-
-    viz.update_multiview([view_info_1, view_info_2])
+    #
+    # viz.update_multiview([view_info_1, view_info_2])
     # viz_org.update_multiview([view_info_org])
 
-    time.sleep(15)
-    # reprojected_points1 = project_points(points_3d, K1, cam_data1.extrinsic_matrix3x4)
-    # reprojected_points2 = project_points(points_3d, K2, cam_data2.extrinsic_matrix3x4)
-    #
-    # reprojection_error1 = np.mean(np.linalg.norm(points1_2d - reprojected_points1, axis=1))
-    # Logger.log(reprojection_error1, LoggingLevel.DEBUG)
-    #
-    # reprojection_error2 = np.mean(np.linalg.norm(points2_2d - reprojected_points2, axis=1))
-    # Logger.log(reprojection_error2, LoggingLevel.DEBUG)
+    reprojected_points1 = project_points(points_3d, K1, cam_data1.extrinsic_matrix3x4)
+    reprojected_points2 = project_points(points_3d, K2, cam_data2.extrinsic_matrix3x4)
 
-    # for point in reprojected_points1:
-    #     cv.circle(img1, tuple(point.astype(int)), 2, (0, 0, 255), -1)
-    #
-    # for point in points1_2d:
-    #     cv.circle(img1, tuple(point.astype(int)), 2, (0, 255, 0), -1)
-    #
-    # for point in reprojected_points2:
-    #     cv.circle(img2, tuple(point.astype(int)), 2, (0, 0, 255), -1)
-    #
-    # for point in points2_2d:
-    #     cv.circle(img2, tuple(point.astype(int)), 2, (0, 255, 0), -1)
-    #
-    # cv.imshow("img1", img1)
-    # cv.imshow("img2", img2)
-    # cv.waitKey(0)
-    # cv.destroyAllWindows()
+    reprojection_error1 = np.mean(np.linalg.norm(points1_2d - reprojected_points1, axis=1))
+    Logger.log(reprojection_error1, LoggingLevel.DEBUG, label="Reprojection Error 1")
+
+    reprojection_error2 = np.mean(np.linalg.norm(points2_2d - reprojected_points2, axis=1))
+    Logger.log(reprojection_error2, LoggingLevel.DEBUG, label="Reprojection Error 2")
+
+    for point in reprojected_points1:
+        cv.circle(img1, tuple(point.astype(int)), 2, (0, 0, 255), -1)
+
+    for point in points1_2d:
+        cv.circle(img1, tuple(point.astype(int)), 2, (0, 255, 0), -1)
+
+    for point in reprojected_points2:
+        cv.circle(img2, tuple(point.astype(int)), 2, (0, 0, 255), -1)
+
+    for point in points2_2d:
+        cv.circle(img2, tuple(point.astype(int)), 2, (0, 255, 0), -1)
+
+    cv.imshow("img1", img1)
+    cv.imshow("img2", img2)
+    cv.waitKey(0)
+    cv.destroyAllWindows()
 
     # R1, R2, t = cv.decomposeEssentialMat(essential_matrix)
 

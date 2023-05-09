@@ -1,5 +1,6 @@
 import cv2
 import numpy as np
+from numpy import ndarray
 
 
 class BoundingBox:
@@ -18,10 +19,11 @@ class BoundingBox:
     def __str__(self):
         return f"Min X: {self.min_x} | Min Y: {self.min_y} | Max X: {self.max_x} | Max Y: {self.max_y}"
 
-    def draw(self, img):
+    def draw(self, img) -> ndarray:
         cv2.rectangle(
             img, (self.min_x, self.min_y), (self.max_x, self.max_y), (0, 255, 0), 2
         )
+        return img
 
     def get_center(self):
         return (self.min_x + self.max_x) / 2, (self.min_y + self.max_y) / 2

@@ -1,11 +1,18 @@
+import itertools
+import time
 import xml.etree.ElementTree as ET
 from typing import Union, List
 
 import cv2
 import mediapipe as mp
 import numpy as np
+from matplotlib import pyplot as plt
+from matplotlib.axes import Axes
+from matplotlib.figure import Figure
 from numpy import ndarray
+from pyhull.simplex import Simplex
 from scipy.linalg import orthogonal_procrustes
+from pyhull.convex_hull import ConvexHull
 
 from classes.colored_landmark import ColoredLandmark
 from classes.custom_point import CustomPoint
@@ -69,7 +76,10 @@ def compare_landmarks(
         landmarks1: List[ColoredLandmark], landmarks2: List[ColoredLandmark]
 ) -> [Union[float, None]]:
     if len(landmarks1) != len(landmarks2):
-        Logger.log(f"Landmarks have different lengths", LoggingLevel.WARNING)
+        Logger.divider()
+        print(landmarks1)
+        print(landmarks2)
+        Logger.divider()
         return None
 
     if len(landmarks1) < mp_pose.PoseLandmark.RIGHT_HIP.value:
@@ -138,11 +148,11 @@ def compare_landmarks(
     left_hip1 = pose1[mp_pose.PoseLandmark.LEFT_HIP]
     right_hip1 = pose1[mp_pose.PoseLandmark.RIGHT_HIP]
     centroid1 = (left_hip1 + right_hip1) / 2
+    pose1 -= centroid1
+
     left_hip2 = pose2[mp_pose.PoseLandmark.LEFT_HIP]
     right_hip2 = pose2[mp_pose.PoseLandmark.RIGHT_HIP]
     centroid2 = (left_hip2 + right_hip2) / 2
-
-    pose1 -= centroid1
     pose2 -= centroid2
 
     # Scale to same size
@@ -152,6 +162,8 @@ def compare_landmarks(
     # Brute force 360-degree rotation around y-axis to find best match
     best_cos_sim = -1
     best_rotation = 0
+    fig: Figure = plt.figure()
+    ax: Axes = fig.add_subplot(111, projection="3d")
     for i in range(360):
         p1_rotated = rotate_points_y(np.copy(pose1), i)
         avg_cos_sim = 0
@@ -162,6 +174,42 @@ def compare_landmarks(
         if cos_sim > best_cos_sim:
             best_cos_sim = cos_sim
             best_rotation = i
+
+        # Plot the rotated pose
+        # our_up = np.array([0, 1, 0])
+        # matplotlib_up = np.array([0, 0, 1])
+        # angle = np.arccos(np.dot(our_up, matplotlib_up) / (np.linalg.norm(our_up) * np.linalg.norm(matplotlib_up)))
+        # rotation_axis = np.cross(our_up, matplotlib_up)
+        # rotation_matrix = cv2.Rodrigues(rotation_axis * angle)[0]
+        # p1_rotated = np.dot(p1_rotated, rotation_matrix)
+        # conv_hull = ConvexHull(p1_rotated)
+        # ax.clear()
+        #
+        # for pt in p1_rotated:
+        #     ax.plot([pt[0]], [pt[1]], [pt[2]], 'ro')
+        #
+        # for j in range(len(conv_hull.simplices)):
+        #     simplex: Simplex = conv_hull.simplices[j]
+        #
+        #     # Draw planes for the specified simplices
+        #     simplex_points: ndarray = simplex.coords
+        #     x = simplex_points[:, 0]
+        #     y = simplex_points[:, 1]
+        #     z = simplex_points[:, 2]
+        #     # c = np.mean(simplex_points, axis=0)
+        #     Logger.divider()
+        #     print(x)
+        #     print(y)
+        #     print(z)
+        #     Logger.divider()
+        #     ax.fill_between(
+        #         x,
+        #         y,
+        #         z,
+        #         alpha=0.5,
+        #     )
+        #
+        # plt.pause(5)
 
     # Make the cos sim be between 0 and 1 instead of -1 and 1
     best_cos_sim = (best_cos_sim + 1) / 2
@@ -174,9 +222,9 @@ def compare_landmarks(
         dom_color_sim = 1 - colors_diff(pose1_dom_colors, pose2_dom_colors)
 
     res = best_cos_sim
-    if dom_color_sim is not None:
-        # res -= dom_color_sim * 0.1
-        res = dom_color_sim
+    # if dom_color_sim is not None:
+    #   res -= dom_color_sim * 0.1
+    #   res = dom_color_sim
     return res
 
 
@@ -431,7 +479,7 @@ def get_dominant_color(image, x, y, patch_size):
             colors.append(image[i][j])
 
     if len(colors) == 0:
-        Logger.log("No colors found in patch", LoggingLevel.WARNING)
+        # Logger.log("No colors found in patch", LoggingLevel.WARNING)
         return [None, None, None]
 
     # Use KMeans to find the dominant color
@@ -458,12 +506,6 @@ def triangulate_points(points1, points2, P1, P2) -> ndarray:
 
 
 def project_points(points_3d, intrinsic_matrix, extrinsic_matrix):
-    Logger.divider()
-    Logger.log(points_3d, LoggingLevel.DEBUG)
-    Logger.log(intrinsic_matrix, LoggingLevel.DEBUG)
-    Logger.log(extrinsic_matrix, LoggingLevel.DEBUG)
-    Logger.divider()
-
     points_3d_homogeneous = np.hstack((points_3d, np.ones((points_3d.shape[0], 1)))).T
     points_2d_homogeneous = np.dot(intrinsic_matrix, np.dot(extrinsic_matrix, points_3d_homogeneous))
     points_2d = cv2.convertPointsFromHomogeneous(points_2d_homogeneous.T)
@@ -532,6 +574,7 @@ def sampson_distance_derivative(x1, x2, F):
     dS_dF = 2 * constraint * second_term * outer_product
     return dS_dF
 
+
 # def reprojection_error(params, points_2d, points_3d, camera_indices, point_indices, num_cameras, num_points):
 #     """
 #     Computes the reprojection error between the observed 2D points and the reprojected 3D points.
@@ -582,3 +625,24 @@ def sampson_distance_derivative(x1, x2, F):
 #     # Perform the bundle adjustment using the least_squares function from SciPy
 #     result = least_squares(error_func, params_initial, method='lm', verbose=2)
 #     return result
+
+def get_simplex_normal(simplex: Simplex):
+    """
+    Calculates the normal vector of the plane defined by the given simplex in 3D space.
+
+    Args:
+        simplex (Simplex): A Simplex object representing the simplex.
+
+    Returns:
+        A numpy array representing the normal vector of the plane.
+    """
+    # Check that the simplex is a triangle (i.e., 3 vertices)
+    if simplex.simplex_dim != 3:
+        raise ValueError('Simplex is not a triangle')
+
+    # Calculate the normal vector using the cross product of two edge vectors
+    coords = simplex.coords
+    u = coords[1] - coords[0]
+    v = coords[2] - coords[0]
+    normal = np.cross(u, v)
+    return normal / np.linalg.norm(normal)

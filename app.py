@@ -1,27 +1,22 @@
 import os
-import time
-
-from yolov5 import YOLOv5
 
 import numpy as np
-import poseviz
-import cameralib
+from ultralytics import YOLO
+
 import cv2 as cv
 from typing import List, Tuple
-
-from mediapipe.python.solutions.pose_connections import POSE_CONNECTIONS
 
 from classes.bounding_box import BoundingBox
 
 from classes.camera_data import CameraData
 from classes.logger import Logger
 from classes.person import Person
-from classes.timer import Timer
-from consts.consts import NAMES_LIST, CONNECTIONS_LIST
 from enums.logging_levels import LoggingLevel
 from functions.get_person_pairs import get_person_pairs
 from functions.get_pose import get_pose
 from functions.get_yolo_boxes import get_yolo_bounding_boxes
+
+resolution = (1280, 720)
 
 
 def annotate_video_multi(
@@ -49,19 +44,10 @@ def annotate_video_multi(
 
     cam1_data: CameraData = CameraData.create_from_json(cam1_data_path)
     cam2_data: CameraData = CameraData.create_from_json(cam2_data_path)
-    #
-    cam1_data.test_valid()
-    cam2_data.test_valid()
-
-    Logger.log(str(cam1_data), LoggingLevel.INFO)
-    Logger.log(str(cam2_data), LoggingLevel.INFO)
-
-    Logger.log("Checks passed, starting video...", LoggingLevel.INFO)
-
-    model_path = "yolov5s.pt"
-    device = "cpu"
-    with Timer("Create YOLOv5"):
-        model = YOLOv5(model_path, device)
+    cam1_data.test_valid(resolution)
+    cam2_data.test_valid(resolution)
+    model = YOLO()
+    Logger.log("Starting analysis...", LoggingLevel.INFO)
 
     # test_joint_names = ['l_wrist', 'l_elbow']
 
@@ -73,10 +59,10 @@ def annotate_video_multi(
 
     # fourcc = cv.VideoWriter_fourcc(*"mp4v")
     # file1_pre, file1_ext = os.path.splitext(file1_name)
-    # out1 = cv.VideoWriter(f"{file1_pre}_annotated{file1_ext}", fourcc, 24, (640, 480))
+    # out1 = cv.VideoWriter(f"{file1_pre}_annotated{file1_ext}", fourcc, 24, (1920, 1080))
     cap1 = cv.VideoCapture(file1_name)
     # file2_pre, file2_ext = os.path.splitext(file2_name)
-    # out2 = cv.VideoWriter(f"{file2_pre}_annotated{file2_ext}", fourcc, 24, (640, 480))
+    # out2 = cv.VideoWriter(f"{file2_pre}_annotated{file2_ext}", fourcc, 24, (1920, 1080))
     cap2 = cv.VideoCapture(file2_name)
     frame_count = 0
 
@@ -88,8 +74,8 @@ def annotate_video_multi(
 
         frame_count += 1
 
-        # if frame_count < 50:
-        #     continue
+        if frame_count < 50:
+            continue
 
         if (
                 img1.shape[0] == 0
@@ -99,11 +85,6 @@ def annotate_video_multi(
         ):
             Logger.log(f"Invalid frame size: {img1.shape}, {img2.shape}", LoggingLevel.ERROR)
             break
-
-        if img1.shape[0] != 480 or img1.shape[1] != 640:
-            img1 = cv.resize(img1, (640, 480))
-        if img2.shape[0] != 480 or img2.shape[1] != 640:
-            img2 = cv.resize(img2, (640, 480))
 
         # Save img1 to disk
         # cv.imwrite(f"img1_{frame_count}.jpg", img1)
@@ -115,35 +96,55 @@ def annotate_video_multi(
 
         for box in bounding_boxes1:
             img1, results1 = get_pose(img1, box)
-            # img1 = draw_landmarks_list(img1, landmarks1, with_index=True)
-            persons1.append(
-                Person(f"Person1 {len(persons1)}", frame_count, box, results1)
-            )
+
+            if results1 is None or results1.pose_landmarks is None or results1.pose_world_landmarks is None:
+                continue
+            # drawn = np.copy(img1)
+            # drawn = box.draw(drawn)
+            # cv.imshow("drawn", drawn)
+            # cv.waitKey(0)
+            # cv.destroyAllWindows()
+            length = len([x for x in results1.pose_landmarks.landmark])
+            if length > 0:
+                persons1.append(
+                    Person(f"Person1 {len(persons1)}", frame_count, box, results1)
+                )
 
         for box in bounding_boxes2:
             img2, results2 = get_pose(img2, box)
-            # img2 = draw_landmarks_list(img2, landmarks2, with_index=True)
-            persons2.append(
-                Person(f"Person1 {len(persons2)}", frame_count, box, results2)
-            )
+
+            if results2 is None or results2.pose_landmarks is None or results2.pose_world_landmarks is None:
+                continue
+            # drawn = np.copy(img2)
+            # drawn = box.draw(drawn)
+            # cv.imshow("drawn", drawn)
+            # cv.waitKey(0)
+            # cv.destroyAllWindows()
+            length = len([x for x in results2.pose_landmarks.landmark])
+            if length > 0:
+                persons2.append(
+                    Person(f"Person1 {len(persons2)}", frame_count, box, results2)
+                )
 
         pairs: List[Tuple[Person, Person]] = get_person_pairs(
             persons1, persons2, img1, img2, cam1_data, cam2_data
         )
+
         #
-        # def get_color(index):
-        #     if index == 0:
-        #         return 0, 0, 255
-        #     elif index == 1:
-        #         return 0, 255, 0
-        #     elif index == 2:
-        #         return 255, 0, 0
-        #     else:
-        #         raise ValueError(f"Invalid index: {index}")
+        def get_color(index):
+            if index == 0:
+                return 0, 0, 255
+            elif index == 1:
+                return 0, 255, 0
+            elif index == 2:
+                return 255, 0, 0
+            else:
+                raise ValueError(f"Invalid index: {index}")
+
         #
-        # for i, (p1, p2) in enumerate(pairs):
-        # img1 = p1.draw(img1, color=get_color(i))
-        # img2 = p2.draw(img2, color=get_color(i))
+        for i, (p1, p2) in enumerate(pairs):
+            img1 = p1.draw(img1, color=get_color(i))
+            img2 = p2.draw(img2, color=get_color(i))
 
         # Plot in 3D
         # p1.plot_3d()
@@ -162,42 +163,11 @@ def annotate_video_multi(
         # for person in persons2:
         #     img2 = person.draw(img2)
 
-        # cv.imshow("Frame 1", img1)
-        # cv.imshow("Frame 2", img2)
-        # cv.waitKey(0)
+        cv.imshow("Frame 1", img1)
+        cv.imshow("Frame 2", img2)
+        cv.waitKey(50)
         # out1.write(img1)
         # out2.write(img2)
-
-        if len(persons1) > 0:
-            person1 = persons1[0]
-            # person1.plot_3d(img1)
-
-            # real_camera = cameralib.Camera(world_up=(0, 1, 0), intrinsic_matrix=cam1_data.intrinsic_matrix,
-            #                                extrinsic_matrix=cam1_data.extrinsic_matrix4x4)
-            #
-            # real_boxes = np.array(
-            #     [[box.min_x, box.min_y, box.get_width(), box.get_height()] for box in bounding_boxes1], np.float32)
-            #
-            # real_poses = np.array([person1.get_pose_landmarks_numpy()])
-
-            # Switch the x and y axes
-            # real_poses[:, :, [0, 1]] = real_poses[:, :, [1, 0]]
-            #
-            # Logger.log(real_poses, LoggingLevel.INFO, label="Real Poses")
-            #
-            # test_camera = cameralib.Camera.from_fov(55, img1.shape[:2])
-            #
-            # test_boxes = np.array([[10, 20, 100, 100]], np.float32)
-            #
-            # test_poses = np.array([[[100, 100, 2000], [-100, 100, 2000]]], np.float32)
-
-            # viz.update(frame=img1, boxes=real_boxes,
-            #            poses=real_poses,
-            #            camera=real_camera)
-            # viz.update(frame=img1, boxes=test_boxes, poses=test_poses, camera=test_camera)
-            # time.sleep(2)
-            # cv.imshow("Person 1", img1)
-            # cv.waitKey(2)
 
         if frame_count % 10 == 0:
             Logger.log(f"Frame: {frame_count}", LoggingLevel.INFO)

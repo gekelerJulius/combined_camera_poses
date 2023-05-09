@@ -60,6 +60,7 @@ class Person:
 
     def get_pose_landmarks_with_color(self, image) -> List[ColoredLandmark]:
         if self.results is None or self.results.pose_landmarks is None:
+            Logger.log("No results found", LoggingLevel.WARNING)
             return []
         if image is None:
             Logger.log("No image found", LoggingLevel.WARNING)
@@ -85,7 +86,10 @@ class Person:
         )
 
     def __str__(self):
-        return f"ID: {self.id} | Frame: {self.frame_count} | Bounding Box: {self.bounding_box} | Landmarks: {self.get_pose_landmarks()}"
+        return f"| ID: {self.id} " \
+               f"| Frame: {self.frame_count} " \
+               f"| Bounding Box: {self.bounding_box} " \
+               f"| Landmarks: {self.get_pose_landmarks()}"
 
     def get_landmark_sim(self, person2: "Person", img1, img2):
         if person2 is None:
