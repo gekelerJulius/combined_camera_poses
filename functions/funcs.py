@@ -13,10 +13,12 @@ from numpy import ndarray
 from pyhull.simplex import Simplex
 from scipy.linalg import orthogonal_procrustes
 from pyhull.convex_hull import ConvexHull
+from mpl_toolkits.mplot3d import Axes3D
 
 from classes.colored_landmark import ColoredLandmark
 from classes.custom_point import CustomPoint
 from classes.logger import Logger
+from consts.consts import CONNECTIONS_LIST
 from enums.logging_levels import LoggingLevel
 from functions.get_pose import get_pose
 
@@ -162,10 +164,8 @@ def compare_landmarks(
     # Brute force 360-degree rotation around y-axis to find best match
     best_cos_sim = -1
     best_rotation = 0
-    fig: Figure = plt.figure()
-    ax: Axes = fig.add_subplot(111, projection="3d")
     for i in range(360):
-        p1_rotated = rotate_points_y(np.copy(pose1), i)
+        p1_rotated: ndarray = rotate_points_y(np.copy(pose1), i)
         avg_cos_sim = 0
         for j in range(len(p1_rotated)):
             avg_cos_sim += calc_cos_sim(p1_rotated[j], pose2[j])
@@ -176,40 +176,7 @@ def compare_landmarks(
             best_rotation = i
 
         # Plot the rotated pose
-        # our_up = np.array([0, 1, 0])
-        # matplotlib_up = np.array([0, 0, 1])
-        # angle = np.arccos(np.dot(our_up, matplotlib_up) / (np.linalg.norm(our_up) * np.linalg.norm(matplotlib_up)))
-        # rotation_axis = np.cross(our_up, matplotlib_up)
-        # rotation_matrix = cv2.Rodrigues(rotation_axis * angle)[0]
-        # p1_rotated = np.dot(p1_rotated, rotation_matrix)
-        # conv_hull = ConvexHull(p1_rotated)
-        # ax.clear()
-        #
-        # for pt in p1_rotated:
-        #     ax.plot([pt[0]], [pt[1]], [pt[2]], 'ro')
-        #
-        # for j in range(len(conv_hull.simplices)):
-        #     simplex: Simplex = conv_hull.simplices[j]
-        #
-        #     # Draw planes for the specified simplices
-        #     simplex_points: ndarray = simplex.coords
-        #     x = simplex_points[:, 0]
-        #     y = simplex_points[:, 1]
-        #     z = simplex_points[:, 2]
-        #     # c = np.mean(simplex_points, axis=0)
-        #     Logger.divider()
-        #     print(x)
-        #     print(y)
-        #     print(z)
-        #     Logger.divider()
-        #     ax.fill_between(
-        #         x,
-        #         y,
-        #         z,
-        #         alpha=0.5,
-        #     )
-        #
-        # plt.pause(5)
+        plot_pose(p1_rotated)
 
     # Make the cos sim be between 0 and 1 instead of -1 and 1
     best_cos_sim = (best_cos_sim + 1) / 2
@@ -372,14 +339,22 @@ def match_features(img1, img2):
     )
 
 
-def points_are_close(x1, y1, x2, y2, threshold=None):
+def points_are_close(x1, y1, x2, y2, threshold=None) -> bool:
+    """
+    Check if two points are close to each other.
+    Args:
+        x1: x-coordinate of first point.
+        y1: y-coordinate of first point.
+        x2: x-coordinate of second point.
+        y2: y-coordinate of second point.
+        threshold: Threshold for closeness.
+    """
     if threshold is None:
-        # Set threshold to 5% of biggest number
         threshold = max(x1, x2, y1, y2) * 0.05
     return abs(x1 - x2) < threshold and abs(y1 - y2) < threshold
 
 
-def rotate_points_y(points: ndarray, angle: int, center: CustomPoint = None):
+def rotate_points_y(points: ndarray, angle: int, center: CustomPoint = None) -> ndarray:
     """
     Rotate points around the y-axis by a given angle.
     Args:
@@ -387,10 +362,10 @@ def rotate_points_y(points: ndarray, angle: int, center: CustomPoint = None):
         angle: Angle to rotate by, in degrees (int).
         center: Center of rotation (CustomPoint object).
     """
-    return [rotate_point_y(point, angle, center) for point in points]
+    return np.array([rotate_point_y(point, angle, center) for point in points])
 
 
-def rotate_point_y(point: ndarray, angle: int, center: ndarray = None):
+def rotate_point_y(point: ndarray, angle: int, center: ndarray = None) -> ndarray:
     """
     Rotate a point around the y-axis by a given angle.
     Args:
@@ -646,3 +621,41 @@ def get_simplex_normal(simplex: Simplex):
     v = coords[2] - coords[0]
     normal = np.cross(u, v)
     return normal / np.linalg.norm(normal)
+
+
+# Create plotter class with ids for plots
+def plot_pose(points: ndarray):
+    fig: Figure = plt.figure()
+    ax: Axes3D = fig.add_subplot(111, projection="3d")
+    ax.clear()
+    # Set axes labels
+    ax.set_xlabel("X")
+    ax.set_ylabel("Y")
+    ax.set_zlabel("Z")
+    ax.axis('equal')
+
+    # Swap y and z axes
+    pts = np.array([[pt[0], pt[2], pt[1]] for pt in points])
+    # Invert z-axis
+    pts[:, 2] *= -1
+
+    for pt in pts:
+        ax.plot([pt[0]], [pt[1]], [pt[2]], 'ro')
+
+    for connection in CONNECTIONS_LIST:
+        pt1 = pts[connection[0]]
+        pt2 = pts[connection[1]]
+        ax.plot([pt1[0], pt2[0]], [pt1[1], pt2[1]], [pt1[2], pt2[2]], 'b-')
+
+    # conv_hull = ConvexHull(pts)
+    # for j in range(len(conv_hull.simplices)):
+    #     simplex: Simplex = conv_hull.simplices[j]
+    #
+    #     # Draw planes for the specified simplices
+    #     simplex_points: ndarray = simplex.coords
+    #     X = simplex_points[:, 0]
+    #     Y = simplex_points[:, 1]
+    #     Z = simplex_points[:, 2]
+    #     ax.plot_trisurf(X, Y, Z, alpha=0.3)
+
+    plt.pause(0.01)

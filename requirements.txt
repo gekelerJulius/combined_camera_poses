@@ -8,4 +8,5 @@ scipy==1.10.1
 poseviz>=0.1.4
 cameralib>=0.1.2
 ultralytics>=8.0.96
-opencv-contrib-python>=4.5.3
+
+pyhull>=2015.2.1
