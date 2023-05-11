@@ -1,12 +1,12 @@
 matplotlib==3.7.1
 mayavi==4.8.1
-mediapipe==0.9.3.0
+mediapipe==0.10.0
 mmdet==3.0.0
 numpy>=1.23.0
 scipy==1.10.1
 
 poseviz>=0.1.4
 cameralib>=0.1.2
-ultralytics>=8.0.96
+ultralytics==8.0.98
 
 pyhull>=2015.2.1

@@ -78,9 +78,10 @@ class Person:
         return lmks
 
     def draw(self, image, color=(0, 255, 0)):
+        # TODO: Fix this
         return draw_landmarks_list(
             image,
-            self.get_pose_landmarks(),
+            self.results.pose_landmarks,
             with_index=False,
             color=color,
         )

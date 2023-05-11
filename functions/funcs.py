@@ -15,6 +15,7 @@ from scipy.linalg import orthogonal_procrustes
 from pyhull.convex_hull import ConvexHull
 from mpl_toolkits.mplot3d import Axes3D
 
+from classes.PlotService import PlotService
 from classes.colored_landmark import ColoredLandmark
 from classes.custom_point import CustomPoint
 from classes.logger import Logger
@@ -23,6 +24,8 @@ from enums.logging_levels import LoggingLevel
 from functions.get_pose import get_pose
 
 mp_pose = mp.solutions.pose
+mp_drawing = mp.solutions.drawing_utils
+mp_drawing_styles = mp.solutions.drawing_styles
 
 
 def normalize_points(points):
@@ -164,6 +167,7 @@ def compare_landmarks(
     # Brute force 360-degree rotation around y-axis to find best match
     best_cos_sim = -1
     best_rotation = 0
+    plot_id = None
     for i in range(360):
         p1_rotated: ndarray = rotate_points_y(np.copy(pose1), i)
         avg_cos_sim = 0
@@ -176,7 +180,7 @@ def compare_landmarks(
             best_rotation = i
 
         # Plot the rotated pose
-        plot_pose(p1_rotated)
+        plot_id = plot_pose(p1_rotated, plot_id)
 
     # Make the cos sim be between 0 and 1 instead of -1 and 1
     best_cos_sim = (best_cos_sim + 1) / 2
@@ -247,8 +251,14 @@ def draw_landmarks_list(image, landmarks, with_index=False, color=(0, 255, 0)):
                 3,
             )
     else:
-        for i, landmark in enumerate(landmarks):
-            cv2.circle(image, (int(landmark.x), int(landmark.y)), 2, color, -1)
+        # for i, landmark in enumerate(landmarks):
+        #     cv2.circle(image, (int(landmark.x), int(landmark.y)), 2, color, -1)
+        mp_drawing.draw_landmarks(
+            image,
+            landmarks,
+            mp_pose.POSE_CONNECTIONS,
+            landmark_drawing_spec=mp_drawing_styles.get_default_pose_landmarks_style(),
+        )
     return image
 
 
@@ -624,10 +634,16 @@ def get_simplex_normal(simplex: Simplex):
 
 
 # Create plotter class with ids for plots
-def plot_pose(points: ndarray):
-    fig: Figure = plt.figure()
-    ax: Axes3D = fig.add_subplot(111, projection="3d")
-    ax.clear()
+def plot_pose(points: ndarray, plot_id: int = None) -> int:
+    plot_service: PlotService = PlotService.get_instance()
+    if plot_id is not None:
+        fig: Figure = plot_service.get_plot(plot_id)
+        ax: Axes3D = fig.get_axes()[0]
+        ax.clear()
+    else:
+        fig: Figure = plt.figure()
+        ax: Axes3D = fig.add_subplot(111, projection="3d")
+
     # Set axes labels
     ax.set_xlabel("X")
     ax.set_ylabel("Y")
@@ -658,4 +674,7 @@ def plot_pose(points: ndarray):
     #     Z = simplex_points[:, 2]
     #     ax.plot_trisurf(X, Y, Z, alpha=0.3)
 
+    if plot_id is None:
+        plot_id = plot_service.add_plot(fig)
     plt.pause(0.01)
+    return plot_id
