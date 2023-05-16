@@ -8,6 +8,7 @@ import numpy as np
 import cv2 as cv
 from mediapipe.python.solutions.pose_connections import POSE_CONNECTIONS
 from poseviz import PoseViz, ViewInfo
+from scipy.optimize import linear_sum_assignment
 
 from classes.camera_data import CameraData
 from classes.logger import Logger
@@ -32,28 +33,30 @@ def get_person_pairs(
     Returns a list of tuples of Person objects, where each tuple contains two Person objects
     that are the same person in different images.
     """
-    record = set()
+    # record = set()
 
-    for p1 in a:
-        for p2 in b:
-            sim1 = p1.get_landmark_sim(p2, img1, img2)
-            sim2 = p2.get_landmark_sim(p1, img2, img1)
-
-            if sim1 is None or sim2 is None:
-                continue
-            record.add((p1, p2, sim1, sim2))
+    # for p1 in a:
+    #     for p2 in b:
+    # sim1 = p1.get_landmark_sim(p2, img1, img2)
+    # sim2 = p2.get_landmark_sim(p1, img2, img1)
+    #
+    # if sim1 is None or sim2 is None:
+    #     continue
+    # record.add((p1, p2, sim1, sim2))
 
     # Sort the record by the smallest difference between people in a and b
-    def sort_key(record_item):
-        return record_item[2] + record_item[3]
+    # def sort_key(record_item):
+    #     return record_item[2] + record_item[3]
 
-    sorted_record = sorted(record, key=sort_key)
-    pairs = []
+    # sorted_record = sorted(record, key=sort_key)
 
-    for p1, p2, diff1, diff2 in sorted_record:
-        if p1 in [pair[0] for pair in pairs] or p2 in [pair[1] for pair in pairs]:
-            continue
-        pairs.append((p1, p2))
+    cost_matrix = np.zeros((len(a), len(b)))
+    for i, p1 in enumerate(a):
+        for j, p2 in enumerate(b):
+            cost_matrix[i, j] = test_pairing(p1, p2, img1, img2, cam_data1, cam_data2)
+
+    row_ind, col_ind = linear_sum_assignment(cost_matrix)
+    pairs = [(a[i], b[j]) for i, j in zip(row_ind, col_ind)]
     return pairs
 
 

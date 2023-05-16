@@ -4,7 +4,7 @@ from cv2 import VideoWriter
 from ultralytics import YOLO
 
 import cv2 as cv
-from typing import List
+from typing import List, Tuple
 
 from classes.bounding_box import BoundingBox
 
@@ -63,8 +63,8 @@ def annotate_video_multi(
     file2_pre, file2_ext = os.path.splitext(file2_name)
     cap1 = cv.VideoCapture(file1_name)
     cap2 = cv.VideoCapture(file2_name)
-    out1: VideoWriter = None
-    out2: VideoWriter = None
+    # out1: VideoWriter = None
+    # out2: VideoWriter = None
     frame_count = 0
     person_recorder1: PersonRecorder = PersonRecorder()
     person_recorder2: PersonRecorder = PersonRecorder()
@@ -77,8 +77,8 @@ def annotate_video_multi(
 
         frame_count += 1
 
-        # if frame_count < 30:
-        #     continue
+        if frame_count < 60:
+            continue
 
         if (
                 img1.shape[0] == 0
@@ -131,7 +131,28 @@ def annotate_video_multi(
             person_recorder2.add(person2)
         person_recorder2.eval(frame_count)
 
-        # TODO: Fix Homography
+        # TODO: Use past recordings to determine if the pairings are plausible
+
+        pairs: List[Tuple[Person, Person]] = get_person_pairs_simple_distance(
+            persons1, persons2, img1, img2, cam1_data, cam2_data
+        )
+
+        def get_color(index):
+            if index == 0:
+                return 0, 0, 255
+            elif index == 1:
+                return 0, 255, 0
+            elif index == 2:
+                return 255, 0, 0
+            else:
+                raise ValueError(f"Invalid index: {index}")
+
+        for i, (p1, p2) in enumerate(pairs):
+            color = get_color(i)
+            p1.draw(img1, color)
+            p2.draw(img2, color)
+
+        # TODO: Add and fix Homography
         # if persons1 and len(persons1) > 0:
         #     p1 = persons1[0]
         #     feet_points_on_img1 = p1.get_feet_points()
@@ -142,47 +163,6 @@ def annotate_video_multi(
         #     mean_point_real = np.matmul(H, mean_point)
         #     ax1.plot(mean_point_real[0], mean_point_real[1], 'ro')
         #     plt.pause(0.01)
-
-        # pairs: List[Tuple[Person, Person]] = get_person_pairs_simple_distance(
-        #     persons1, persons2, img1, img2, cam1_data, cam2_data
-        # )
-
-        # if len(pairs) > 0:
-        #     p1, p2 = pairs[0]
-        #     p1.draw(img1, (0, 0, 255))
-        #     p2.draw(img2, (0, 0, 255))
-
-        # for person in persons1:
-        #     person.draw(img1, (0, 0, 255))
-
-        # for person in persons2:
-        #     person.draw(img2, (0, 0, 255))
-
-        #     test_pairing(pair[0], pair[1], img1, img2, cam1_data, cam2_data)
-
-        # def get_color(index):
-        #     if index == 0:
-        #         return 0, 0, 255
-        #     elif index == 1:
-        #         return 0, 255, 0
-        #     elif index == 2:
-        #         return 255, 0, 0
-        #     else:
-        #         raise ValueError(f"Invalid index: {index}")
-
-        # id1 = None
-        # id2 = None
-        # for i, (p1, p2) in enumerate(pairs):
-        # p1.plot_2d(plot_id=id1, title="Person 1")
-        # p2.plot_2d(plot_id=id2, title="Person 2")
-        # p1.draw(img1, get_color(i), title="Person 1")
-        # p2.draw(img2, get_color(i), title="Person 2")
-        # plt.pause(20)
-
-        # Plot in 3D
-        # p1.plot_3d()
-        # p2.plot_3d()
-        # time.sleep(10)
 
         cv.imshow("Frame 1", img1)
         cv.imshow("Frame 2", img2)
@@ -204,8 +184,8 @@ def annotate_video_multi(
 
     cap1.release()
     cap2.release()
-    out1.release()
-    out2.release()
+    # out1.release()
+    # out2.release()
     Logger.log("Done!", LoggingLevel.INFO)
     cv.waitKey(0)
     cv.destroyAllWindows()
