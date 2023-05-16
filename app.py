@@ -1,15 +1,10 @@
 import os
-import time
 
-import numpy as np
 from cv2 import VideoWriter
-from matplotlib import pyplot as plt
-from matplotlib.axes import Axes
-from matplotlib.figure import Figure
 from ultralytics import YOLO
 
 import cv2 as cv
-from typing import List, Tuple
+from typing import List
 
 from classes.bounding_box import BoundingBox
 
@@ -17,7 +12,6 @@ from classes.camera_data import CameraData
 from classes.logger import Logger
 from classes.person import Person
 from classes.person_recorder import PersonRecorder
-from consts.consts import LANDMARK_INDICES_PER_NAME
 from enums.logging_levels import LoggingLevel
 from functions.get_person_pairs import get_person_pairs, get_person_pairs_simple_distance, test_pairing
 from functions.get_pose import get_pose
@@ -112,11 +106,6 @@ def annotate_video_multi(
 
             if results1 is None or results1.pose_landmarks is None or results1.pose_world_landmarks is None:
                 continue
-            # drawn = np.copy(img1)
-            # drawn = box.draw(drawn)
-            # cv.imshow("drawn", drawn)
-            # cv.waitKey(0)
-            # cv.destroyAllWindows()
             length = len([x for x in results1.pose_landmarks.landmark])
             if length > 0:
                 persons1.append(
@@ -128,25 +117,18 @@ def annotate_video_multi(
 
             if results2 is None or results2.pose_landmarks is None or results2.pose_world_landmarks is None:
                 continue
-            # drawn = np.copy(img2)
-            # drawn = box.draw(drawn)
-            # cv.imshow("drawn", drawn)
-            # cv.waitKey(0)
-            # cv.destroyAllWindows()
             length = len([x for x in results2.pose_landmarks.landmark])
             if length > 0:
                 persons2.append(
-                    Person(f"Person1 {len(persons2)}", frame_count, box, results2)
+                    Person(f"Person2 {len(persons2)}", frame_count, box, results2)
                 )
 
-        for person in persons1:
-            person_recorder1.add(person)
-
-        for person in persons2:
-            person_recorder2.add(person)
-
-        # TODO: Debug
+        for person1 in persons1:
+            person_recorder1.add(person1)
         person_recorder1.eval(frame_count)
+
+        for person2 in persons2:
+            person_recorder2.add(person2)
         person_recorder2.eval(frame_count)
 
         # TODO: Fix Homography
@@ -170,11 +152,11 @@ def annotate_video_multi(
         #     p1.draw(img1, (0, 0, 255))
         #     p2.draw(img2, (0, 0, 255))
 
-        for person in persons1:
-            person.draw(img1, (0, 0, 255))
+        # for person in persons1:
+        #     person.draw(img1, (0, 0, 255))
 
-        for person in persons2:
-            person.draw(img2, (0, 0, 255))
+        # for person in persons2:
+        #     person.draw(img2, (0, 0, 255))
 
         #     test_pairing(pair[0], pair[1], img1, img2, cam1_data, cam2_data)
 
@@ -202,17 +184,17 @@ def annotate_video_multi(
         # p2.plot_3d()
         # time.sleep(10)
 
-        # cv.imshow("Frame 1", img1)
-        # cv.imshow("Frame 2", img2)
-        # cv.waitKey(1)
+        cv.imshow("Frame 1", img1)
+        cv.imshow("Frame 2", img2)
+        cv.waitKey(1)
 
-        if out1 is None:
-            out1 = cv.VideoWriter(f"{file1_pre}_annotated{file1_ext}", fourcc, 24, (img1.shape[1], img1.shape[0]))
-        if out2 is None:
-            out2 = cv.VideoWriter(f"{file2_pre}_annotated{file2_ext}", fourcc, 24, (img2.shape[1], img2.shape[0]))
+        # if out1 is None:
+        #     out1 = cv.VideoWriter(f"{file1_pre}_annotated{file1_ext}", fourcc, 24, (img1.shape[1], img1.shape[0]))
+        # if out2 is None:
+        #     out2 = cv.VideoWriter(f"{file2_pre}_annotated{file2_ext}", fourcc, 24, (img2.shape[1], img2.shape[0]))
 
-        out1.write(img1)
-        out2.write(img2)
+        # out1.write(img1)
+        # out2.write(img2)
         if frame_count % 10 == 0:
             Logger.log(f"Frame: {frame_count}", LoggingLevel.INFO)
 

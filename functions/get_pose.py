@@ -2,6 +2,7 @@ from typing import NamedTuple
 
 import cv2
 import mediapipe as mp
+from mediapipe.python.solutions.pose import Pose
 from numpy import ndarray
 
 from classes.bounding_box import BoundingBox
@@ -10,7 +11,7 @@ from classes.bounding_box import BoundingBox
 def get_pose(image, box: BoundingBox) -> (ndarray, NamedTuple):
     mp_pose = mp.solutions.pose
     cropped_image = image[box.min_y: box.max_y, box.min_x: box.max_x]
-    pose = mp_pose.Pose(
+    pose: Pose = mp_pose.Pose(
         static_image_mode=True,
         min_detection_confidence=0.5,
         min_tracking_confidence=0.5,

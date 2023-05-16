@@ -117,10 +117,11 @@ class Person:
         )
 
     def __str__(self):
-        return f"| ID: {self.id} " \
-               f"| Frame: {self.frame_count} " \
-               f"| Bounding Box: {self.bounding_box} " \
-               f"| Landmarks: {self.get_pose_landmarks()}"
+        return f"Name: {self.name if self.name is not None else 'Unnamed'} " \
+               f"| Frame: {self.frame_count} "
+
+    def __repr__(self):
+        return self.__str__()
 
     def get_landmark_sim(self, person2: "Person", img1, img2):
         if person2 is None:

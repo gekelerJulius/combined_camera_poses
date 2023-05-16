@@ -6,8 +6,12 @@ from classes.person import Person
 
 
 class PersonRecorder:
-    frame_dict: Dict[int, List[Person]] = {}
-    name_dict: Dict[str, List[Person]] = {}
+    frame_dict: Dict[int, List[Person]]
+    name_dict: Dict[str, List[Person]]
+
+    def __init__(self):
+        self.frame_dict = {}
+        self.name_dict = {}
 
     def add(self, person: Person):
         if self.frame_dict.get(person.frame_count) is None:
@@ -44,12 +48,18 @@ class PersonRecorder:
             distances.sort(key=lambda x: x[2])
             i = 0
             matched = []
-            while i < len(distances):
-                person, previous_person, dist = distances[i]
-                person.name = previous_person.name
-                self.name_dict[person.name].append(person)
-                distances = list(filter(lambda x: x[0] != person and x[1] != previous_person, distances))
-                matched.append(person)
+            try:
+                while i < len(distances):
+                    person, previous_person, dist = distances[i]
+                    person.name = previous_person.name
+                    self.name_dict.get(previous_person.name).append(person)
+                    distances = list(filter(lambda x: x[0] != person and x[1] != previous_person, distances))
+                    matched.append(person)
+            except AttributeError as e:
+                print(e)
+                print(self.name_dict)
+                print(distances[i])
+                exit(1)
 
             for person in persons:
                 if person not in matched:
