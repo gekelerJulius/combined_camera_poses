@@ -180,12 +180,11 @@ def compare_landmarks(
             best_rotation = i
 
         # Plot the rotated pose
-        plot_id = plot_pose(p1_rotated, plot_id)
+        # plot_id = plot_pose(p1_rotated, plot_id)
 
     # Make the cos sim be between 0 and 1 instead of -1 and 1
     best_cos_sim = (best_cos_sim + 1) / 2
 
-    dom_color_sim = None
     # Check if any value in one of the dom color arrays is [None, None, None]
     if not np.any(pose1_dom_colors == [None, None, None]) and not np.any(
             pose2_dom_colors == [None, None, None]
@@ -238,7 +237,7 @@ def draw_landmarks(results, image):
     return image
 
 
-def draw_landmarks_list(image, landmarks, with_index=False, color=(0, 255, 0)):
+def draw_landmarks_list(image, landmarks, with_index=False, color=(0, 255, 0), title: str = "Landmarks"):
     if with_index:
         for i, landmark in enumerate(landmarks):
             cv2.putText(
@@ -251,14 +250,11 @@ def draw_landmarks_list(image, landmarks, with_index=False, color=(0, 255, 0)):
                 3,
             )
     else:
-        # for i, landmark in enumerate(landmarks):
-        #     cv2.circle(image, (int(landmark.x), int(landmark.y)), 2, color, -1)
-        mp_drawing.draw_landmarks(
-            image,
-            landmarks,
-            mp_pose.POSE_CONNECTIONS,
-            landmark_drawing_spec=mp_drawing_styles.get_default_pose_landmarks_style(),
-        )
+        for i, landmark in enumerate(landmarks):
+            cv2.circle(image, (int(landmark.x), int(landmark.y)), 2, color, -1)
+
+        top_right = (int(max([landmark.x for landmark in landmarks])), int(min([landmark.y for landmark in landmarks])))
+        cv2.putText(image, title, top_right, cv2.FONT_HERSHEY_SIMPLEX, 0.25, color, 1)
     return image
 
 
@@ -633,8 +629,41 @@ def get_simplex_normal(simplex: Simplex):
     return normal / np.linalg.norm(normal)
 
 
-# Create plotter class with ids for plots
-def plot_pose(points: ndarray, plot_id: int = None) -> int:
+def plot_pose_2d(points: ndarray, plot_id: int = None, title: str = "") -> int:
+    plot_service: PlotService = PlotService.get_instance()
+    if plot_id is not None:
+        fig: Figure = plot_service.get_plot(plot_id)
+        ax: Axes = fig.get_axes()[0]
+        ax.clear()
+    else:
+        fig: Figure = plt.figure()
+        ax: Axes = fig.add_subplot(111)
+
+    fig.suptitle(title)
+    # Set axes labels
+    ax.set_xlabel("X")
+    ax.set_ylabel("Y")
+    ax.axis('equal')
+
+    pts = np.array([[pt[0], pt[1]] for pt in points])
+    # Invert y-axis
+    pts[:, 1] = -pts[:, 1]
+
+    # Plot points
+    ax.scatter(pts[:, 0], pts[:, 1], s=10, c='b', marker='o')
+
+    for connection in CONNECTIONS_LIST:
+        a = connection[0]
+        b = connection[1]
+        ax.plot([pts[a, 0], pts[b, 0]], [pts[a, 1], pts[b, 1]], c='b')
+
+    if plot_id is None:
+        plot_id = plot_service.add_plot(fig)
+    plt.pause(0.001)
+    return plot_id
+
+
+def plot_pose_3d(points: ndarray, plot_id: int = None, title: str = "") -> int:
     plot_service: PlotService = PlotService.get_instance()
     if plot_id is not None:
         fig: Figure = plot_service.get_plot(plot_id)
@@ -644,6 +673,7 @@ def plot_pose(points: ndarray, plot_id: int = None) -> int:
         fig: Figure = plt.figure()
         ax: Axes3D = fig.add_subplot(111, projection="3d")
 
+    fig.suptitle(title)
     # Set axes labels
     ax.set_xlabel("X")
     ax.set_ylabel("Y")

@@ -1,6 +1,10 @@
 import os
+import time
 
 import numpy as np
+from matplotlib import pyplot as plt
+from matplotlib.axes import Axes
+from matplotlib.figure import Figure
 from ultralytics import YOLO
 
 import cv2 as cv
@@ -11,8 +15,10 @@ from classes.bounding_box import BoundingBox
 from classes.camera_data import CameraData
 from classes.logger import Logger
 from classes.person import Person
+from classes.person_recorder import PersonRecorder
+from consts.consts import LANDMARK_INDICES_PER_NAME
 from enums.logging_levels import LoggingLevel
-from functions.get_person_pairs import get_person_pairs
+from functions.get_person_pairs import get_person_pairs, get_person_pairs_simple_distance, test_pairing
 from functions.get_pose import get_pose
 from functions.get_yolo_boxes import get_yolo_bounding_boxes
 
@@ -66,6 +72,8 @@ def annotate_video_multi(
     cap2 = cv.VideoCapture(file2_name)
     frame_count = 0
 
+    person_recorder1: PersonRecorder = PersonRecorder()
+
     while cap1.isOpened() and cap2.isOpened():
         ret1, img1 = cap1.read()
         ret2, img2 = cap2.read()
@@ -74,7 +82,7 @@ def annotate_video_multi(
 
         frame_count += 1
 
-        if frame_count < 50:
+        if frame_count < 30:
             continue
 
         if (
@@ -85,6 +93,10 @@ def annotate_video_multi(
         ):
             Logger.log(f"Invalid frame size: {img1.shape}, {img2.shape}", LoggingLevel.ERROR)
             break
+
+        # Undistort images
+        img1 = cv.undistort(img1, cam1_data.intrinsic_matrix, None)
+        img2 = cv.undistort(img2, cam2_data.intrinsic_matrix, None)
 
         # Save img1 to disk
         # cv.imwrite(f"img1_{frame_count}.jpg", img1)
@@ -126,46 +138,64 @@ def annotate_video_multi(
                     Person(f"Person1 {len(persons2)}", frame_count, box, results2)
                 )
 
-        pairs: List[Tuple[Person, Person]] = get_person_pairs(
-            persons1, persons2, img1, img2, cam1_data, cam2_data
-        )
+        for person in persons1:
+            person_recorder1.add(person)
 
-        #
-        def get_color(index):
-            if index == 0:
-                return 0, 0, 255
-            elif index == 1:
-                return 0, 255, 0
-            elif index == 2:
-                return 255, 0, 0
-            else:
-                raise ValueError(f"Invalid index: {index}")
+        person_recorder1.eval(frame_count)
 
+        # TODO: Fix Homography
+        # if persons1 and len(persons1) > 0:
+        #     p1 = persons1[0]
+        #     feet_points_on_img1 = p1.get_feet_points()
+        #     feet_points_real1 = p1.get_feet_points_real(cam1_data)
+        #     H, mask = cv.findHomography(feet_points_on_img1, feet_points_real1, cv.RANSAC, 5.0)
         #
-        for i, (p1, p2) in enumerate(pairs):
-            img1 = p1.draw(img1, color=get_color(i))
-            img2 = p2.draw(img2, color=get_color(i))
+        #     mean_point = np.mean(p1.get_pose_landmarks_numpy(), axis=0)
+        #     mean_point_real = np.matmul(H, mean_point)
+        #     ax1.plot(mean_point_real[0], mean_point_real[1], 'ro')
+        #     plt.pause(0.01)
+
+        # pairs: List[Tuple[Person, Person]] = get_person_pairs_simple_distance(
+        #     persons1, persons2, img1, img2, cam1_data, cam2_data
+        # )
+
+        # if len(pairs) > 0:
+        #     p1, p2 = pairs[0]
+        #     p1.draw(img1, (0, 0, 255))
+        #     p2.draw(img2, (0, 0, 255))
+
+        for person in persons1:
+            person.draw(img1, (0, 0, 255))
+
+        #     test_pairing(pair[0], pair[1], img1, img2, cam1_data, cam2_data)
+
+        # def get_color(index):
+        #     if index == 0:
+        #         return 0, 0, 255
+        #     elif index == 1:
+        #         return 0, 255, 0
+        #     elif index == 2:
+        #         return 255, 0, 0
+        #     else:
+        #         raise ValueError(f"Invalid index: {index}")
+
+        # id1 = None
+        # id2 = None
+        # for i, (p1, p2) in enumerate(pairs):
+        # p1.plot_2d(plot_id=id1, title="Person 1")
+        # p2.plot_2d(plot_id=id2, title="Person 2")
+        # p1.draw(img1, get_color(i), title="Person 1")
+        # p2.draw(img2, get_color(i), title="Person 2")
+        # plt.pause(20)
 
         # Plot in 3D
         # p1.plot_3d()
         # p2.plot_3d()
         # time.sleep(10)
 
-        # copy_img2 = img2.copy()
-        # copy_img2 = smallest_diff_person.draw(copy_img2)
-        # cv.imshow("Frame 2", copy_img2)
-        # cv.waitKey(0)
-        # cv.destroyAllWindows()
-
-        # for person in persons1:
-        #     img1 = person.draw(img1)
-        #
-        # for person in persons2:
-        #     img2 = person.draw(img2)
-
         cv.imshow("Frame 1", img1)
         cv.imshow("Frame 2", img2)
-        cv.waitKey(50)
+        cv.waitKey(1)
         # out1.write(img1)
         # out2.write(img2)
 

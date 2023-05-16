@@ -36,6 +36,8 @@ LANDMARK_NAMES = {
     32: "right_foot_index",
 }
 
+LANDMARK_INDICES_PER_NAME = {value: key for key, value in LANDMARK_NAMES.items()}
+
 NAMES_LIST = list(LANDMARK_NAMES.values())
 
 CONNECTIONS_LIST = [
