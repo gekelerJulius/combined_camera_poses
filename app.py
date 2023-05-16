@@ -2,6 +2,7 @@ import os
 import time
 
 import numpy as np
+from cv2 import VideoWriter
 from matplotlib import pyplot as plt
 from matplotlib.axes import Axes
 from matplotlib.figure import Figure
@@ -63,16 +64,16 @@ def annotate_video_multi(
     # viz = poseviz.PoseViz(NAMES_LIST, CONNECTIONS_LIST)
     # viz = poseviz.PoseViz(test_joint_names, test_joint_edges)
 
-    # fourcc = cv.VideoWriter_fourcc(*"mp4v")
-    # file1_pre, file1_ext = os.path.splitext(file1_name)
-    # out1 = cv.VideoWriter(f"{file1_pre}_annotated{file1_ext}", fourcc, 24, (1920, 1080))
+    fourcc = cv.VideoWriter_fourcc(*"mp4v")
+    file1_pre, file1_ext = os.path.splitext(file1_name)
+    file2_pre, file2_ext = os.path.splitext(file2_name)
     cap1 = cv.VideoCapture(file1_name)
-    # file2_pre, file2_ext = os.path.splitext(file2_name)
-    # out2 = cv.VideoWriter(f"{file2_pre}_annotated{file2_ext}", fourcc, 24, (1920, 1080))
     cap2 = cv.VideoCapture(file2_name)
+    out1: VideoWriter = None
+    out2: VideoWriter = None
     frame_count = 0
-
     person_recorder1: PersonRecorder = PersonRecorder()
+    person_recorder2: PersonRecorder = PersonRecorder()
 
     while cap1.isOpened() and cap2.isOpened():
         ret1, img1 = cap1.read()
@@ -82,8 +83,8 @@ def annotate_video_multi(
 
         frame_count += 1
 
-        if frame_count < 30:
-            continue
+        # if frame_count < 30:
+        #     continue
 
         if (
                 img1.shape[0] == 0
@@ -141,7 +142,12 @@ def annotate_video_multi(
         for person in persons1:
             person_recorder1.add(person)
 
+        for person in persons2:
+            person_recorder2.add(person)
+
+        # TODO: Debug
         person_recorder1.eval(frame_count)
+        person_recorder2.eval(frame_count)
 
         # TODO: Fix Homography
         # if persons1 and len(persons1) > 0:
@@ -166,6 +172,9 @@ def annotate_video_multi(
 
         for person in persons1:
             person.draw(img1, (0, 0, 255))
+
+        for person in persons2:
+            person.draw(img2, (0, 0, 255))
 
         #     test_pairing(pair[0], pair[1], img1, img2, cam1_data, cam2_data)
 
@@ -193,12 +202,17 @@ def annotate_video_multi(
         # p2.plot_3d()
         # time.sleep(10)
 
-        cv.imshow("Frame 1", img1)
-        cv.imshow("Frame 2", img2)
-        cv.waitKey(1)
-        # out1.write(img1)
-        # out2.write(img2)
+        # cv.imshow("Frame 1", img1)
+        # cv.imshow("Frame 2", img2)
+        # cv.waitKey(1)
 
+        if out1 is None:
+            out1 = cv.VideoWriter(f"{file1_pre}_annotated{file1_ext}", fourcc, 24, (img1.shape[1], img1.shape[0]))
+        if out2 is None:
+            out2 = cv.VideoWriter(f"{file2_pre}_annotated{file2_ext}", fourcc, 24, (img2.shape[1], img2.shape[0]))
+
+        out1.write(img1)
+        out2.write(img2)
         if frame_count % 10 == 0:
             Logger.log(f"Frame: {frame_count}", LoggingLevel.INFO)
 
@@ -208,8 +222,8 @@ def annotate_video_multi(
 
     cap1.release()
     cap2.release()
-    # out1.release()
-    # out2.release()
+    out1.release()
+    out2.release()
     Logger.log("Done!", LoggingLevel.INFO)
     cv.waitKey(0)
     cv.destroyAllWindows()
