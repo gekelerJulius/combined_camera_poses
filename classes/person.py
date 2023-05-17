@@ -1,4 +1,4 @@
-from typing import NamedTuple, List, Union
+from typing import NamedTuple, List, Union, Tuple
 
 import mediapipe as mp
 import numpy as np
@@ -47,6 +47,7 @@ class Person:
     id: str
     frame_count: int
     name: str = None
+    color: Tuple[int] = None
     bounding_box: BoundingBox
     results: NamedTuple
 

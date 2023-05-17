@@ -13,6 +13,7 @@ from classes.logger import Logger
 from classes.person import Person
 from classes.person_recorder import PersonRecorder
 from enums.logging_levels import LoggingLevel
+from functions.funcs import combine_colors
 from functions.get_person_pairs import get_person_pairs, get_person_pairs_simple_distance, test_pairing
 from functions.get_pose import get_pose
 from functions.get_yolo_boxes import get_yolo_bounding_boxes
@@ -133,24 +134,22 @@ def annotate_video_multi(
 
         # TODO: Use past recordings to determine if the pairings are plausible
 
-        pairs: List[Tuple[Person, Person]] = get_person_pairs_simple_distance(
+        # pairs: List[Tuple[Person, Person]] = get_person_pairs_simple_distance(
+        #     persons1, persons2, img1, img2, cam1_data, cam2_data
+        # )
+
+        pairs: List[Tuple[Person, Person]] = get_person_pairs(
             persons1, persons2, img1, img2, cam1_data, cam2_data
         )
 
-        def get_color(index):
-            if index == 0:
-                return 0, 0, 255
-            elif index == 1:
-                return 0, 255, 0
-            elif index == 2:
-                return 255, 0, 0
-            else:
-                raise ValueError(f"Invalid index: {index}")
-
         for i, (p1, p2) in enumerate(pairs):
-            color = get_color(i)
-            p1.draw(img1, color)
-            p2.draw(img2, color)
+            color1 = p1.color
+            color2 = p2.color
+            blended = combine_colors(color1, color2)
+            p1.color = blended
+            p2.color = blended
+            p1.draw(img1, p1.color)
+            p2.draw(img2, p2.color)
 
         # TODO: Add and fix Homography
         # if persons1 and len(persons1) > 0:

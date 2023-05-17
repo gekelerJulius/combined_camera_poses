@@ -18,7 +18,7 @@ from classes.unity_person import load_points
 from consts.consts import LANDMARK_NAMES, CONNECTIONS_LIST, NAMES_LIST
 from consts.mixamo_mapping import from_mixamo
 from enums.logging_levels import LoggingLevel
-from functions.funcs import triangulate_points, project_points
+from functions.funcs import triangulate_points, project_points, estimate_projection
 
 
 def get_person_pairs(
@@ -136,31 +136,36 @@ def test_pairing(
 
     Returns the reprojection error.
     """
-    Logger.log(cam_data1.intrinsic_matrix, LoggingLevel.DEBUG, label="cam_data1.intrinsic_matrix")
-    Logger.log(cam_data2.intrinsic_matrix, LoggingLevel.DEBUG, label="cam_data2.intrinsic_matrix")
+    # Logger.log(cam_data1.intrinsic_matrix, LoggingLevel.DEBUG, label="cam_data1.intrinsic_matrix")
+    # Logger.log(cam_data2.intrinsic_matrix, LoggingLevel.DEBUG, label="cam_data2.intrinsic_matrix")
 
     common_indices = Person.get_common_visible_landmark_indexes(person1, person2)
     points1 = person1.get_pose_landmarks_numpy()[common_indices]
     points2 = person2.get_pose_landmarks_numpy()[common_indices]
+    # K1 = cam_data1.intrinsic_matrix
+    # K2 = cam_data2.intrinsic_matrix
+    K1 = np.eye(3, 4)
+    K2 = np.eye(3, 4)
 
     if points1.shape[0] < 8 or points2.shape[0] < 8:
         Logger.log("Not enough points to calculate fundamental matrix", LoggingLevel.WARNING)
         return math.inf
 
-    F, mask = cv.findFundamentalMat(
-        points1, points2, cv.FM_RANSAC, 3, 0.99, None
-    )
-
-    K1 = cam_data1.intrinsic_matrix
-    K2 = cam_data2.intrinsic_matrix
-    E = K1.T @ F @ K2
-
-    P1 = np.dot(K1, cam_data1.extrinsic_matrix3x4)
-    P2 = np.dot(K2, cam_data2.extrinsic_matrix3x4)
-
     points1_2d = points1[:, :2]
     points2_2d = points2[:, :2]
-    points_3d = triangulate_points(points1_2d, points2_2d, P1, P2)
+    P, points_3d = estimate_projection(points1, points2, K1, K2)
+
+    # F, mask = cv.findFundamentalMat(
+    #     points1, points2, cv.FM_RANSAC, 3, 0.99, None
+    # )
+
+    # E = K1.T @ F @ K2
+    # P1 = np.dot(K1, cam_data1.extrinsic_matrix3x4)
+    # P2 = np.dot(K2, cam_data2.extrinsic_matrix3x4)
+
+    # points1_2d = points1[:, :2]
+    # points2_2d = points2[:, :2]
+    # points_3d = triangulate_points(points1_2d, points2_2d, P1, P2)
     # TruePersonLoader.from_3d_points(points_3d, person1.frame_count, TruePersonLoader.load(
     #     "G:\\Uni\\Bachelor\\Project\\combined_camera_poses\\simulation_data\\persons"
     # ))
@@ -197,8 +202,8 @@ def test_pairing(
     #
     # viz.update_multiview([view_info_1, view_info_2])
 
-    reprojected_points1 = project_points(points_3d, K1, cam_data1.extrinsic_matrix3x4)
-    reprojected_points2 = project_points(points_3d, K2, cam_data2.extrinsic_matrix3x4)
+    reprojected_points1 = project_points(points_3d, K1, P)
+    reprojected_points2 = project_points(points_3d, K2, P)
 
     reprojection_error1 = np.mean(np.linalg.norm(points1_2d - reprojected_points1, axis=1))
     # Logger.log(reprojection_error1, LoggingLevel.DEBUG, label="Reprojection Error 1")
@@ -207,7 +212,7 @@ def test_pairing(
     # Logger.log(reprojection_error2, LoggingLevel.DEBUG, label="Reprojection Error 2")
 
     mean_reprojection_error = (reprojection_error1 + reprojection_error2) / 2
-    # Logger.log(mean_reprojection_error, LoggingLevel.DEBUG, label="Mean Reprojection Error")
+    Logger.log(mean_reprojection_error, LoggingLevel.DEBUG, label="Mean Reprojection Error")
 
     # for point in reprojected_points1:
     #     cv.circle(img1, tuple(point.astype(int)), 2, (0, 0, 255, 0.5), -1)

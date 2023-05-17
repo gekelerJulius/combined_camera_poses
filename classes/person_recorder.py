@@ -1,6 +1,8 @@
+import random
 from typing import Dict, List
 
 import randomname
+import seaborn as sns
 
 from classes.person import Person
 
@@ -33,10 +35,7 @@ class PersonRecorder:
 
         elif len(previous_persons) == 0:
             self.name_dict = {}
-            for person in persons:
-                name = randomname.get_name(adj="character")
-                person.name = name
-                self.name_dict[name] = [person]
+            self.first_record_persons(persons)
 
         else:
             distances = []
@@ -48,21 +47,20 @@ class PersonRecorder:
             distances.sort(key=lambda x: x[2])
             i = 0
             matched = []
-            try:
-                while i < len(distances):
-                    person, previous_person, dist = distances[i]
-                    person.name = previous_person.name
-                    self.name_dict.get(previous_person.name).append(person)
-                    distances = list(filter(lambda x: x[0] != person and x[1] != previous_person, distances))
-                    matched.append(person)
-            except AttributeError as e:
-                print(e)
-                print(self.name_dict)
-                print(distances[i])
-                exit(1)
+            while i < len(distances):
+                person, previous_person, dist = distances[i]
+                person.name = previous_person.name
+                person.color = previous_person.color
+                self.name_dict.get(previous_person.name).append(person)
+                distances = list(filter(lambda x: x[0] != person and x[1] != previous_person, distances))
+                matched.append(person)
+            self.first_record_persons(list(filter(lambda x: x not in matched, persons)))
 
-            for person in persons:
-                if person not in matched:
-                    name = randomname.get_name(adj="character")
-                    person.name = name
-                    self.name_dict[name] = [person]
+    def first_record_persons(self, persons: List[Person]) -> None:
+        for person in persons:
+            name = randomname.get_name(adj="character")
+            person.name = name
+            color = sns.color_palette("bright", 10)[random.randint(0, 9)]
+            color = tuple([int(c * 255) for c in color])
+            person.color = color
+            self.name_dict[name] = [person]

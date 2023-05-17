@@ -1,7 +1,7 @@
 import itertools
 import time
 import xml.etree.ElementTree as ET
-from typing import Union, List
+from typing import Union, List, Tuple, Optional
 
 import cv2
 import mediapipe as mp
@@ -28,22 +28,39 @@ mp_drawing = mp.solutions.drawing_utils
 mp_drawing_styles = mp.solutions.drawing_styles
 
 
+# def normalize_points(points):
+#     centroid = np.mean(points, axis=0)
+#     avg_dist = np.mean(np.linalg.norm(points - centroid, axis=1))
+#
+#     if avg_dist == 0:
+#         Logger.log("All points are the same", LoggingLevel.INFO)
+#         return points, np.eye(3)
+#
+#     scale = np.sqrt(2) / avg_dist
+#     translation = -scale * centroid
+#     T = np.array([[scale, 0, translation[0]], [0, scale, translation[1]], [0, 0, 1]])
+#
+#     points_norm = np.hstack((points, np.ones((points.shape[0], 1))))
+#     points_norm = np.dot(T, points_norm.T).T[:, :2]
+#
+#     return points_norm, T
+
 def normalize_points(points):
-    centroid = np.mean(points, axis=0)
-    avg_dist = np.mean(np.linalg.norm(points - centroid, axis=1))
-
-    if avg_dist == 0:
-        Logger.log("All points are the same", LoggingLevel.INFO)
-        return points, np.eye(3)
-
-    scale = np.sqrt(2) / avg_dist
-    translation = -scale * centroid
-    T = np.array([[scale, 0, translation[0]], [0, scale, translation[1]], [0, 0, 1]])
-
-    points_norm = np.hstack((points, np.ones((points.shape[0], 1))))
-    points_norm = np.dot(T, points_norm.T).T[:, :2]
-
-    return points_norm, T
+    if points.shape[0] != 3:
+        points = np.vstack((points, np.ones(points.shape[1])))
+    centroid = np.mean(points[:2], axis=1)
+    translation_matrix = np.array([[1, 0, -centroid[0]],
+                                   [0, 1, -centroid[1]],
+                                   [0, 0, 1]])
+    points = np.dot(translation_matrix, points.T).T
+    avg_distance = np.mean(np.sqrt(np.sum(points[:2] ** 2, axis=0)))
+    scale = np.sqrt(2) / avg_distance
+    scaling_matrix = np.array([[scale, 0, 0],
+                               [0, scale, 0],
+                               [0, 0, 1]])
+    points = np.dot(scaling_matrix, points.T).T
+    transform_matrix = np.dot(scaling_matrix, translation_matrix)
+    return points, transform_matrix
 
 
 def box_to_landmarks_list(img, box):
@@ -708,3 +725,164 @@ def plot_pose_3d(points: ndarray, plot_id: int = None, title: str = "") -> int:
         plot_id = plot_service.add_plot(fig)
     plt.pause(0.01)
     return plot_id
+
+
+def combine_colors(c1: Tuple[int], c2: Tuple[int]) -> Tuple[int]:
+    """
+    Combines two RGB colors by taking the average of each color channel.
+
+    Args:
+        c1 (Tuple[int]): The first color.
+        c2 (Tuple[int]): The second color.
+
+    Returns:
+        A tuple representing the combined color.
+    """
+    return tuple([int((c1[i] + c2[i]) / 2) for i in range(3)])
+
+
+def compute_essential_normalized(p1: ndarray, p2: ndarray) -> ndarray:
+    assert p1.shape == p2.shape, "Input points should have the same shape"
+    A = np.hstack((
+        (p2[:, 0] * p1[:, 0])[:, np.newaxis],
+        (p2[:, 0] * p1[:, 1])[:, np.newaxis],
+        p2[:, 0][:, np.newaxis],
+        (p2[:, 1] * p1[:, 0])[:, np.newaxis],
+        (p2[:, 1] * p1[:, 1])[:, np.newaxis],
+        p2[:, 1][:, np.newaxis],
+        p1[:, 0][:, np.newaxis],
+        p1[:, 1][:, np.newaxis],
+        np.ones((p1.shape[0], 1))
+    ))
+
+    _, _, V = np.linalg.svd(A)
+    E = V[-1].reshape(3, 3)
+
+    # Enforce the constraint that the singular values are (a, a, 0)
+    U, S, V = np.linalg.svd(E)
+    S = (S[0] + S[1]) / 2
+    E = np.dot(U, np.dot(np.diag([S, S, 0]), V))
+    return E
+
+
+def validate_essential_matrix(E: ndarray, p1: ndarray, p2: ndarray, tolerance=1e-4) -> bool:
+    """
+    Validates an essential matrix by checking that the epipolar constraint is satisfied for each point pair.
+
+    Args:
+        E (ndarray): The essential matrix.
+        p1 (ndarray): The first set of points.
+        p2 (ndarray): The second set of points.
+        tolerance (float): The tolerance for checking the epipolar constraint.
+
+    Returns:
+        True if the epipolar constraint is satisfied for each point pair, False otherwise.
+    """
+    assert len(p1) == len(p2), "The number of points in each set must be equal"
+    assert len(p1) > 0, "At least one point pair is required"
+
+    # Check the rank is 2
+    if np.linalg.matrix_rank(E) != 2:
+        print("The essential matrix is not rank 2")
+        return False
+
+    # Check the singular values are equal
+    U, S, Vt = np.linalg.svd(E)
+    if not np.isclose(S[0], S[1], atol=tolerance):
+        print("The singular values of the essential matrix are not equal")
+        return False
+
+    # Check E*E.T has one non-zero singular value
+    EEt = E @ E.T
+    _, S_EEt, _ = np.linalg.svd(EEt)
+    if not np.isclose(S_EEt[1:], 0, atol=tolerance).all():
+        print("E*E.T does not have one non-zero singular value")
+        return False
+
+    # Check the central element of E*E.T
+    if not np.isclose(EEt[1, 1], 2 * S[0] ** 2, atol=tolerance):
+        print("The central element of E*E.T is not equal to 2 * S[0] ** 2")
+        return False
+
+    for i in range(len(p1)):
+        x1, y1 = p1[i][0], p1[i][1]
+        x2, y2 = p2[i][0], p2[i][1]
+        pt1 = np.array([x1, y1, 1])
+        pt2 = np.array([x2, y2, 1])
+        # Check that pt2^T * E * pt1 = 0
+        if np.abs(pt2.T @ E @ pt1) > tolerance:
+            print("The epipolar constraint is not satisfied for point pair {} and {}".format(pt1, pt2))
+            return False
+    return True
+
+
+def decompose_essential_matrix(E):
+    U, _, Vt = np.linalg.svd(E)
+    W = np.array([[0, -1, 0],
+                  [1, 0, 0],
+                  [0, 0, 1]])
+
+    # Ensure rotation matrix determinant is 1
+    if np.linalg.det(np.dot(U, Vt)) < 0:
+        Vt = -Vt
+
+    P1 = np.hstack((np.dot(U, np.dot(W, Vt)), U[:, 2].reshape(-1, 1)))
+    P2 = np.hstack((np.dot(U, np.dot(W, Vt)), -U[:, 2].reshape(-1, 1)))
+    P3 = np.hstack((np.dot(U, np.dot(W.T, Vt)), U[:, 2].reshape(-1, 1)))
+    P4 = np.hstack((np.dot(U, np.dot(W.T, Vt)), -U[:, 2].reshape(-1, 1)))
+    return [P1, P2, P3, P4]
+
+
+def find_correct_projection_matrix(P1: ndarray, P2: ndarray, P3: ndarray, P4: ndarray, points1: ndarray,
+                                   points2: ndarray) -> Tuple[ndarray, ndarray]:
+    P = None
+    points_3D = None
+    P_list = [P1, P2, P3, P4]
+    M1 = np.eye(3, 4)
+    max_in_front = 0
+    for i, P_temp in enumerate(P_list):
+        points_3D_temp = cv2.triangulatePoints(M1, P_temp, points1[:2], points2[:2])
+        points_3D_temp /= points_3D_temp[3]
+
+        # Check if the points are in front of both cameras
+        in_front_of_first_camera = np.dot(M1[2, :3], points_3D_temp[:3]) > 0
+        in_front_of_second_camera = np.dot(P_temp[2, :3], points_3D_temp[:3]) > 0
+
+        # If the points are in front of both cameras and there are more such points
+        # than for the previous projection matrices, update the projection matrix and 3D points
+        if np.sum(in_front_of_first_camera & in_front_of_second_camera) > max_in_front:
+            max_in_front = np.sum(in_front_of_first_camera & in_front_of_second_camera)
+            P = P_temp
+            points_3D = points_3D_temp
+    return P, points_3D
+
+
+def estimate_projection(p1: ndarray, p2: ndarray, K1: ndarray, K2: ndarray) -> Optional[Tuple[ndarray, ndarray]]:
+    # TODO: DEBUG
+    p1 = cv2.undistortPoints(np.expand_dims(p1, axis=1), K1, None)
+    p1[:, 0, 0] -= K1[0, 2] / K1[0, 0]
+    p1[:, 0, 1] -= K1[1, 2] / K1[1, 1]
+    p2 = cv2.undistortPoints(np.expand_dims(p2, axis=1), K2, None)
+    p2[:, 0, 0] -= K2[0, 2] / K2[0, 0]
+    p2[:, 0, 1] -= K2[1, 2] / K2[1, 1]
+
+    E, mask = cv2.findEssentialMat(p1, p2, np.eye(3, 4), cv2.RANSAC, 0.999, 2)
+    R1, R2, t = cv2.decomposeEssentialMat(E)
+    P1 = np.hstack(R1, t)
+    P2 = np.hstack(R1, -t)
+    P3 = np.hstack(R2, t)
+    P4 = np.hstack(R2, -t)
+
+    P, points_3D = find_correct_projection_matrix(P1, P2, P3, P4, p1, p2)
+
+    # p1, trmat1 = normalize_points(np.array(p1))
+    # p2, trmat2 = normalize_points(np.array(p2))
+    # E = compute_essential_normalized(p1, p2)
+    # if not validate_essential_matrix(E, p1, p2):
+    #     Logger.log("Invalid essential matrix", LoggingLevel.ERROR)
+    #     return None
+    #
+    # # Find the four possible projection matrices
+    # [P1, P2, P3, P4] = decompose_essential_matrix(E)
+    # P, points_3D = find_correct_projection_matrix(P1, P2, P3, P4, p1, p2)
+    return P, points_3D
