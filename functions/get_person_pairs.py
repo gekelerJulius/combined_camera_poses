@@ -142,19 +142,20 @@ def test_pairing(
     common_indices = Person.get_common_visible_landmark_indexes(person1, person2)
     points1 = person1.get_pose_landmarks_numpy()[common_indices]
     points2 = person2.get_pose_landmarks_numpy()[common_indices]
-    # K1 = cam_data1.intrinsic_matrix
-    # K2 = cam_data2.intrinsic_matrix
-    K1 = np.eye(3, 4)
-    K2 = np.eye(3, 4)
+    K1 = cam_data1.intrinsic_matrix
+    K2 = cam_data2.intrinsic_matrix
 
     if points1.shape[0] < 8 or points2.shape[0] < 8:
         Logger.log("Not enough points to calculate fundamental matrix", LoggingLevel.WARNING)
         return math.inf
 
-    points1_2d = points1[:, :2]
-    points2_2d = points2[:, :2]
-    P, points_3d = estimate_projection(points1, points2, K1, K2)
+    points1_2d = np.array([[p1[0], p1[1]] for p1 in points1], dtype=np.float32)
+    points2_2d = np.array([[p2[0], p2[1]] for p2 in points2], dtype=np.float32)
+    K1 = np.array(K1, dtype=np.float32)
+    K2 = np.array(K2, dtype=np.float32)
 
+    # TODO: Check if using cv2.stereoRectifyUncalibrated() would make sense here
+    P, points_3d = estimate_projection(points1, points2, K1, K2)
     # F, mask = cv.findFundamentalMat(
     #     points1, points2, cv.FM_RANSAC, 3, 0.99, None
     # )

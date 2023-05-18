@@ -505,7 +505,8 @@ def triangulate_points(points1, points2, P1, P2) -> ndarray:
 
 def project_points(points_3d, intrinsic_matrix, extrinsic_matrix):
     points_3d_homogeneous = np.hstack((points_3d, np.ones((points_3d.shape[0], 1)))).T
-    points_2d_homogeneous = np.dot(intrinsic_matrix, np.dot(extrinsic_matrix, points_3d_homogeneous))
+    points3d_to_camera = np.dot(extrinsic_matrix, points_3d_homogeneous)
+    points_2d_homogeneous = np.dot(intrinsic_matrix, points3d_to_camera)
     points_2d = cv2.convertPointsFromHomogeneous(points_2d_homogeneous.T)
     return points_2d.reshape(-1, 2)
 
@@ -833,15 +834,17 @@ def decompose_essential_matrix(E):
     return [P1, P2, P3, P4]
 
 
+# TODO: DEBUG
 def find_correct_projection_matrix(P1: ndarray, P2: ndarray, P3: ndarray, P4: ndarray, points1: ndarray,
                                    points2: ndarray) -> Tuple[ndarray, ndarray]:
     P = None
     points_3D = None
     P_list = [P1, P2, P3, P4]
-    M1 = np.eye(3, 4)
+    M1 = np.eye(3, 4, dtype=np.float32)
     max_in_front = 0
     for i, P_temp in enumerate(P_list):
-        points_3D_temp = cv2.triangulatePoints(M1, P_temp, points1[:2], points2[:2])
+        P_temp = P_temp.astype(np.float32)
+        points_3D_temp = cv2.triangulatePoints(M1, P_temp, points1.T[:2], points2.T[:2])
         points_3D_temp /= points_3D_temp[3]
 
         # Check if the points are in front of both cameras
@@ -858,22 +861,18 @@ def find_correct_projection_matrix(P1: ndarray, P2: ndarray, P3: ndarray, P4: nd
 
 
 def estimate_projection(p1: ndarray, p2: ndarray, K1: ndarray, K2: ndarray) -> Optional[Tuple[ndarray, ndarray]]:
-    # TODO: DEBUG
-    p1 = cv2.undistortPoints(np.expand_dims(p1, axis=1), K1, None)
-    p1[:, 0, 0] -= K1[0, 2] / K1[0, 0]
-    p1[:, 0, 1] -= K1[1, 2] / K1[1, 1]
-    p2 = cv2.undistortPoints(np.expand_dims(p2, axis=1), K2, None)
-    p2[:, 0, 0] -= K2[0, 2] / K2[0, 0]
-    p2[:, 0, 1] -= K2[1, 2] / K2[1, 1]
-
-    E, mask = cv2.findEssentialMat(p1, p2, np.eye(3, 4), cv2.RANSAC, 0.999, 2)
+    # p1 = cv2.undistortPoints(src=p1, cameraMatrix=K1, distCoeffs=None)
+    # p2 = cv2.undistortPoints(src=p2, cameraMatrix=K2, distCoeffs=None)
+    E, mask = cv2.findEssentialMat(p1[:, :2], p2[:, :2], K1, cv2.RANSAC, 0.999, 2)
     R1, R2, t = cv2.decomposeEssentialMat(E)
-    P1 = np.hstack(R1, t)
-    P2 = np.hstack(R1, -t)
-    P3 = np.hstack(R2, t)
-    P4 = np.hstack(R2, -t)
 
+    # Combine R1, R2 with t to get the four possible projection matrices
+    P1 = np.hstack((R1, t))
+    P2 = np.hstack((R1, -t))
+    P3 = np.hstack((R2, t))
+    P4 = np.hstack((R2, -t))
     P, points_3D = find_correct_projection_matrix(P1, P2, P3, P4, p1, p2)
+    points_3D = points_3D[:3].T
 
     # p1, trmat1 = normalize_points(np.array(p1))
     # p2, trmat2 = normalize_points(np.array(p2))
