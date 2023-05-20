@@ -1,5 +1,7 @@
+import math
 import os
 
+import numpy as np
 from cv2 import VideoWriter
 from ultralytics import YOLO
 
@@ -67,8 +69,10 @@ def annotate_video_multi(
     # out1: VideoWriter = None
     # out2: VideoWriter = None
     frame_count = 0
-    person_recorder1: PersonRecorder = PersonRecorder()
-    person_recorder2: PersonRecorder = PersonRecorder()
+    person_recorder1: PersonRecorder = PersonRecorder("1")
+    person_recorder2: PersonRecorder = PersonRecorder("2")
+    img1 = None
+    img2 = None
 
     while cap1.isOpened() and cap2.isOpened():
         ret1, img1 = cap1.read()
@@ -78,8 +82,13 @@ def annotate_video_multi(
 
         frame_count += 1
 
-        if frame_count < 60:
+        START_FRAME = 60
+        END_FRAME = math.inf
+
+        if frame_count < START_FRAME:
             continue
+        if frame_count > END_FRAME:
+            break
 
         if (
                 img1.shape[0] == 0
@@ -124,48 +133,40 @@ def annotate_video_multi(
                     Person(f"Person2 {len(persons2)}", frame_count, box, results2)
                 )
 
-        for person1 in persons1:
-            person_recorder1.add(person1)
-        person_recorder1.eval(frame_count)
+        person_recorder1.add(persons1, img1)
+        person_recorder2.add(persons2, img2)
 
-        for person2 in persons2:
-            person_recorder2.add(person2)
-        person_recorder2.eval(frame_count)
-
-        # TODO: Use past recordings to determine if the pairings are plausible
+        # person_recorder1.plot_trajectories(img1)
+        # person_recorder2.plot_trajectories(img2)
+        # cv.waitKey(1)
 
         # pairs: List[Tuple[Person, Person]] = get_person_pairs_simple_distance(
         #     persons1, persons2, img1, img2, cam1_data, cam2_data
         # )
 
-        pairs: List[Tuple[Person, Person]] = get_person_pairs(
-            persons1, persons2, img1, img2, cam1_data, cam2_data
-        )
+        # pairs: List[Tuple[Person, Person]] = get_person_pairs_simple_distance(
+        #     persons1, persons2, img1, img2, cam1_data, cam2_data
+        # )
 
-        for i, (p1, p2) in enumerate(pairs):
-            color1 = p1.color
-            color2 = p2.color
-            blended = combine_colors(color1, color2)
-            p1.color = blended
-            p2.color = blended
-            p1.draw(img1, p1.color)
-            p2.draw(img2, p2.color)
+        # for i, (p1, p2) in enumerate(pairs):
+        #     color1 = p1.color
+        #     color2 = p2.color
+        #     blended = combine_colors(color1, color2)
+        #     p1.color = blended
+        #     p2.color = blended
+        #     p1.draw(img1, p1.color)
+        #     p2.draw(img2, p2.color)
 
         # TODO: Add and fix Homography
-        # if persons1 and len(persons1) > 0:
-        #     p1 = persons1[0]
-        #     feet_points_on_img1 = p1.get_feet_points()
-        #     feet_points_real1 = p1.get_feet_points_real(cam1_data)
+        # if persons1 and len(persons1) > 1:
+        #     feet_points = []
+        #     for p in persons1:
+        #         feet_points.append(p.get_feet_points())
         #     H, mask = cv.findHomography(feet_points_on_img1, feet_points_real1, cv.RANSAC, 5.0)
-        #
-        #     mean_point = np.mean(p1.get_pose_landmarks_numpy(), axis=0)
-        #     mean_point_real = np.matmul(H, mean_point)
-        #     ax1.plot(mean_point_real[0], mean_point_real[1], 'ro')
-        #     plt.pause(0.01)
 
-        cv.imshow("Frame 1", img1)
-        cv.imshow("Frame 2", img2)
-        cv.waitKey(1)
+        # cv.imshow("Frame 1", img1)
+        # cv.imshow("Frame 2", img2)
+        # cv.waitKey(1)
 
         # if out1 is None:
         #     out1 = cv.VideoWriter(f"{file1_pre}_annotated{file1_ext}", fourcc, 24, (img1.shape[1], img1.shape[0]))

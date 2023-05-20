@@ -16,6 +16,7 @@ from pyhull.convex_hull import ConvexHull
 from mpl_toolkits.mplot3d import Axes3D
 
 from classes.PlotService import PlotService
+from classes.bounding_box import BoundingBox
 from classes.colored_landmark import ColoredLandmark
 from classes.custom_point import CustomPoint
 from classes.logger import Logger
@@ -465,20 +466,35 @@ def get_avg_color(image, x, y, patch_size):
     return avg_color[0], avg_color[1], avg_color[2]
 
 
-def get_dominant_color(image, x, y, patch_size):
+def get_dominant_color_patch(image, x, y, patch_size) -> ndarray:
     # First get all color values in the patch that are not out of bounds
     colors = []
 
-    for i in range(x - patch_size, x + patch_size):
-        for j in range(y - patch_size, y + patch_size):
-            if i < 0 or j < 0 or i >= image.shape[0] or j >= image.shape[1]:
+    min_x = x - patch_size if x - patch_size >= 0 else 0
+    max_x = x + patch_size if x + patch_size < image.shape[0] else image.shape[0] - 1
+    min_y = y - patch_size if y - patch_size >= 0 else 0
+    max_y = y + patch_size if y + patch_size < image.shape[1] else image.shape[1] - 1
+
+    return get_dominant_color(image, min_x, min_y, max_x, max_y)
+
+
+def get_dominant_color_bbox(image, bbox: BoundingBox) -> ndarray:
+    return get_dominant_color(image, bbox.min_x, bbox.min_y, bbox.max_x, bbox.max_y)
+
+
+def get_dominant_color(img, x0: int, y0: int, x1: int, y1: int) -> Union[ndarray, None]:
+    colors = []
+
+    for i in range(y0, y1):
+        for j in range(x0, x1):
+            if i < 0 or j < 0 or i >= img.shape[0] or j >= img.shape[1]:
                 continue
 
-            colors.append(image[i][j])
+            colors.append(img[i][j])
 
     if len(colors) == 0:
-        # Logger.log("No colors found in patch", LoggingLevel.WARNING)
-        return [None, None, None]
+        Logger.log("No colors found in patch", LoggingLevel.WARNING)
+        return None
 
     # Use KMeans to find the dominant color
     n_colors = 5
@@ -488,13 +504,7 @@ def get_dominant_color(image, x, y, patch_size):
     _, labels, palette = cv2.kmeans(pixels, n_colors, None, criteria, 10, flags)
     _, counts = np.unique(labels, return_counts=True)
     dominant = palette[np.argmax(counts)]
-
-    # Check if dominant is a tuple of 3 numbers
-    res = dominant[0], dominant[1], dominant[2]
-    if len(res) != 3:
-        Logger.log("Dominant color is not a tuple of 3 numbers", LoggingLevel.WARNING)
-        return [None, None, None]
-    return res
+    return np.array(dominant, dtype=np.uint8)
 
 
 def triangulate_points(points1, points2, P1, P2) -> ndarray:

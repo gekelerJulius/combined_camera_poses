@@ -18,7 +18,8 @@ from classes.unity_person import load_points
 from consts.consts import LANDMARK_NAMES, CONNECTIONS_LIST, NAMES_LIST
 from consts.mixamo_mapping import from_mixamo
 from enums.logging_levels import LoggingLevel
-from functions.funcs import triangulate_points, project_points, estimate_projection
+from functions.funcs import triangulate_points, project_points, estimate_projection, get_dominant_color, \
+    get_dominant_color_bbox
 
 
 def get_person_pairs(
@@ -75,39 +76,35 @@ def get_person_pairs_simple_distance(
     record = set()
     for p1 in a:
         for p2 in b:
-            diff1 = p1.pose_distance(p2)
-            diff2 = p2.pose_distance(p1)
+            pose_diff = p1.pose_distance(p2)
+            dom_col1 = get_dominant_color_bbox(img1, p1.bounding_box)
+            dom_col2 = get_dominant_color_bbox(img2, p2.bounding_box)
+            color_diff = np.linalg.norm(dom_col1 - dom_col2)
+            color_diff_norm = color_diff / 255
 
-            if diff1 is None or diff2 is None:
+            if pose_diff is None or color_diff_norm is None:
                 continue
-            record.add((p1, p2, diff1, diff2))
 
-    # Sort the record by the smallest difference between people in a and b
+            cost = pose_diff * color_diff_norm
+            record.add((p1, p2, cost))
+
+    # Sort the record by the smallest cost
     def sort_key(record_item):
-        return -(record_item[2] + record_item[3])
+        return record_item[2]
 
     sorted_record = sorted(record, key=sort_key)
     pairs = []
-    for p1, p2, diff1, diff2 in sorted_record:
+    for p1, p2, p_diff, c_diff in sorted_record:
         if p1 in [pair[0] for pair in pairs] or p2 in [pair[1] for pair in pairs]:
             continue
         pairs.append((p1, p2))
 
-    pair_copy = pairs.copy()
-    for p1, p2 in pair_copy:
-        error = test_pairing(p1, p2, img1, img2, cam_data1, cam_data2)
-        if error > 5:
-            Logger.log(f"Pairing error: {error}", LoggingLevel.DEBUG)
-            # copy1 = img1.copy()
-            # copy2 = img2.copy()
-            # p1.draw(copy1)
-            # p2.draw(copy2)
-            # cv.destroyAllWindows()
-            # cv.imshow("img1", copy1)
-            # cv.imshow("img2", copy2)
-            # cv.waitKey(0)
-            # cv.destroyAllWindows()
-            pairs.remove((p1, p2))
+    # pair_copy = pairs.copy()
+    # for p1, p2 in pair_copy:
+    #     error = test_pairing(p1, p2, img1, img2, cam_data1, cam_data2)
+    #     if error > 5:
+    #         Logger.log(f"Pairing error: {error}", LoggingLevel.DEBUG)
+    #         pairs.remove((p1, p2))
     return pairs
 
 
@@ -136,9 +133,6 @@ def test_pairing(
 
     Returns the reprojection error.
     """
-    # Logger.log(cam_data1.intrinsic_matrix, LoggingLevel.DEBUG, label="cam_data1.intrinsic_matrix")
-    # Logger.log(cam_data2.intrinsic_matrix, LoggingLevel.DEBUG, label="cam_data2.intrinsic_matrix")
-
     common_indices = Person.get_common_visible_landmark_indexes(person1, person2)
     points1 = person1.get_pose_landmarks_numpy()[common_indices]
     points2 = person2.get_pose_landmarks_numpy()[common_indices]

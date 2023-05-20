@@ -15,7 +15,7 @@ from functions.funcs import (
     compare_landmarks,
     draw_landmarks_list,
     get_avg_color,
-    get_dominant_color, plot_pose_3d, plot_pose_2d,
+    plot_pose_3d, plot_pose_2d, calc_cos_sim, get_dominant_color_patch,
 )
 
 mp_drawing = mp.solutions.drawing_utils
@@ -99,7 +99,7 @@ class Person:
             ColoredLandmark(
                 lmk,
                 avg_color=get_avg_color(image, int(lmk.x), int(lmk.y), 3),
-                dom_color=get_dominant_color(image, int(lmk.x), int(lmk.y), 3),
+                dom_color=get_dominant_color_patch(image, int(lmk.x), int(lmk.y), 3),
             )
             for lmk in self.results.pose_landmarks.landmark
         ]
@@ -170,8 +170,10 @@ class Person:
         p1 += translation
 
         # Find the error
-        error = np.mean(np.linalg.norm(p2 - p1, axis=1))
-        return error
+        # error = np.mean(np.linalg.norm(p2 - p1, axis=1))
+
+        avg_cos_sim = np.mean([calc_cos_sim(p1[i], p2[i]) for i in range(len(p1))])
+        return avg_cos_sim
 
     def get_feet_points(self) -> ndarray:
         feet_indices = [LANDMARK_INDICES_PER_NAME[name] for name in
@@ -196,3 +198,6 @@ class Person:
             if lmks1[i].visibility > 0.5 and lmks2[i].visibility > 0.5:
                 common_lmks.append(i)
         return common_lmks
+
+    def centroid(self):
+        return np.mean(self.get_pose_landmarks_numpy(), axis=0)
