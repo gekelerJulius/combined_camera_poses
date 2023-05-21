@@ -32,5 +32,17 @@ class Logger:
         if level not in Logger.active_levels:
             return
         message = str(log_val)
-
         print(f"{color_dict[level]}[{level.name}] {label + ': ' if label is not None else ''} \n{message}\033[0m")
+
+
+class Divider:
+    def __init__(self, label: str = None):
+        self.label = label
+
+    def __enter__(self):
+        Logger.divider()
+        if self.label is not None:
+            Logger.log(self.label, LoggingLevel.INFO)
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        Logger.divider()

@@ -12,8 +12,8 @@ from matplotlib.figure import Figure
 from numpy import ndarray
 from pyhull.simplex import Simplex
 from scipy.linalg import orthogonal_procrustes
-from pyhull.convex_hull import ConvexHull
 from mpl_toolkits.mplot3d import Axes3D
+from sklearn.neighbors import NearestNeighbors
 
 from classes.PlotService import PlotService
 from classes.bounding_box import BoundingBox
@@ -46,38 +46,21 @@ mp_drawing_styles = mp.solutions.drawing_styles
 #
 #     return points_norm, T
 
-def normalize_points(points):
-    if points.shape[0] != 3:
-        points = np.vstack((points, np.ones(points.shape[1])))
-    centroid = np.mean(points[:2], axis=1)
+def normalize_points(points: ndarray) -> ndarray:
+    if points.shape[1] != 3:
+        points = np.hstack((points, np.ones((points.shape[0], 1))))
+    centroid = np.mean(points[:, :2], axis=0)
     translation_matrix = np.array([[1, 0, -centroid[0]],
                                    [0, 1, -centroid[1]],
                                    [0, 0, 1]])
-    points = np.dot(translation_matrix, points.T).T
-    avg_distance = np.mean(np.sqrt(np.sum(points[:2] ** 2, axis=0)))
+    points = np.dot(points, translation_matrix.T)
+    avg_distance = np.mean(np.sqrt(np.sum(points[:, :2] ** 2, axis=1)))
     scale = np.sqrt(2) / avg_distance
     scaling_matrix = np.array([[scale, 0, 0],
                                [0, scale, 0],
                                [0, 0, 1]])
-    points = np.dot(scaling_matrix, points.T).T
-    transform_matrix = np.dot(scaling_matrix, translation_matrix)
-    return points, transform_matrix
-
-
-def box_to_landmarks_list(img, box):
-    min_x, min_y, max_x, max_y = box.min_x, box.min_y, box.max_x, box.max_y
-    cropped = img[min_y:max_y, min_x:max_x]
-    cropped, results = get_pose(cropped)
-
-    landmarks = get_landmarks_as_pixel_coordinates(results, cropped)
-    for landmark in landmarks:
-        landmark.x += min_x
-        landmark.y += min_y
-
-    landmarks = [
-        landmark for landmark in landmarks if landmark.x != 0 and landmark.y != 0
-    ]
-    return img, landmarks
+    points = np.dot(points, scaling_matrix.T)
+    return points
 
 
 def calc_cos_sim(v1: ndarray, v2: ndarray) -> float:
@@ -738,18 +721,21 @@ def plot_pose_3d(points: ndarray, plot_id: int = None, title: str = "") -> int:
     return plot_id
 
 
-def combine_colors(c1: Tuple[int], c2: Tuple[int]) -> Tuple[int]:
+def blend_colors(c1: Tuple[int], c2: Tuple[int], blend_factor: float) -> Tuple[Tuple[int], Tuple[int]]:
     """
     Combines two RGB colors by taking the average of each color channel.
 
     Args:
         c1 (Tuple[int]): The first color.
         c2 (Tuple[int]): The second color.
-
+        blend_factor (float): The factor by which to blend the colors. Should be between 0 and 1.
     Returns:
-        A tuple representing the combined color.
+        Two tuples representing the partially blended colors.
     """
-    return tuple([int((c1[i] + c2[i]) / 2) for i in range(3)])
+    middle_color = tuple([int((c1[i] + c2[i]) / 2) for i in range(3)])
+    c1 = tuple([int(c1[i] * blend_factor + middle_color[i] * (1 - blend_factor)) for i in range(3)])
+    c2 = tuple([int(c2[i] * blend_factor + middle_color[i] * (1 - blend_factor)) for i in range(3)])
+    return c1, c2
 
 
 def compute_essential_normalized(p1: ndarray, p2: ndarray) -> ndarray:

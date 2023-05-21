@@ -1,5 +1,5 @@
 import random
-from typing import Dict, List, Tuple
+from typing import Dict, List, Tuple, Optional
 
 import cv2
 import numpy as np
@@ -9,7 +9,7 @@ from matplotlib import pyplot as plt
 from numpy import ndarray
 from scipy.optimize import linear_sum_assignment
 
-from classes.logger import Logger
+from classes.logger import Logger, Divider
 from classes.person import Person
 from enums.logging_levels import LoggingLevel
 
@@ -35,43 +35,29 @@ class PersonRecorder:
             self.frame_dict.get(person.frame_count).append(person)
         self.update_kalman_filter(persons, img)
 
-    def get(self, frame_count: int) -> List[Person]:
-        return self.frame_dict.get(frame_count, [])
+    def get_recent_persons(self, frame_num: int) -> List[Person]:
+        recently_seen: List[Person] = self.frame_dict.get(frame_num)
+        # TODO: Decide how many frames to look back, if any
+        # for i in range(1, 5):
+        #     rs_temp = self.get(frame_num - i)
+        #     for person in rs_temp:
+        #         if not any(p.name == person.name for p in recently_seen):
+        #             recently_seen.append(person)
 
-    def get_all(self) -> Dict[int, List[Person]]:
-        return self.frame_dict
+        if len(recently_seen) < 2:
+            return []
+        return [r for r in recently_seen]
 
-    # def eval(self, frame_count: int):
-    #     persons = self.get(frame_count)
-    #     previous_persons = self.get(frame_count - 1)
-    #
-    #     if len(persons) == 0:
-    #         return
-    #
-    #     elif len(previous_persons) == 0:
-    #         self.name_dict = {}
-    #         self.kalman_dict = {}
-    #         self.first_record_persons(persons)
-    #
-    #     else:
-    #         distances = []
-    #         for person in persons:
-    #             for previous_person in previous_persons:
-    #                 dist = person.pose_distance(previous_person)
-    #                 distances.append((person, previous_person, dist))
-    #
-    #         distances.sort(key=lambda x: x[2])
-    #         i = 0
-    #         matched = []
-    #         while i < len(distances):
-    #             person, previous_person, dist = distances[i]
-    #             person.name = previous_person.name
-    #             person.color = previous_person.color
-    #             self.name_dict.get(previous_person.name).append(person)
-    #             self.update_kalman_filter(person)
-    #             distances = list(filter(lambda x: x[0] != person and x[1] != previous_person, distances))
-    #             matched.append(person)
-    #         self.first_record_persons(list(filter(lambda x: x not in matched, persons)))
+    def get_trajectory(self, name: str) -> List[Person]:
+        kalman, persons = self.kalman_dict.get(name)
+        return persons
+
+    def get_person_at_frame(self, name: str, frame_num: int) -> Optional[Person]:
+        persons_in_frame = self.frame_dict.get(frame_num, [])
+        for person in persons_in_frame:
+            if person.name == name:
+                return person
+        return None
 
     def first_record_persons(self, persons: List[Person]) -> None:
         for person in persons:
@@ -99,13 +85,13 @@ class PersonRecorder:
         prediction = kalman.predict()
         self.kalman_prediction_dict[person.name] = prediction
 
-    def update_kalman_filter(self, person: List[Person], img=None) -> None:
+    def update_kalman_filter(self, persons: List[Person], img=None) -> None:
         # Get all predictions
         predictions = [(name, pred) for name, pred in self.kalman_prediction_dict.items()]
         matched: List[str] = []
         # Use hungarian algorithm to match predictions to persons
         if len(predictions) > 0:
-            centroids = [person.centroid() for person in person]
+            centroids = [person.centroid() for person in persons]
             cost_matrix = np.zeros((len(predictions), len(centroids)))
             for i, (name, prediction) in enumerate(predictions):
                 last_centroid = self.kalman_dict[name][1][-1].centroid()
@@ -126,18 +112,18 @@ class PersonRecorder:
             # Update kalman filters with best matches
             for i, j in zip(row_ind, col_ind):
                 name, prediction = predictions[i]
-                person[j].name = name
-                person[j].color = self.name_dict[name][0].color
+                persons[j].name = name
+                persons[j].color = self.name_dict[name][0].color
                 matched.append(name)
-                self.update_kalman_filter_single(person[j].name, person[j].centroid(), img)
+                self.update_kalman_filter_single(persons[j].name, persons[j].centroid(), img)
                 kalman, person_list = self.kalman_dict[name]
-                person_list.append(person[j])
+                person_list.append(persons[j])
 
             # Add new persons
-            self.first_record_persons(list(filter(lambda x: x.name is None, person)))
+            self.first_record_persons(list(filter(lambda x: x.name is None, persons)))
 
         else:
-            self.first_record_persons(person)
+            self.first_record_persons(persons)
 
         # Get all unmatched predictions
         unmatched_predictions = list(filter(lambda x: x[0] not in matched, predictions))
@@ -148,8 +134,8 @@ class PersonRecorder:
         for name, prediction in unmatched_predictions:
             self.update_kalman_filter_single(name, prediction, img)
 
-        cv2.imshow(self.id, img)
-        cv2.waitKey(1)
+        # cv2.imshow(self.id, img)
+        # cv2.waitKey(1)
 
     def update_kalman_filter_single(self, name: str, centroid: ndarray, img, correct=True) -> None:
         kalman, person_list = self.kalman_dict[name]

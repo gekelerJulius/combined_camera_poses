@@ -14,3 +14,4 @@ opencv-python>=4.7.0.72
 randomname>=0.2.1
 open3d>=0.10.0.0
 seaborn>=0.12.2
+scikit-learn>=1.2.2

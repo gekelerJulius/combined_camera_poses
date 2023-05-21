@@ -15,8 +15,8 @@ from classes.logger import Logger
 from classes.person import Person
 from classes.person_recorder import PersonRecorder
 from enums.logging_levels import LoggingLevel
-from functions.funcs import combine_colors
-from functions.get_person_pairs import get_person_pairs, get_person_pairs_simple_distance, test_pairing
+from functions.funcs import blend_colors
+from functions.get_person_pairs import test_pairing, match_pairs
 from functions.get_pose import get_pose
 from functions.get_yolo_boxes import get_yolo_bounding_boxes
 
@@ -136,6 +136,16 @@ def annotate_video_multi(
         person_recorder1.add(persons1, img1)
         person_recorder2.add(persons2, img2)
 
+        pairs: List[Tuple[Person, Person]] = match_pairs(
+            person_recorder1,
+            person_recorder2,
+            frame_count,
+            img1,
+            img2,
+            cam1_data,
+            cam2_data,
+        )
+
         # person_recorder1.plot_trajectories(img1)
         # person_recorder2.plot_trajectories(img2)
         # cv.waitKey(1)
@@ -148,14 +158,14 @@ def annotate_video_multi(
         #     persons1, persons2, img1, img2, cam1_data, cam2_data
         # )
 
-        # for i, (p1, p2) in enumerate(pairs):
-        #     color1 = p1.color
-        #     color2 = p2.color
-        #     blended = combine_colors(color1, color2)
-        #     p1.color = blended
-        #     p2.color = blended
-        #     p1.draw(img1, p1.color)
-        #     p2.draw(img2, p2.color)
+        for i, (p1, p2) in enumerate(pairs):
+            color1 = p1.color
+            color2 = p2.color
+            blended1, blended2 = blend_colors(color1, color2, 0.2)
+            p1.color = blended1
+            p2.color = blended2
+            # p1.draw(img1, p1.color)
+            # p2.draw(img2, p2.color)
 
         # TODO: Add and fix Homography
         # if persons1 and len(persons1) > 1:
@@ -164,9 +174,9 @@ def annotate_video_multi(
         #         feet_points.append(p.get_feet_points())
         #     H, mask = cv.findHomography(feet_points_on_img1, feet_points_real1, cv.RANSAC, 5.0)
 
-        # cv.imshow("Frame 1", img1)
-        # cv.imshow("Frame 2", img2)
-        # cv.waitKey(1)
+        cv.imshow("Frame 1", img1)
+        cv.imshow("Frame 2", img2)
+        cv.waitKey(1)
 
         # if out1 is None:
         #     out1 = cv.VideoWriter(f"{file1_pre}_annotated{file1_ext}", fourcc, 24, (img1.shape[1], img1.shape[0]))

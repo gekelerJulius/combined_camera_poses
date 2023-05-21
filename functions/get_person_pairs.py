@@ -2,110 +2,195 @@ import json
 import math
 import os
 import time
-from typing import List
+from typing import List, Tuple, Dict, Optional
 
 import numpy as np
 import cv2 as cv
+from matplotlib import pyplot as plt
+from matplotlib.axes import Axes
+from matplotlib.figure import Figure
 from mediapipe.python.solutions.pose_connections import POSE_CONNECTIONS
+from numpy import ndarray
 from poseviz import PoseViz, ViewInfo
 from scipy.optimize import linear_sum_assignment
 
 from classes.camera_data import CameraData
-from classes.logger import Logger
+from classes.logger import Logger, Divider
 from classes.person import Person
+from classes.person_recorder import PersonRecorder
 from classes.true_person_loader import TruePersonLoader
 from classes.unity_person import load_points
 from consts.consts import LANDMARK_NAMES, CONNECTIONS_LIST, NAMES_LIST
 from consts.mixamo_mapping import from_mixamo
 from enums.logging_levels import LoggingLevel
 from functions.funcs import triangulate_points, project_points, estimate_projection, get_dominant_color, \
-    get_dominant_color_bbox
+    get_dominant_color_bbox, calc_cos_sim, normalize_points, icp
 
 
-def get_person_pairs(
-        a: List[Person],
-        b: List[Person],
+def match_pairs(
+        recorder1: PersonRecorder,
+        recorder2: PersonRecorder,
+        frame_count: int,
         img1,
         img2,
         cam_data1: CameraData,
-        cam_data2: CameraData,
-):
-    """
-    Returns a list of tuples of Person objects, where each tuple contains two Person objects
-    that are the same person in different images.
-    """
-    # record = set()
+        cam_data2: CameraData
+) -> List[Tuple[Person, Person]]:
+    Logger.log("Matching pairs", LoggingLevel.INFO)
+    recent1: List[Person] = recorder1.get_recent_persons(frame_count)
+    recent2: List[Person] = recorder2.get_recent_persons(frame_count)
+    cost_matrix = np.zeros((len(recent1), len(recent2)))
 
-    # for p1 in a:
-    #     for p2 in b:
-    # sim1 = p1.get_landmark_sim(p2, img1, img2)
-    # sim2 = p2.get_landmark_sim(p1, img2, img1)
-    #
-    # if sim1 is None or sim2 is None:
-    #     continue
-    # record.add((p1, p2, sim1, sim2))
+    for i, a in enumerate(recent1):
+        for j, b in enumerate(recent2):
+            Logger.log(f"Matching {a.name} and {b.name}", LoggingLevel.INFO)
+            diff = compare_persons(a.name, b.name, recorder1, recorder2, frame_count)
+            cost_matrix[i, j] = diff
 
-    # Sort the record by the smallest difference between people in a and b
-    # def sort_key(record_item):
-    #     return record_item[2] + record_item[3]
-
-    # sorted_record = sorted(record, key=sort_key)
-
-    cost_matrix = np.zeros((len(a), len(b)))
-    for i, p1 in enumerate(a):
-        for j, p2 in enumerate(b):
-            cost_matrix[i, j] = test_pairing(p1, p2, img1, img2, cam_data1, cam_data2)
+    with Divider("Cost Matrix"):
+        Logger.log(cost_matrix, LoggingLevel.INFO)
 
     row_ind, col_ind = linear_sum_assignment(cost_matrix)
-    pairs = [(a[i], b[j]) for i, j in zip(row_ind, col_ind)]
-    return pairs
-
-
-def get_person_pairs_simple_distance(
-        a: List[Person],
-        b: List[Person],
-        img1,
-        img2,
-        cam_data1: CameraData,
-        cam_data2: CameraData,
-):
-    """
-    Returns a list of tuples of Person objects, where each tuple contains two Person objects
-    that are the same person in different images.
-    """
-    record = set()
-    for p1 in a:
-        for p2 in b:
-            pose_diff = p1.pose_distance(p2)
-            dom_col1 = get_dominant_color_bbox(img1, p1.bounding_box)
-            dom_col2 = get_dominant_color_bbox(img2, p2.bounding_box)
-            color_diff = np.linalg.norm(dom_col1 - dom_col2)
-            color_diff_norm = color_diff / 255
-
-            if pose_diff is None or color_diff_norm is None:
-                continue
-
-            cost = pose_diff * color_diff_norm
-            record.add((p1, p2, cost))
-
-    # Sort the record by the smallest cost
-    def sort_key(record_item):
-        return record_item[2]
-
-    sorted_record = sorted(record, key=sort_key)
     pairs = []
-    for p1, p2, p_diff, c_diff in sorted_record:
-        if p1 in [pair[0] for pair in pairs] or p2 in [pair[1] for pair in pairs]:
-            continue
-        pairs.append((p1, p2))
-
-    # pair_copy = pairs.copy()
-    # for p1, p2 in pair_copy:
-    #     error = test_pairing(p1, p2, img1, img2, cam_data1, cam_data2)
-    #     if error > 5:
-    #         Logger.log(f"Pairing error: {error}", LoggingLevel.DEBUG)
-    #         pairs.remove((p1, p2))
+    for i, j in zip(row_ind, col_ind):
+        pairs.append((recent1[i], recent2[j]))
     return pairs
+
+
+def compare_persons(
+        name1: str,
+        name2: str,
+        recorder1: PersonRecorder,
+        recorder2: PersonRecorder,
+        frame_count: int
+) -> Optional[float]:
+    i = 0
+    frame_index = 1
+    diff = 0
+    while frame_index < frame_count:
+        p1: Person = recorder1.get_person_at_frame(name1, frame_index)
+        p2: Person = recorder2.get_person_at_frame(name2, frame_index)
+        frame_index += 1
+        if p1 is None or p2 is None:
+            continue
+        numpy1: ndarray = normalize_points(p1.get_pose_landmarks_numpy())
+        numpy2: ndarray = normalize_points(p2.get_pose_landmarks_numpy())
+        if numpy1 is None or numpy2 is None:
+            Logger.log("One of the numpy arrays is None", LoggingLevel.WARNING)
+            continue
+
+        if len(numpy1) != len(numpy2):
+            Logger.log("The numpy arrays are not the same length", LoggingLevel.WARNING)
+            continue
+
+        R, _ = icp(numpy1, numpy2)
+        with Divider("R"):
+            Logger.log(R, LoggingLevel.INFO)
+        with Divider("numpy1"):
+            Logger.log(numpy1, LoggingLevel.INFO)
+
+        numpy_homo = np.hstack((numpy1, np.ones((len(numpy1), 1))))
+        numpy1_transformed_homo = np.matmul(R, numpy_homo.T).T
+        numpy1_transformed = np.array([[n[0], n[1], n[2]] for n in numpy1_transformed_homo])
+
+        with Divider("numpy1_transformed"):
+            Logger.log(numpy1_transformed, LoggingLevel.INFO)
+
+        sims = np.array([calc_cos_sim(numpy1_transformed[i], numpy2[i]) for i in range(len(numpy1))])
+        diff += 1 - ((np.mean(sims) + 1) / 2)
+        i += 1
+    if i > 0:
+        res = diff / i
+    else:
+        res = 1
+    Logger.log(res, LoggingLevel.INFO, label="Cosine similarity")
+    return res
+
+
+# def get_person_pairs(
+#         a: List[Person],
+#         b: List[Person],
+#         img1,
+#         img2,
+#         cam_data1: CameraData,
+#         cam_data2: CameraData,
+# ):
+#     """
+#     Returns a list of tuples of Person objects, where each tuple contains two Person objects
+#     that are the same person in different images.
+#     """
+#     # record = set()
+#
+#     # for p1 in a:
+#     #     for p2 in b:
+#     # sim1 = p1.get_landmark_sim(p2, img1, img2)
+#     # sim2 = p2.get_landmark_sim(p1, img2, img1)
+#     #
+#     # if sim1 is None or sim2 is None:
+#     #     continue
+#     # record.add((p1, p2, sim1, sim2))
+#
+#     # Sort the record by the smallest difference between people in a and b
+#     # def sort_key(record_item):
+#     #     return record_item[2] + record_item[3]
+#
+#     # sorted_record = sorted(record, key=sort_key)
+#
+#     cost_matrix = np.zeros((len(a), len(b)))
+#     for i, p1 in enumerate(a):
+#         for j, p2 in enumerate(b):
+#             cost_matrix[i, j] = test_pairing(p1, p2, img1, img2, cam_data1, cam_data2)
+#
+#     row_ind, col_ind = linear_sum_assignment(cost_matrix)
+#     pairs = [(a[i], b[j]) for i, j in zip(row_ind, col_ind)]
+#     return pairs
+
+
+# def get_person_pairs_simple_distance(
+#         a: List[Person],
+#         b: List[Person],
+#         img1,
+#         img2,
+#         cam_data1: CameraData,
+#         cam_data2: CameraData,
+# ):
+#     """
+#     Returns a list of tuples of Person objects, where each tuple contains two Person objects
+#     that are the same person in different images.
+#     """
+#     record = set()
+#     for p1 in a:
+#         for p2 in b:
+#             pose_diff = p1.pose_distance(p2)
+#             dom_col1 = get_dominant_color_bbox(img1, p1.bounding_box)
+#             dom_col2 = get_dominant_color_bbox(img2, p2.bounding_box)
+#             color_diff = np.linalg.norm(dom_col1 - dom_col2)
+#             color_diff_norm = color_diff / 255
+#
+#             if pose_diff is None or color_diff_norm is None:
+#                 continue
+#
+#             cost = pose_diff * color_diff_norm
+#             record.add((p1, p2, cost))
+#
+#     # Sort the record by the smallest cost
+#     def sort_key(record_item):
+#         return record_item[2]
+#
+#     sorted_record = sorted(record, key=sort_key)
+#     pairs = []
+#     for p1, p2, p_diff, c_diff in sorted_record:
+#         if p1 in [pair[0] for pair in pairs] or p2 in [pair[1] for pair in pairs]:
+#             continue
+#         pairs.append((p1, p2))
+#
+#     # pair_copy = pairs.copy()
+#     # for p1, p2 in pair_copy:
+#     #     error = test_pairing(p1, p2, img1, img2, cam_data1, cam_data2)
+#     #     if error > 5:
+#     #         Logger.log(f"Pairing error: {error}", LoggingLevel.DEBUG)
+#     #         pairs.remove((p1, p2))
+#     return pairs
 
 
 def is_rotation_matrix(R):
