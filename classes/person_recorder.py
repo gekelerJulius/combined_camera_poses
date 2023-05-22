@@ -28,12 +28,12 @@ class PersonRecorder:
         self.kalman_dict = {}
         self.kalman_prediction_dict = {}
 
-    def add(self, persons: List[Person], img=None):
+    def add(self, persons: List[Person], frame_num: int, img=None):
         for person in persons:
             if self.frame_dict.get(person.frame_count) is None:
                 self.frame_dict[person.frame_count] = []
             self.frame_dict.get(person.frame_count).append(person)
-        self.update_kalman_filter(persons, img)
+        self.update_kalman_filter(persons, frame_num, img)
 
     def get_recent_persons(self, frame_num: int) -> List[Person]:
         recently_seen: List[Person] = self.frame_dict.get(frame_num)
@@ -58,6 +58,14 @@ class PersonRecorder:
             if person.name == name:
                 return person
         return None
+
+    def get_latest_frame_for_person(self, name: str) -> Optional[int]:
+        max_frame = 0
+        for frame_num, persons in self.frame_dict.items():
+            for person in persons:
+                if person.name == name:
+                    max_frame = max(max_frame, frame_num)
+        return max_frame if max_frame > 0 else None
 
     def first_record_persons(self, persons: List[Person]) -> None:
         for person in persons:
@@ -85,7 +93,7 @@ class PersonRecorder:
         prediction = kalman.predict()
         self.kalman_prediction_dict[person.name] = prediction
 
-    def update_kalman_filter(self, persons: List[Person], img=None) -> None:
+    def update_kalman_filter(self, persons: List[Person], frame_num: int, img=None) -> None:
         # Get all predictions
         predictions = [(name, pred) for name, pred in self.kalman_prediction_dict.items()]
         matched: List[str] = []
@@ -127,11 +135,12 @@ class PersonRecorder:
 
         # Get all unmatched predictions
         unmatched_predictions = list(filter(lambda x: x[0] not in matched, predictions))
-        # Remove unmatched predictions that are too old
-        # TODO
-
-        # Predict further for unmatched predictions
         for name, prediction in unmatched_predictions:
+            last_frame = self.get_latest_frame_for_person(name)
+            if last_frame is None:
+                continue
+            if frame_num - last_frame > 24:
+                continue
             self.update_kalman_filter_single(name, prediction, img)
 
         # cv2.imshow(self.id, img)

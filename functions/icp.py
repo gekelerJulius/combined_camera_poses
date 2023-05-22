@@ -11,7 +11,7 @@ def icp(A: np.ndarray, B: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
     The Iterative Closest Point method. Finds the best-fit transform that maps points A on to points B.
     :param A: (N, 3) numpy ndarray.
     :param B: (N, 3) numpy ndarray.
-    :return: R: (3, 3) numpy ndarray, t: (3, ) numpy ndarray
+    :return: R: (3, 3) numpy ndarray, distances: (N,) numpy ndarray.
     """
     assert len(A) == len(B)
     centroid_A: np.ndarray = np.mean(A, axis=0)
@@ -49,14 +49,26 @@ def icp(A: np.ndarray, B: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
     return T, distances.ravel()
 
 
-# TODO: Fix this
 def test_icp():
     R = Rotation.random().as_matrix()
-    A = np.random.rand(10, 3)
+    A = np.random.rand(500, 3)
     B = np.dot(R, A.T).T
 
     T, distances = icp(A, B)
-    tolerance = 0.5
-    dot = np.dot(T[:3, :3], R)
-    print(dot)
-    assert np.allclose(dot, np.eye(3), atol=tolerance)
+    T = np.array(T)
+    tolerance = 0.1
+
+    # In same number format
+    print("T")
+    print(T)
+    print("R")
+    print(R)
+    print("T - R")
+    print(T[:3, :3] - R)
+    with Divider():
+        print("Mean, std, max, min")
+        print(np.mean(distances))
+        print(np.std(distances))
+        print(np.max(distances))
+        print(np.min(distances))
+    assert np.allclose(distances, 0, atol=tolerance)

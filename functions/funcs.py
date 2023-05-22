@@ -19,7 +19,7 @@ from classes.PlotService import PlotService
 from classes.bounding_box import BoundingBox
 from classes.colored_landmark import ColoredLandmark
 from classes.custom_point import CustomPoint
-from classes.logger import Logger
+from classes.logger import Logger, Divider
 from consts.consts import CONNECTIONS_LIST
 from enums.logging_levels import LoggingLevel
 from functions.get_pose import get_pose
@@ -840,7 +840,7 @@ def find_correct_projection_matrix(P1: ndarray, P2: ndarray, P3: ndarray, P4: nd
     max_in_front = 0
     for i, P_temp in enumerate(P_list):
         P_temp = P_temp.astype(np.float32)
-        points_3D_temp = cv2.triangulatePoints(M1, P_temp, points1.T[:2], points2.T[:2])
+        points_3D_temp = cv2.triangulatePoints(M1, P_temp, points1.T, points2.T)
         points_3D_temp /= points_3D_temp[3]
 
         # Check if the points are in front of both cameras
@@ -856,11 +856,24 @@ def find_correct_projection_matrix(P1: ndarray, P2: ndarray, P3: ndarray, P4: nd
     return P, points_3D
 
 
-def estimate_projection(p1: ndarray, p2: ndarray, K1: ndarray, K2: ndarray) -> Optional[Tuple[ndarray, ndarray]]:
+def estimate_projection(p1: ndarray, p2: ndarray, K1: ndarray, K2: ndarray) -> [
+    Tuple[Optional[ndarray], Optional[ndarray]]]:
     # p1 = cv2.undistortPoints(src=p1, cameraMatrix=K1, distCoeffs=None)
     # p2 = cv2.undistortPoints(src=p2, cameraMatrix=K2, distCoeffs=None)
-    E, mask = cv2.findEssentialMat(p1[:, :2], p2[:, :2], K1, cv2.RANSAC, 0.999, 2)
+    assert len(p1) == len(p2), "The number of points in each set must be equal"
+    assert p1.shape[1] == 2, "Each point must be a 2D point"
+    assert p2.shape[1] == 2, "Each point must be a 2D point"
+
+    E, mask = cv2.findEssentialMat(p1, p2, K1, cv2.RANSAC, 0.999, 2)
+    with Divider("Essential matrix"):
+        Logger.log(E, LoggingLevel.DEBUG)
     R1, R2, t = cv2.decomposeEssentialMat(E)
+    with Divider("R1"):
+        Logger.log(R1, LoggingLevel.DEBUG)
+    with Divider("R2"):
+        Logger.log(R2, LoggingLevel.DEBUG)
+    with Divider("t"):
+        Logger.log(t, LoggingLevel.DEBUG)
 
     # Combine R1, R2 with t to get the four possible projection matrices
     P1 = np.hstack((R1, t))
@@ -868,6 +881,14 @@ def estimate_projection(p1: ndarray, p2: ndarray, K1: ndarray, K2: ndarray) -> O
     P3 = np.hstack((R2, t))
     P4 = np.hstack((R2, -t))
     P, points_3D = find_correct_projection_matrix(P1, P2, P3, P4, p1, p2)
+    with Divider("P"):
+        Logger.log(P, LoggingLevel.DEBUG)
+    with Divider("3D points"):
+        Logger.log(points_3D, LoggingLevel.DEBUG)
+
+    if P is None or points_3D is None:
+        return None, None
+
     points_3D = points_3D[:3].T
 
     # p1, trmat1 = normalize_points(np.array(p1))

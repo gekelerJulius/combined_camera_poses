@@ -73,7 +73,7 @@ def annotate_video_multi(
     person_recorder2: PersonRecorder = PersonRecorder("2")
     img1 = None
     img2 = None
-
+    pairs: List[Tuple[Person, Person]] = []
     while cap1.isOpened() and cap2.isOpened():
         ret1, img1 = cap1.read()
         ret2, img2 = cap2.read()
@@ -81,7 +81,6 @@ def annotate_video_multi(
             break
 
         frame_count += 1
-
         START_FRAME = 60
         END_FRAME = math.inf
 
@@ -124,7 +123,6 @@ def annotate_video_multi(
 
         for box in bounding_boxes2:
             img2, results2 = get_pose(img2, box)
-
             if results2 is None or results2.pose_landmarks is None or results2.pose_world_landmarks is None:
                 continue
             length = len([x for x in results2.pose_landmarks.landmark])
@@ -133,10 +131,10 @@ def annotate_video_multi(
                     Person(f"Person2 {len(persons2)}", frame_count, box, results2)
                 )
 
-        person_recorder1.add(persons1, img1)
-        person_recorder2.add(persons2, img2)
+        person_recorder1.add(persons1, frame_count, img1)
+        person_recorder2.add(persons2, frame_count, img2)
 
-        pairs: List[Tuple[Person, Person]] = match_pairs(
+        pairs = match_pairs(
             person_recorder1,
             person_recorder2,
             frame_count,
@@ -161,7 +159,7 @@ def annotate_video_multi(
         for i, (p1, p2) in enumerate(pairs):
             color1 = p1.color
             color2 = p2.color
-            blended1, blended2 = blend_colors(color1, color2, 0.2)
+            blended1, blended2 = blend_colors(color1, color2, 0)
             p1.color = blended1
             p2.color = blended2
             # p1.draw(img1, p1.color)
