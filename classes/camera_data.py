@@ -5,9 +5,8 @@ from typing import List, Tuple
 import cameralib
 import numpy as np
 import cv2
+from numpy import ndarray
 
-from classes.logger import Logger
-from enums.logging_levels import LoggingLevel
 from functions.funcs import points_are_close
 
 
@@ -82,12 +81,14 @@ class CameraData:
     def __repr__(self):
         return self.__str__()
 
-    def transform_points_to_world(self, points: List[List[float]]):
+    def transform_points_to_world(self, points: ndarray):
         """Transforms points from camera coordinates to world coordinates"""
+        assert points.shape[1] == 2
         return [self.transform_point_to_world(point) for point in points]
 
-    def transform_point_to_world(self, point: List[float]):
+    def transform_point_to_world(self, point: ndarray):
         """Transforms a point from camera coordinates to world coordinates"""
+        assert point.shape == (2,)
         u = point[0]
         v = point[1]
         K = self.intrinsic_matrix
@@ -105,12 +106,15 @@ class CameraData:
         p_world = p_world_homogeneous[:3] / p_world_homogeneous[3]
         return p_world
 
-    def transform_points_to_camera(self, points: List[List[float]]):
-        """Transforms points from world coordinates to camera coordinates"""
-        return [self.transform_point_to_camera(point) for point in points]
+    def transform_points_to_camera(self, points: ndarray) -> ndarray:
+        """Transforms Nx3 points from world coordinates to Nx2 image coordinates"""
+        assert len(points.shape) == 2
+        assert points.shape[1] == 3
+        return np.array([self.transform_point_to_camera(point) for point in points])
 
-    def transform_point_to_camera(self, point: List[float]):
+    def transform_point_to_camera(self, point: ndarray) -> ndarray:
         """Transforms a point from world coordinates to camera coordinates"""
+        assert point.shape[0] == 3
         X = point[0]
         Y = point[1]
         Z = point[2]
@@ -141,10 +145,3 @@ class CameraData:
             rot_world_to_cam=R,
             intrinsic_matrix=self.intrinsic_matrix,
         )
-
-    def test_valid(self, resolution: Tuple[int, int]):
-        point = [random.randint(0, resolution[0]), random.randint(0, resolution[1])]
-        world_point = self.transform_point_to_world(point)
-        og_point = self.transform_point_to_camera(world_point)
-        if not points_are_close(point[0], point[1], og_point[0], og_point[1]):
-            raise ValueError("Point transformation is not working")

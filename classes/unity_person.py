@@ -4,6 +4,9 @@ import json
 import numpy as np
 from numpy import ndarray
 
+from classes.bounding_box import BoundingBox
+from classes.camera_data import CameraData
+from classes.person import Person
 from consts.consts import NAMES_LIST
 from consts.mixamo_mapping import from_mixamo
 
@@ -18,12 +21,19 @@ class UnityPerson:
         org_points = load_points(self.jsonpath + f"/{n}.json")
         return org_points
 
+    def get_image_points(self, frame_count: int, camera_info: CameraData) -> ndarray:
+        org_points = self.get_frame(frame_count)
+        return camera_info.transform_points_to_camera(org_points)
+
+    __str__ = lambda self: self.jsonpath
+    __repr__ = lambda self: self.jsonpath
+
 
 def load_points(jsonpath: str) -> ndarray:
     org_dict = {}
     with open(jsonpath) as f:
         org_points_json = json.load(f)
-    strings_to_remove = ["mixamorig:", "Ch42_", "Walking_Man", "Walking_Woman"]
+    strings_to_remove = ["mixamorig:", "Ch42_", "Walking_Man", "Ch41_", "mixamorig4:", "Walking_Woman"]
     old_names = [a for a in org_points_json]
     for i in range(len(org_points_json)):
         name = old_names[i]

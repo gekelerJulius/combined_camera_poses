@@ -1,11 +1,10 @@
-import itertools
-import time
 import xml.etree.ElementTree as ET
 from typing import Union, List, Tuple, Optional
 
 import cv2
 import mediapipe as mp
 import numpy as np
+from Cython.Includes.numpy import ndarray
 from matplotlib import pyplot as plt
 from matplotlib.axes import Axes
 from matplotlib.figure import Figure
@@ -13,7 +12,6 @@ from numpy import ndarray
 from pyhull.simplex import Simplex
 from scipy.linalg import orthogonal_procrustes
 from mpl_toolkits.mplot3d import Axes3D
-from sklearn.neighbors import NearestNeighbors
 
 from classes.PlotService import PlotService
 from classes.bounding_box import BoundingBox
@@ -22,7 +20,6 @@ from classes.custom_point import CustomPoint
 from classes.logger import Logger, Divider
 from consts.consts import CONNECTIONS_LIST
 from enums.logging_levels import LoggingLevel
-from functions.get_pose import get_pose
 
 mp_pose = mp.solutions.pose
 mp_drawing = mp.solutions.drawing_utils
@@ -46,13 +43,15 @@ mp_drawing_styles = mp.solutions.drawing_styles
 #
 #     return points_norm, T
 
-def normalize_points(points: ndarray) -> ndarray:
-    if points.shape[1] != 3:
-        points = np.hstack((points, np.ones((points.shape[0], 1))))
-    centroid = np.mean(points[:, :2], axis=0)
-    translation_matrix = np.array([[1, 0, -centroid[0]],
-                                   [0, 1, -centroid[1]],
-                                   [0, 0, 1]])
+def normalize_points(points: ndarray) -> Tuple[ndarray, ndarray]:
+    assert points.shape[1] == 3, "Points must be 3D"
+    points: ndarray = points.copy()
+    # centroid 3D
+    centroid: ndarray = np.mean(points, axis=0)
+    translation_matrix: ndarray = np.array([[1, 0, -centroid[0]],
+                                            [0, 1, -centroid[1]],
+                                            [0, 0, 1]])
+
     points = np.dot(points, translation_matrix.T)
     avg_distance = np.mean(np.sqrt(np.sum(points[:, :2] ** 2, axis=1)))
     scale = np.sqrt(2) / avg_distance
@@ -60,7 +59,7 @@ def normalize_points(points: ndarray) -> ndarray:
                                [0, scale, 0],
                                [0, 0, 1]])
     points = np.dot(points, scaling_matrix.T)
-    return points
+    return points, np.dot(scaling_matrix, translation_matrix)
 
 
 def calc_cos_sim(v1: ndarray, v2: ndarray) -> float:

@@ -33,3 +33,11 @@ class BoundingBox:
 
     def to_numpy(self):
         return np.array([self.min_x, self.min_y, self.max_x, self.max_y])
+
+    @staticmethod
+    def from_points(org_points: ndarray) -> "BoundingBox":
+        min_x = np.min(org_points[:, 0])
+        min_y = np.min(org_points[:, 1])
+        max_x = np.max(org_points[:, 0])
+        max_y = np.max(org_points[:, 1])
+        return BoundingBox(min_x, min_y, max_x, max_y)

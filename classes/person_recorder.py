@@ -6,6 +6,7 @@ import numpy as np
 import randomname
 import seaborn as sns
 from matplotlib import pyplot as plt
+from mediapipe.tasks.python.components.containers import Landmark
 from numpy import ndarray
 from scipy.optimize import linear_sum_assignment
 
@@ -70,6 +71,8 @@ class PersonRecorder:
     def first_record_persons(self, persons: List[Person]) -> None:
         for person in persons:
             name = randomname.get_name(adj="character")
+            while self.name_dict.get(name) is not None:
+                name = randomname.get_name(adj="character")
             person.name = name
             color = sns.color_palette("bright", 10)[random.randint(0, 9)]
             color = tuple([int(c * 255) for c in color])
@@ -154,14 +157,14 @@ class PersonRecorder:
         self.kalman_prediction_dict[name] = kalman_prediction
 
         # Plot person trajectory on image
-        for i in range(1, len(person_list)):
-            prev: Person = person_list[i - 1]
-            after: Person = person_list[i]
-            prev_np = prev.get_pose_landmarks_numpy()
-            after_np = after.get_pose_landmarks_numpy()
-            for j in range(1, 33):
-                cv2.line(img, (int(prev_np[j, 0]), int(prev_np[j, 1])), (int(after_np[j, 0]), int(after_np[j, 1])),
-                         prev.color, 2)
+        # for i in range(1, len(person_list)):
+        #     prev: Person = person_list[i - 1]
+        #     after: Person = person_list[i]
+        #     prev_np = prev.get_pose_landmarks_numpy()
+        #     after_np = after.get_pose_landmarks_numpy()
+        # for j in range(1, 33):
+        #     cv2.line(img, (int(prev_np[j, 0]), int(prev_np[j, 1])), (int(after_np[j, 0]), int(after_np[j, 1])),
+        #              prev.color, 2)
 
     def plot_trajectories(self, img) -> None:
         for name in self.kalman_dict:
@@ -174,3 +177,37 @@ class PersonRecorder:
                 b = centroid_list[i]
                 cv2.line(img, (int(a[0]), int(a[1])), (int(b[0]), int(b[1])), (0, 255, 0), 2)
         cv2.imshow(self.id, img)
+
+    def get_frame_history(self, p: Person) -> Dict[int, Person]:
+        all_records = self.kalman_dict[p.name][1]
+        return {p.frame_count: p for p in all_records}
+
+    @staticmethod
+    def get_all_corresponding_frame_recordings(p1: Person, p2: Person, recorder1: "Recorder", recorder2: "Recorder") -> \
+            Tuple[List[Landmark], List[Landmark]]:
+        p1_rec_positions: Dict[int, Person] = recorder1.get_frame_history(p1)
+        p2_rec_positions: Dict[int, Person] = recorder2.get_frame_history(p2)
+        r1 = []
+        r2 = []
+
+        common_keys = set(p1_rec_positions.keys()).intersection(set(p2_rec_positions.keys()))
+        if len(common_keys) == 0:
+            return [], []
+
+        p1_positions: List[Person] = [p1_rec_positions[k] for k in common_keys]
+        p2_positions: List[Person] = [p2_rec_positions[k] for k in common_keys]
+
+        assert len(p1_positions) == len(p2_positions)
+
+        for j in range(len(p1_positions)):
+            pers1 = p1_positions[j]
+            pers2 = p2_positions[j]
+
+            lmks1: List[Landmark] = [lmk for lmk in pers1.get_pose_landmarks()]
+            lmks2: List[Landmark] = [lmk for lmk in pers2.get_pose_landmarks()]
+
+            for k in range(len(lmks1)):
+                r1.append(lmks1[k])
+                r2.append(lmks2[k])
+
+        return r1, r2

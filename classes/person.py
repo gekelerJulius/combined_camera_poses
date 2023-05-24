@@ -77,6 +77,10 @@ class Person:
             return np.array([])
         return np.array([[lmk.x, lmk.y, lmk.z] for lmk in self.results.pose_landmarks.landmark])
 
+    def get_pose_landmarks_numpy_2d(self) -> np.ndarray:
+        pts_3d = self.get_pose_landmarks_numpy()
+        return np.array([[pt[0], pt[1]] for pt in pts_3d])
+
     def get_world_landmarks(self) -> List[Landmark]:
         if self.results is None or self.results.pose_world_landmarks is None:
             return []
@@ -106,7 +110,7 @@ class Person:
 
         return lmks
 
-    def draw(self, image, color=(0, 255, 0), title=None):
+    def draw(self, image, color=(255, 255, 0), title=None):
         if title is None and self.name is not None:
             title = self.name
         return draw_landmarks_list(

@@ -3,6 +3,7 @@ import os
 
 import numpy as np
 from cv2 import VideoWriter
+from numpy import ndarray
 from ultralytics import YOLO
 
 import cv2 as cv
@@ -14,6 +15,9 @@ from classes.camera_data import CameraData
 from classes.logger import Logger
 from classes.person import Person
 from classes.person_recorder import PersonRecorder
+from classes.score_manager import ScoreManager
+from classes.true_person_loader import TruePersonLoader
+from classes.unity_person import UnityPerson
 from enums.logging_levels import LoggingLevel
 from functions.funcs import blend_colors
 from functions.get_person_pairs import test_pairing, match_pairs
@@ -48,8 +52,6 @@ def annotate_video_multi(
 
     cam1_data: CameraData = CameraData.create_from_json(cam1_data_path)
     cam2_data: CameraData = CameraData.create_from_json(cam2_data_path)
-    cam1_data.test_valid(resolution)
-    cam2_data.test_valid(resolution)
     model = YOLO()
     Logger.log("Starting analysis...", LoggingLevel.INFO)
 
@@ -71,6 +73,7 @@ def annotate_video_multi(
     frame_count = 0
     person_recorder1: PersonRecorder = PersonRecorder("1")
     person_recorder2: PersonRecorder = PersonRecorder("2")
+    score_manager = ScoreManager()
     img1 = None
     img2 = None
     pairs: List[Tuple[Person, Person]] = []
@@ -81,7 +84,7 @@ def annotate_video_multi(
             break
 
         frame_count += 1
-        START_FRAME = 60
+        START_FRAME = 0
         END_FRAME = math.inf
 
         if frame_count < START_FRAME:
@@ -134,6 +137,23 @@ def annotate_video_multi(
         person_recorder1.add(persons1, frame_count, img1)
         person_recorder2.add(persons2, frame_count, img2)
 
+        # for person in unity_persons:
+        #     print(person)
+        #     pts1: ndarray = person.get_image_points(frame_count, cam1_data)
+        #     pts2: ndarray = person.get_image_points(frame_count, cam2_data)
+        #
+        #     assert pts1 is not None and pts2 is not None
+        #     assert len(pts1) == len(pts2) != 0
+        #
+        #     for i in range(len(pts1)):
+        #         pt1 = tuple(pts1[i].astype(int))
+        #         pt2 = tuple(pts2[i].astype(int))
+        #         cv.circle(img1, pt1, 5, (255, 255, 0), -1)
+        #         cv.circle(img2, pt2, 5, (255, 255, 0), -1)
+
+        # if frame_count < 15:
+        #     continue
+
         pairs = match_pairs(
             person_recorder1,
             person_recorder2,
@@ -144,37 +164,25 @@ def annotate_video_multi(
             cam2_data,
         )
 
-        # person_recorder1.plot_trajectories(img1)
-        # person_recorder2.plot_trajectories(img2)
-        # cv.waitKey(1)
-
-        # pairs: List[Tuple[Person, Person]] = get_person_pairs_simple_distance(
-        #     persons1, persons2, img1, img2, cam1_data, cam2_data
-        # )
-
-        # pairs: List[Tuple[Person, Person]] = get_person_pairs_simple_distance(
-        #     persons1, persons2, img1, img2, cam1_data, cam2_data
-        # )
+        unity_persons: List[UnityPerson] = TruePersonLoader.load("simulation_data/persons")
 
         for i, (p1, p2) in enumerate(pairs):
-            color1 = p1.color
-            color2 = p2.color
-            blended1, blended2 = blend_colors(color1, color2, 0)
-            p1.color = blended1
-            p2.color = blended2
-            # p1.draw(img1, p1.color)
-            # p2.draw(img2, p2.color)
+            # color1 = p1.color
+            # color2 = p2.color
+            # blended1, blended2 = blend_colors(color1, color2, 0)
+            # p1.color = blended1
+            # p2.color = blended2
+            # color = [0, 0, 0]
+            # color[i] = 255
+            # color = tuple(color)
+            # p1.draw(img1, color)
+            # p2.draw(img2, color)
+            confirmed = TruePersonLoader.confirm_pair((p1, p2), unity_persons, frame_count, cam1_data, cam2_data)
+            score_manager.add_score(1 if confirmed else 0)
 
-        # TODO: Add and fix Homography
-        # if persons1 and len(persons1) > 1:
-        #     feet_points = []
-        #     for p in persons1:
-        #         feet_points.append(p.get_feet_points())
-        #     H, mask = cv.findHomography(feet_points_on_img1, feet_points_real1, cv.RANSAC, 5.0)
-
-        cv.imshow("Frame 1", img1)
-        cv.imshow("Frame 2", img2)
-        cv.waitKey(1)
+        # cv.imshow("Frame 1", img1)
+        # cv.imshow("Frame 2", img2)
+        # cv.waitKey(1)
 
         # if out1 is None:
         #     out1 = cv.VideoWriter(f"{file1_pre}_annotated{file1_ext}", fourcc, 24, (img1.shape[1], img1.shape[0]))
@@ -185,6 +193,9 @@ def annotate_video_multi(
         # out2.write(img2)
         if frame_count % 10 == 0:
             Logger.log(f"Frame: {frame_count}", LoggingLevel.INFO)
+            score = score_manager.get_score()
+            # Show percentage with 2 decimal places
+            Logger.log(f"Correct percentage: {score * 100:.2f}%", LoggingLevel.INFO)
 
         # Debug
         # if frame_count == 50:
@@ -194,6 +205,8 @@ def annotate_video_multi(
     cap2.release()
     # out1.release()
     # out2.release()
+    score = score_manager.get_score()
+    Logger.log(f"Correct percentage: {score * 100:.2f}%", LoggingLevel.INFO)
     Logger.log("Done!", LoggingLevel.INFO)
     cv.waitKey(0)
     cv.destroyAllWindows()
