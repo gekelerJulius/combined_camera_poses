@@ -9,6 +9,7 @@ from classes.camera_data import CameraData
 from classes.person import Person
 from consts.consts import NAMES_LIST
 from consts.mixamo_mapping import from_mixamo
+from functions.funcs import plot_pose_3d
 
 
 class UnityPerson:
@@ -27,6 +28,17 @@ class UnityPerson:
 
     __str__ = lambda self: self.jsonpath
     __repr__ = lambda self: self.jsonpath
+
+    @staticmethod
+    def plot_all_3d(persons: List["UnityPerson"]) -> None:
+        # TODO: Fix
+        import matplotlib.pyplot as plt
+        from mpl_toolkits.mplot3d import Axes3D
+        plot_id = 0
+        for person in persons:
+            for i in range(0, 100):
+                plot_pose_3d(person.get_frame(i), plot_id)
+        plt.show()
 
 
 def load_points(jsonpath: str) -> ndarray:

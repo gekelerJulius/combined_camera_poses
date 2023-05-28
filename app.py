@@ -1,5 +1,6 @@
 import math
 import os
+import time
 from typing import List, Tuple
 
 import cv2 as cv
@@ -7,7 +8,7 @@ from ultralytics import YOLO
 
 from classes.bounding_box import BoundingBox
 from classes.camera_data import CameraData
-from classes.logger import Logger
+from classes.logger import Logger, Divider
 from classes.person import Person
 from classes.person_recorder import PersonRecorder
 from classes.score_manager import ScoreManager
@@ -47,6 +48,13 @@ def annotate_video_multi(
 
     cam1_data: CameraData = CameraData.create_from_json(cam1_data_path)
     cam2_data: CameraData = CameraData.create_from_json(cam2_data_path)
+
+    R_between_cameras = cam1_data.rotation_between_cameras(cam2_data)
+    t_between_cameras = cam1_data.translation_between_cameras(cam2_data)
+    with Divider("Camera Data"):
+        Logger.log(R_between_cameras, LoggingLevel.INFO)
+        Logger.log(t_between_cameras, LoggingLevel.INFO)
+
     model = YOLO()
     Logger.log("Starting analysis...", LoggingLevel.INFO)
 
@@ -148,6 +156,9 @@ def annotate_video_multi(
         person_recorder1.add(persons1, frame_count, img1)
         person_recorder2.add(persons2, frame_count, img2)
 
+        if frame_count < 15:
+            continue
+
         # for person in unity_persons:
         #     print(person)
         #     pts1: ndarray = person.get_image_points(frame_count, cam1_data)
@@ -178,6 +189,9 @@ def annotate_video_multi(
             "simulation_data/persons"
         )
 
+        UnityPerson.plot_all_3d(unity_persons)
+        time.sleep(20)
+
         for i, (p1, p2) in enumerate(pairs):
             color1 = p1.color
             color2 = p2.color
@@ -194,9 +208,10 @@ def annotate_video_multi(
             )
             score_manager.add_score(1 if confirmed else 0)
 
-        # cv.imshow("Frame 1", img1)
-        # cv.imshow("Frame 2", img2)
-        # cv.waitKey(1)
+        if frame_count > START_FRAME:
+            cv.imshow("Frame 1", img1)
+            cv.imshow("Frame 2", img2)
+            cv.waitKey(1)
 
         # if out1 is None:
         #     out1 = cv.VideoWriter(f"{file1_pre}_annotated{file1_ext}", fourcc, 24, (img1.shape[1], img1.shape[0]))

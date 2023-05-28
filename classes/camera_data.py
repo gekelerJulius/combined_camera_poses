@@ -40,6 +40,25 @@ class CameraData:
         )
 
     @staticmethod
+    def from_matrices(K, R, t) -> "CameraData":
+        """
+        Creates a CameraData object from the intrinsic and extrinsic matrices
+        :param K: Intrinsic matrix (3x3)
+        :param R: Rotation matrix (3x3)
+        :param t: Translation vector (3x1)
+        """
+        fx = K[0][0]
+        fy = K[1][1]
+        cx = K[0][2]
+        cy = K[1][2]
+        aspect_ratio = fx / fy
+
+        tx = t[0][0]
+        ty = t[1][0]
+        tz = t[2][0]
+        return CameraData(fx, fy, cx, cy, aspect_ratio, R, np.array([tx, ty, tz]))
+
+    @staticmethod
     def create_from_json(json_path):
         # Extract the intrinsic and extrinsic parameters
         json_data = CameraData.load_json(json_path)
@@ -78,28 +97,23 @@ class CameraData:
     def __repr__(self):
         return self.__str__()
 
-    def transform_points_to_world(self, points: ndarray):
+    def transform_points_to_world(self, points: ndarray) -> ndarray:
         """Transforms points from camera coordinates to world coordinates"""
         assert points.shape[1] == 2
-        return [self.transform_point_to_world(point) for point in points]
+        return np.array([self.transform_point_to_world(point) for point in points])
 
-    def transform_point_to_world(self, point: ndarray):
+    def transform_point_to_world(self, point: ndarray) -> ndarray:
         """Transforms a point from camera coordinates to world coordinates"""
         assert point.shape == (2,)
         u = point[0]
         v = point[1]
-        K = self.intrinsic_matrix
+
+        x = (u - self.cx) / self.fx
+        y = (v - self.cy) / self.fy
+        z = 1
+        # Use extrinsic matrix to transform the point to world coordinates
         extrinsic_matrix = self.extrinsic_matrix4x4
-
-        # convert the image point to normalized camera coordinates
-        p_cam = np.dot(np.linalg.inv(K), np.array([u, v, 1]))
-
-        # convert the normalized camera coordinates to world coordinates
-        p_world_homogeneous = np.dot(
-            np.linalg.inv(extrinsic_matrix), np.array([p_cam[0], p_cam[1], p_cam[2], 1])
-        )
-
-        # convert homogeneous coordinates to Cartesian coordinates
+        p_world_homogeneous = np.dot(extrinsic_matrix, np.array([x, y, z, 1]))
         p_world = p_world_homogeneous[:3] / p_world_homogeneous[3]
         return p_world
 
@@ -126,3 +140,12 @@ class CameraData:
         p_img_homogeneous = np.dot(K, p_cam)
         p_img = p_img_homogeneous[:2] / p_img_homogeneous[2]
         return p_img
+
+    def rotation_between_cameras(self, cam2_data: "CameraData") -> ndarray:
+        """Calculates the rotation matrix between the two cameras"""
+        return np.dot(self.R, np.linalg.inv(cam2_data.R))
+
+    def translation_between_cameras(self, cam2_data: "CameraData") -> ndarray:
+        """Calculates the translation vector between the two cameras as a (3x1) vector"""
+        t = np.dot(self.R, cam2_data.t - self.t)
+        return t.reshape((3, 1))

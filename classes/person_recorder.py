@@ -205,10 +205,14 @@ class PersonRecorder:
 
     @staticmethod
     def get_all_corresponding_frame_recordings(
-            p1: Person, p2: Person, recorder1: "Recorder", recorder2: "Recorder"
+            p1: Person,
+            p2: Person,
+            recorder1: "Recorder",
+            recorder2: "Recorder",
+            frame_range: Tuple[int, int] = (0, np.inf),
     ) -> Tuple[List[Landmark], List[Landmark], List[int]]:
         p1_rec_positions: Dict[int, Person] = recorder1.get_frame_history(
-            p1, (p1.frame_count - 10, p1.frame_count)
+            p1, frame_range
         )
         p2_rec_positions: Dict[int, Person] = recorder2.get_frame_history(
             p2, (p2.frame_count - 10, p2.frame_count)
