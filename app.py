@@ -1,16 +1,11 @@
 import math
 import os
-
-import numpy as np
-from cv2 import VideoWriter
-from numpy import ndarray
-from ultralytics import YOLO
-
-import cv2 as cv
 from typing import List, Tuple
 
-from classes.bounding_box import BoundingBox
+import cv2 as cv
+from ultralytics import YOLO
 
+from classes.bounding_box import BoundingBox
 from classes.camera_data import CameraData
 from classes.logger import Logger
 from classes.person import Person
@@ -19,8 +14,8 @@ from classes.score_manager import ScoreManager
 from classes.true_person_loader import TruePersonLoader
 from classes.unity_person import UnityPerson
 from enums.logging_levels import LoggingLevel
-from functions.funcs import blend_colors
-from functions.get_person_pairs import test_pairing, match_pairs
+from functions.funcs import blend_colors, normalize_image
+from functions.get_person_pairs import match_pairs
 from functions.get_pose import get_pose
 from functions.get_yolo_boxes import get_yolo_bounding_boxes
 
@@ -56,16 +51,15 @@ def annotate_video_multi(
     Logger.log("Starting analysis...", LoggingLevel.INFO)
 
     # test_joint_names = ['l_wrist', 'l_elbow']
-
     # Joint index pairs specifying which ones should be connected with a line (i.e., the bones of
     # the body, e.g. wrist-elbow, elbow-shoulder)
     # test_joint_edges = [[0, 1]]
     # viz = poseviz.PoseViz(NAMES_LIST, CONNECTIONS_LIST)
     # viz = poseviz.PoseViz(test_joint_names, test_joint_edges)
 
-    fourcc = cv.VideoWriter_fourcc(*"mp4v")
-    file1_pre, file1_ext = os.path.splitext(file1_name)
-    file2_pre, file2_ext = os.path.splitext(file2_name)
+    # fourcc = cv.VideoWriter_fourcc(*"mp4v")
+    # file1_pre, file1_ext = os.path.splitext(file1_name)
+    # file2_pre, file2_ext = os.path.splitext(file2_name)
     cap1 = cv.VideoCapture(file1_name)
     cap2 = cv.VideoCapture(file2_name)
     # out1: VideoWriter = None
@@ -92,31 +86,44 @@ def annotate_video_multi(
         if frame_count > END_FRAME:
             break
 
+        print(f"Frame {frame_count}")
+
         if (
                 img1.shape[0] == 0
                 or img1.shape[1] == 0
                 or img2.shape[0] == 0
                 or img2.shape[1] == 0
         ):
-            Logger.log(f"Invalid frame size: {img1.shape}, {img2.shape}", LoggingLevel.ERROR)
+            Logger.log(
+                f"Invalid frame size: {img1.shape}, {img2.shape}", LoggingLevel.ERROR
+            )
             break
 
         # Undistort images
         img1 = cv.undistort(img1, cam1_data.intrinsic_matrix, None)
         img2 = cv.undistort(img2, cam2_data.intrinsic_matrix, None)
 
+        orig_img1 = img1.copy()
+        orig_img2 = img2.copy()
+        img1 = normalize_image(img1)
+        img2 = normalize_image(img2)
+
         # Save img1 to disk
         # cv.imwrite(f"img1_{frame_count}.jpg", img1)
 
         persons1: List[Person] = []
         persons2: List[Person] = []
-        bounding_boxes1: List[BoundingBox] = get_yolo_bounding_boxes(img1, model)
-        bounding_boxes2: List[BoundingBox] = get_yolo_bounding_boxes(img2, model)
+        bounding_boxes1: List[BoundingBox] = get_yolo_bounding_boxes(orig_img1, model)
+        bounding_boxes2: List[BoundingBox] = get_yolo_bounding_boxes(orig_img2, model)
 
         for box in bounding_boxes1:
-            img1, results1 = get_pose(img1, box)
+            img1, results1 = get_pose(orig_img1, box)
 
-            if results1 is None or results1.pose_landmarks is None or results1.pose_world_landmarks is None:
+            if (
+                    results1 is None
+                    or results1.pose_landmarks is None
+                    or results1.pose_world_landmarks is None
+            ):
                 continue
             length = len([x for x in results1.pose_landmarks.landmark])
             if length > 0:
@@ -125,8 +132,12 @@ def annotate_video_multi(
                 )
 
         for box in bounding_boxes2:
-            img2, results2 = get_pose(img2, box)
-            if results2 is None or results2.pose_landmarks is None or results2.pose_world_landmarks is None:
+            img2, results2 = get_pose(orig_img2, box)
+            if (
+                    results2 is None
+                    or results2.pose_landmarks is None
+                    or results2.pose_world_landmarks is None
+            ):
                 continue
             length = len([x for x in results2.pose_landmarks.landmark])
             if length > 0:
@@ -163,21 +174,24 @@ def annotate_video_multi(
             cam1_data,
             cam2_data,
         )
-
-        unity_persons: List[UnityPerson] = TruePersonLoader.load("simulation_data/persons")
+        unity_persons: List[UnityPerson] = TruePersonLoader.load(
+            "simulation_data/persons"
+        )
 
         for i, (p1, p2) in enumerate(pairs):
-            # color1 = p1.color
-            # color2 = p2.color
-            # blended1, blended2 = blend_colors(color1, color2, 0)
-            # p1.color = blended1
-            # p2.color = blended2
-            # color = [0, 0, 0]
-            # color[i] = 255
-            # color = tuple(color)
-            # p1.draw(img1, color)
-            # p2.draw(img2, color)
-            confirmed = TruePersonLoader.confirm_pair((p1, p2), unity_persons, frame_count, cam1_data, cam2_data)
+            color1 = p1.color
+            color2 = p2.color
+            blended1, blended2 = blend_colors(color1, color2, 0)
+            p1.color = blended1
+            p2.color = blended2
+            color = [0, 0, 0]
+            color[i] = 255
+            color = tuple(color)
+            p1.draw(img1, color)
+            p2.draw(img2, color)
+            confirmed = TruePersonLoader.confirm_pair(
+                (p1, p2), unity_persons, frame_count, cam1_data, cam2_data
+            )
             score_manager.add_score(1 if confirmed else 0)
 
         # cv.imshow("Frame 1", img1)
@@ -221,5 +235,5 @@ def main():
     )
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

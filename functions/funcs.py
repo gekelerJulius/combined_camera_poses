@@ -4,7 +4,6 @@ from typing import Union, List, Tuple, Optional
 import cv2
 import mediapipe as mp
 import numpy as np
-from Cython.Includes.numpy import ndarray
 from matplotlib import pyplot as plt
 from matplotlib.axes import Axes
 from matplotlib.figure import Figure
@@ -43,23 +42,23 @@ mp_drawing_styles = mp.solutions.drawing_styles
 #
 #     return points_norm, T
 
-def normalize_points(points: ndarray) -> Tuple[ndarray, ndarray]:
-    assert points.shape[1] == 3, "Points must be 3D"
-    points: ndarray = points.copy()
-    # centroid 3D
-    centroid: ndarray = np.mean(points, axis=0)
-    translation_matrix: ndarray = np.array([[1, 0, -centroid[0]],
-                                            [0, 1, -centroid[1]],
-                                            [0, 0, 1]])
 
-    points = np.dot(points, translation_matrix.T)
-    avg_distance = np.mean(np.sqrt(np.sum(points[:, :2] ** 2, axis=1)))
-    scale = np.sqrt(2) / avg_distance
-    scaling_matrix = np.array([[scale, 0, 0],
-                               [0, scale, 0],
-                               [0, 0, 1]])
-    points = np.dot(points, scaling_matrix.T)
-    return points, np.dot(scaling_matrix, translation_matrix)
+def normalize_points(points: ndarray) -> Tuple[ndarray, ndarray]:
+    points = np.array(points)
+    assert points.shape[1] == 3, "Points must be 3D"
+
+    mean = np.mean(points, axis=0)
+    std_dev = np.std(points, axis=0)
+
+    if np.all(std_dev == 0):
+        Logger.log("All points are the same", LoggingLevel.INFO)
+        return points, np.eye(3)
+
+    points_norm = (points - mean) / std_dev
+    transformation4x4 = np.eye(4)
+    transformation4x4[:3, :3] = np.diag(1 / std_dev)
+    transformation4x4[:3, 3] = -mean / std_dev
+    return points_norm, transformation4x4
 
 
 def calc_cos_sim(v1: ndarray, v2: ndarray) -> float:
@@ -198,7 +197,11 @@ def compare_landmarks(
     return res
 
 
-def colors_diff(colors1, colors2):
+def colors_diff(colors1: ndarray, colors2: ndarray) -> Union[float, None]:
+    """
+    Returns the average color difference between two arrays of colors
+    colors1 and colors2 should be of shape (n, 3)
+    """
     if len(colors1) != len(colors2):
         return None
 
@@ -237,7 +240,9 @@ def draw_landmarks(results, image):
     return image
 
 
-def draw_landmarks_list(image, landmarks, with_index=False, color=(0, 255, 0), title: str = "Landmarks"):
+def draw_landmarks_list(
+        image, landmarks, with_index=False, color=(0, 255, 0), title: str = "Landmarks"
+):
     if with_index:
         for i, landmark in enumerate(landmarks):
             cv2.putText(
@@ -253,7 +258,10 @@ def draw_landmarks_list(image, landmarks, with_index=False, color=(0, 255, 0), t
         for i, landmark in enumerate(landmarks):
             cv2.circle(image, (int(landmark.x), int(landmark.y)), 2, color, -1)
 
-        top_right = (int(max([landmark.x for landmark in landmarks])), int(min([landmark.y for landmark in landmarks])))
+        top_right = (
+            int(max([landmark.x for landmark in landmarks])),
+            int(min([landmark.y for landmark in landmarks])),
+        )
         cv2.putText(image, title, top_right, cv2.FONT_HERSHEY_SIMPLEX, 0.25, color, 1)
     return image
 
@@ -448,15 +456,17 @@ def get_avg_color(image, x, y, patch_size):
     return avg_color[0], avg_color[1], avg_color[2]
 
 
-def get_dominant_color_patch(image, x, y, patch_size) -> ndarray:
-    # First get all color values in the patch that are not out of bounds
-    colors = []
-
-    min_x = x - patch_size if x - patch_size >= 0 else 0
-    max_x = x + patch_size if x + patch_size < image.shape[0] else image.shape[0] - 1
-    min_y = y - patch_size if y - patch_size >= 0 else 0
-    max_y = y + patch_size if y + patch_size < image.shape[1] else image.shape[1] - 1
-
+def get_dominant_color_patch(image, x: float, y: float, patch_size: int) -> ndarray:
+    x = int(x)
+    y = int(y)
+    patch_size = int(patch_size)
+    assert patch_size > 0, f"Patch size must be positive, got {patch_size}"
+    assert x >= 0, f"x must be positive, got {x}"
+    assert y >= 0, f"y must be positive, got {y}"
+    min_x = x - patch_size
+    max_x = x + patch_size
+    min_y = y - patch_size
+    max_y = y + patch_size
     return get_dominant_color(image, min_x, min_y, max_x, max_y)
 
 
@@ -467,16 +477,22 @@ def get_dominant_color_bbox(image, bbox: BoundingBox) -> ndarray:
 def get_dominant_color(img, x0: int, y0: int, x1: int, y1: int) -> Union[ndarray, None]:
     colors = []
 
+    max_y = img.shape[0]
+    max_x = img.shape[1]
+
+    x0 = int(max(0, x0))
+    y0 = int(max(0, y0))
+    x1 = int(min(max_x, x1))
+    y1 = int(min(max_y, y1))
+
+    if (x0 >= x1) or (y0 >= y1):
+        return None
+
     for i in range(y0, y1):
         for j in range(x0, x1):
-            if i < 0 or j < 0 or i >= img.shape[0] or j >= img.shape[1]:
-                continue
-
             colors.append(img[i][j])
 
-    if len(colors) == 0:
-        Logger.log("No colors found in patch", LoggingLevel.WARNING)
-        return None
+    assert len(colors) > 0
 
     # Use KMeans to find the dominant color
     n_colors = 5
@@ -617,6 +633,7 @@ def sampson_distance_derivative(x1, x2, F):
 #     result = least_squares(error_func, params_initial, method='lm', verbose=2)
 #     return result
 
+
 def get_simplex_normal(simplex: Simplex):
     """
     Calculates the normal vector of the plane defined by the given simplex in 3D space.
@@ -629,7 +646,7 @@ def get_simplex_normal(simplex: Simplex):
     """
     # Check that the simplex is a triangle (i.e., 3 vertices)
     if simplex.simplex_dim != 3:
-        raise ValueError('Simplex is not a triangle')
+        raise ValueError("Simplex is not a triangle")
 
     # Calculate the normal vector using the cross product of two edge vectors
     coords = simplex.coords
@@ -653,19 +670,19 @@ def plot_pose_2d(points: ndarray, plot_id: int = None, title: str = "") -> int:
     # Set axes labels
     ax.set_xlabel("X")
     ax.set_ylabel("Y")
-    ax.axis('equal')
+    ax.axis("equal")
 
     pts = np.array([[pt[0], pt[1]] for pt in points])
     # Invert y-axis
     pts[:, 1] = -pts[:, 1]
 
     # Plot points
-    ax.scatter(pts[:, 0], pts[:, 1], s=10, c='b', marker='o')
+    ax.scatter(pts[:, 0], pts[:, 1], s=10, c="b", marker="o")
 
     for connection in CONNECTIONS_LIST:
         a = connection[0]
         b = connection[1]
-        ax.plot([pts[a, 0], pts[b, 0]], [pts[a, 1], pts[b, 1]], c='b')
+        ax.plot([pts[a, 0], pts[b, 0]], [pts[a, 1], pts[b, 1]], c="b")
 
     if plot_id is None:
         plot_id = plot_service.add_plot(fig)
@@ -674,6 +691,7 @@ def plot_pose_2d(points: ndarray, plot_id: int = None, title: str = "") -> int:
 
 
 def plot_pose_3d(points: ndarray, plot_id: int = None, title: str = "") -> int:
+    assert points.shape[1] == 3
     plot_service: PlotService = PlotService.get_instance()
     if plot_id is not None:
         fig: Figure = plot_service.get_plot(plot_id)
@@ -688,7 +706,7 @@ def plot_pose_3d(points: ndarray, plot_id: int = None, title: str = "") -> int:
     ax.set_xlabel("X")
     ax.set_ylabel("Y")
     ax.set_zlabel("Z")
-    ax.axis('equal')
+    ax.axis("equal")
 
     # Swap y and z axes
     pts = np.array([[pt[0], pt[2], pt[1]] for pt in points])
@@ -696,12 +714,12 @@ def plot_pose_3d(points: ndarray, plot_id: int = None, title: str = "") -> int:
     pts[:, 2] *= -1
 
     for pt in pts:
-        ax.plot([pt[0]], [pt[1]], [pt[2]], 'ro')
+        ax.plot([pt[0]], [pt[1]], [pt[2]], "ro")
 
     for connection in CONNECTIONS_LIST:
         pt1 = pts[connection[0]]
         pt2 = pts[connection[1]]
-        ax.plot([pt1[0], pt2[0]], [pt1[1], pt2[1]], [pt1[2], pt2[2]], 'b-')
+        ax.plot([pt1[0], pt2[0]], [pt1[1], pt2[1]], [pt1[2], pt2[2]], "b-")
 
     # conv_hull = ConvexHull(pts)
     # for j in range(len(conv_hull.simplices)):
@@ -720,7 +738,9 @@ def plot_pose_3d(points: ndarray, plot_id: int = None, title: str = "") -> int:
     return plot_id
 
 
-def blend_colors(c1: Tuple[int], c2: Tuple[int], blend_factor: float) -> Tuple[Tuple[int], Tuple[int]]:
+def blend_colors(
+        c1: Tuple[int], c2: Tuple[int], blend_factor: float
+) -> Tuple[Tuple[int], Tuple[int]]:
     """
     Combines two RGB colors by taking the average of each color channel.
 
@@ -732,24 +752,36 @@ def blend_colors(c1: Tuple[int], c2: Tuple[int], blend_factor: float) -> Tuple[T
         Two tuples representing the partially blended colors.
     """
     middle_color = tuple([int((c1[i] + c2[i]) / 2) for i in range(3)])
-    c1 = tuple([int(c1[i] * blend_factor + middle_color[i] * (1 - blend_factor)) for i in range(3)])
-    c2 = tuple([int(c2[i] * blend_factor + middle_color[i] * (1 - blend_factor)) for i in range(3)])
+    c1 = tuple(
+        [
+            int(c1[i] * blend_factor + middle_color[i] * (1 - blend_factor))
+            for i in range(3)
+        ]
+    )
+    c2 = tuple(
+        [
+            int(c2[i] * blend_factor + middle_color[i] * (1 - blend_factor))
+            for i in range(3)
+        ]
+    )
     return c1, c2
 
 
 def compute_essential_normalized(p1: ndarray, p2: ndarray) -> ndarray:
     assert p1.shape == p2.shape, "Input points should have the same shape"
-    A = np.hstack((
-        (p2[:, 0] * p1[:, 0])[:, np.newaxis],
-        (p2[:, 0] * p1[:, 1])[:, np.newaxis],
-        p2[:, 0][:, np.newaxis],
-        (p2[:, 1] * p1[:, 0])[:, np.newaxis],
-        (p2[:, 1] * p1[:, 1])[:, np.newaxis],
-        p2[:, 1][:, np.newaxis],
-        p1[:, 0][:, np.newaxis],
-        p1[:, 1][:, np.newaxis],
-        np.ones((p1.shape[0], 1))
-    ))
+    A = np.hstack(
+        (
+            (p2[:, 0] * p1[:, 0])[:, np.newaxis],
+            (p2[:, 0] * p1[:, 1])[:, np.newaxis],
+            p2[:, 0][:, np.newaxis],
+            (p2[:, 1] * p1[:, 0])[:, np.newaxis],
+            (p2[:, 1] * p1[:, 1])[:, np.newaxis],
+            p2[:, 1][:, np.newaxis],
+            p1[:, 0][:, np.newaxis],
+            p1[:, 1][:, np.newaxis],
+            np.ones((p1.shape[0], 1)),
+        )
+    )
 
     _, _, V = np.linalg.svd(A)
     E = V[-1].reshape(3, 3)
@@ -761,7 +793,9 @@ def compute_essential_normalized(p1: ndarray, p2: ndarray) -> ndarray:
     return E
 
 
-def validate_essential_matrix(E: ndarray, p1: ndarray, p2: ndarray, tolerance=1e-4) -> bool:
+def validate_essential_matrix(
+        E: ndarray, p1: ndarray, p2: ndarray, tolerance=1e-4
+) -> bool:
     """
     Validates an essential matrix by checking that the epipolar constraint is satisfied for each point pair.
 
@@ -807,16 +841,18 @@ def validate_essential_matrix(E: ndarray, p1: ndarray, p2: ndarray, tolerance=1e
         pt2 = np.array([x2, y2, 1])
         # Check that pt2^T * E * pt1 = 0
         if np.abs(pt2.T @ E @ pt1) > tolerance:
-            print("The epipolar constraint is not satisfied for point pair {} and {}".format(pt1, pt2))
+            print(
+                "The epipolar constraint is not satisfied for point pair {} and {}".format(
+                    pt1, pt2
+                )
+            )
             return False
     return True
 
 
 def decompose_essential_matrix(E):
     U, _, Vt = np.linalg.svd(E)
-    W = np.array([[0, -1, 0],
-                  [1, 0, 0],
-                  [0, 0, 1]])
+    W = np.array([[0, -1, 0], [1, 0, 0], [0, 0, 1]])
 
     # Ensure rotation matrix determinant is 1
     if np.linalg.det(np.dot(U, Vt)) < 0:
@@ -830,8 +866,14 @@ def decompose_essential_matrix(E):
 
 
 # TODO: DEBUG
-def find_correct_projection_matrix(P1: ndarray, P2: ndarray, P3: ndarray, P4: ndarray, points1: ndarray,
-                                   points2: ndarray) -> Tuple[ndarray, ndarray]:
+def find_correct_projection_matrix(
+        P1: ndarray,
+        P2: ndarray,
+        P3: ndarray,
+        P4: ndarray,
+        points1: ndarray,
+        points2: ndarray,
+) -> Tuple[ndarray, ndarray]:
     P = None
     points_3D = None
     P_list = [P1, P2, P3, P4]
@@ -855,8 +897,9 @@ def find_correct_projection_matrix(P1: ndarray, P2: ndarray, P3: ndarray, P4: nd
     return P, points_3D
 
 
-def estimate_projection(p1: ndarray, p2: ndarray, K1: ndarray, K2: ndarray) -> [
-    Tuple[Optional[ndarray], Optional[ndarray]]]:
+def estimate_projection(
+        p1: ndarray, p2: ndarray, K1: ndarray, K2: ndarray
+) -> [Tuple[Optional[ndarray], Optional[ndarray]]]:
     # p1 = cv2.undistortPoints(src=p1, cameraMatrix=K1, distCoeffs=None)
     # p2 = cv2.undistortPoints(src=p2, cameraMatrix=K2, distCoeffs=None)
     assert len(p1) == len(p2), "The number of points in each set must be equal"
@@ -901,3 +944,44 @@ def estimate_projection(p1: ndarray, p2: ndarray, K1: ndarray, K2: ndarray) -> [
     # [P1, P2, P3, P4] = decompose_essential_matrix(E)
     # P, points_3D = find_correct_projection_matrix(P1, P2, P3, P4, p1, p2)
     return P, points_3D
+
+
+def normalize_image(image):
+    """
+    Normalizes the image by subtracting the mean and dividing by the standard deviation
+    :param image: The image to normalize (480,640,3)
+    :return: The normalized image (480,640,3)
+    """
+    image = image.copy()
+    image = image.astype("float32")
+    channels = cv2.split(image)
+    normalized_channels = []
+    for channel in channels:
+        mean, std_dev = cv2.meanStdDev(channel)
+        normalized_channel = (channel - mean) / std_dev
+        normalized_channels.append(normalized_channel)
+    normalized_image = cv2.merge(normalized_channels)
+    return (normalized_image - normalized_image.min()) / (
+            normalized_image.max() - normalized_image.min()
+    )
+
+
+def test_normalize_image():
+    image_path = "G:\\Uni\\Bachelor\\Project\\combined_camera_poses\\demo\\test.jpg"
+    image = cv2.imread(image_path)
+    mean_before, std_dev_before = cv2.meanStdDev(image.copy())
+    print("Before normalization:")
+    print("Mean:", mean_before)
+    print("Standard deviation:", std_dev_before)
+    normalized_image = normalize_image(image)
+    mean_after, std_dev_after = cv2.meanStdDev(normalized_image)
+    print("After normalization:")
+    print("Mean:", mean_after)
+    print("Standard deviation:", std_dev_after)
+
+    cv2.imshow("Original", image)
+    cv2.imshow("Normalized", normalized_image)
+    cv2.waitKey(0)
+    cv2.waitKey(0)
+    cv2.destroyAllWindows()
+    return 0

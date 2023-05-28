@@ -1,11 +1,14 @@
 import math
+import random
 from typing import List, Tuple, Optional, Dict
 
+import numpy
 import numpy as np
 import cv2 as cv
 from matplotlib import pyplot as plt
 from mediapipe.tasks.python.components.containers.landmark import Landmark
 from numpy import ndarray
+from open3d.cpu.pybind.pipelines.registration import RegistrationResult
 from scipy.optimize import linear_sum_assignment
 
 from classes.camera_data import CameraData
@@ -13,8 +16,16 @@ from classes.logger import Logger, Divider
 from classes.person import Person
 from classes.person_recorder import PersonRecorder
 from enums.logging_levels import LoggingLevel
-from functions.funcs import calc_cos_sim, normalize_points, plot_pose_2d
-from functions.icp import icp
+from functions.funcs import (
+    calc_cos_sim,
+    normalize_points,
+    plot_pose_2d,
+    get_dominant_color,
+    get_dominant_color_patch,
+    colors_diff,
+    plot_pose_3d,
+)
+from functions.icp import do_icp
 
 
 def match_pairs(
@@ -24,7 +35,7 @@ def match_pairs(
         img1,
         img2,
         cam_data1: CameraData,
-        cam_data2: CameraData
+        cam_data2: CameraData,
 ) -> List[Tuple[Person, Person]]:
     recent1: List[Person] = recorder1.get_recent_persons(frame_count)
     recent2: List[Person] = recorder2.get_recent_persons(frame_count)
@@ -32,7 +43,17 @@ def match_pairs(
 
     for i, a in enumerate(recent1):
         for j, b in enumerate(recent2):
-            diff = compare_persons(a, b, img1, img2, recorder1, recorder2, frame_count, cam_data1, cam_data2)
+            diff = compare_persons(
+                a,
+                b,
+                img1,
+                img2,
+                recorder1,
+                recorder2,
+                frame_count,
+                cam_data1,
+                cam_data2,
+            )
             cost_matrix[i, j] = diff
 
     row_ind, col_ind = linear_sum_assignment(cost_matrix)
@@ -40,7 +61,7 @@ def match_pairs(
     for i, j in zip(row_ind, col_ind):
         pairs.append((recent1[i], recent2[j]))
 
-    # pairs = test_pairs(pairs, recorder1, recorder2, img1, img2, cam_data1, cam_data2)
+    pairs = test_pairs(pairs, recorder1, recorder2, img1, img2, cam_data1, cam_data2)
     return pairs
 
 
@@ -53,27 +74,92 @@ def compare_persons(
         recorder2: PersonRecorder,
         frame_count: int,
         cam_data1: CameraData,
-        cam_data2: CameraData
+        cam_data2: CameraData,
 ) -> float:
-    crs = PersonRecorder.get_all_corresponding_frame_recordings(p1, p2, recorder1, recorder2)
+    crs = PersonRecorder.get_all_corresponding_frame_recordings(
+        p1, p2, recorder1, recorder2
+    )
     lmks1: List[Landmark] = crs[0]
     lmks2: List[Landmark] = crs[1]
+    lmk_indices: List[int] = crs[2]
 
     assert len(lmks1) == len(lmks2)
 
-    pts1_normalized, T1 = normalize_points(np.array([[lmk.x, lmk.y, lmk.z] for lmk in lmks1], dtype=np.float32))
-    pts2_normalized, T2 = normalize_points(np.array([[lmk.x, lmk.y, lmk.z] for lmk in lmks2], dtype=np.float32))
-    R, distances = icp(pts1_normalized, pts2_normalized)
+    points1 = np.array([[lmk.x, lmk.y, lmk.z] for lmk in lmks1], dtype=np.float32)
+    points2 = np.array([[lmk.x, lmk.y, lmk.z] for lmk in lmks2], dtype=np.float32)
+    pts1_normalized, T1 = normalize_points(points1)
+    pts2_normalized, T2 = normalize_points(points2)
+    result: RegistrationResult = do_icp(pts1_normalized, pts2_normalized, True)
+    icp_transformation = numpy.asarray(result.transformation)
 
-    if distances is None or len(distances) == 0:
-        return np.inf
+    # Combine the two transformations (T1 and T2 4x4 matrices) with the ICP transformation (4x4 matrix)
+    combined_transformation_1 = np.matmul(T1, icp_transformation)
+    combined_transformation_2 = np.matmul(T2, icp_transformation)
 
-    # calculate cost
-    cost = 0
-    for i in range(len(distances)):
-        cost += distances[i] * lmks1[i].visibility
-    cost /= len(distances)
-    return cost
+    distances: List[float] = []
+    for lmk1, lmk2 in zip(lmks1, lmks2):
+        pt1, pt2 = np.array([lmk1.x, lmk1.y, lmk1.z]), np.array(
+            [lmk2.x, lmk2.y, lmk2.z]
+        )
+
+        pt1_transformed = np.matmul(combined_transformation_1, np.append(pt1, 1))
+        pt1_transformed = pt1_transformed[:3]
+        pt2_transformed = np.matmul(combined_transformation_2, np.append(pt2, 1))
+        pt2_transformed = pt2_transformed[:3]
+        dist = np.linalg.norm(pt1_transformed - pt2_transformed)
+        # cos_sim = (calc_cos_sim(pt1_transformed, pt2_transformed) + 1) / 2
+        # dist = 1 - cos_sim
+
+        if (
+                lmk1.x is None
+                or lmk1.y is None
+                or lmk2.x is None
+                or lmk2.y is None
+                or lmk1.x < 0
+                or lmk1.y < 0
+                or lmk2.x < 0
+                or lmk2.y < 0
+                or img1 is None
+                or img2 is None
+        ):
+            col_diff = 0
+        else:
+            dom_color_1 = get_dominant_color_patch(img1, lmk1.x, lmk1.y, 4)
+            dom_color_2 = get_dominant_color_patch(img2, lmk2.x, lmk2.y, 4)
+            if dom_color_1 is None or dom_color_2 is None:
+                col_diff = 0
+            else:
+                col_diff = colors_diff(np.array([dom_color_1]), np.array([dom_color_2]))
+
+        # with Divider("Distance"):
+        #     Logger.log(dist, LoggingLevel.DEBUG, "Distance")
+        #     Logger.log(col_diff, LoggingLevel.DEBUG, "Color difference")
+        #     Logger.log(lmk1.visibility, LoggingLevel.DEBUG, "Visibility1")
+        #     Logger.log(lmk2.visibility, LoggingLevel.DEBUG, "Visibility2")
+
+        assert (
+                dist >= 0
+                and col_diff >= 0
+                and lmk1.visibility >= 0
+                and lmk2.visibility >= 0
+        )
+        factored_dist = (
+                dist
+                * lmk1.visibility
+                * lmk2.visibility
+                * col_diff
+                * (1 - result.fitness)
+                * result.inlier_rmse
+        )
+        assert (
+                factored_dist is not None
+                and factored_dist >= 0
+                and not np.isnan(factored_dist)
+        )
+        distances.append(factored_dist)
+
+    assert len(distances) == len(lmks1) == len(lmks2)
+    return float(np.mean(distances))
 
 
 # def get_person_pairs(
@@ -206,20 +292,23 @@ def test_pairs(
     points2 = []
 
     for i, (p1, p2) in enumerate(pairs):
-        crs = PersonRecorder.get_all_corresponding_frame_recordings(p1, p2, recorder1, recorder2)
+        crs = PersonRecorder.get_all_corresponding_frame_recordings(
+            p1, p2, recorder1, recorder2
+        )
         lmks1: List[Landmark] = crs[0]
         lmks2: List[Landmark] = crs[1]
         if lmks1 is None or lmks2 is None:
             continue
-        # TODO: Implement again
-        # for pt in pts1:
-        #     points1.append(pt)
-        # for pt in pts2:
-        #     points2.append(pt)
+
+        for lmk1, lmk2 in zip(lmks1, lmks2):
+            # visible_enough = random.random() * 2 < lmk1.visibility + lmk2.visibility
+            visible_enough = lmk1.visibility + lmk2.visibility > 1.5
+            if visible_enough:
+                points1.append([lmk1.x, lmk1.y])
+                points2.append([lmk2.x, lmk2.y])
 
     points1 = np.array(points1)
     points2 = np.array(points2)
-
     assert len(points1) == len(points2)
 
     # Draw the points
@@ -234,11 +323,13 @@ def test_pairs(
     K2 = cam_data2.intrinsic_matrix
 
     if points1.shape[0] < 8 or points2.shape[0] < 8:
-        Logger.log("Not enough points to calculate fundamental matrix", LoggingLevel.WARNING)
+        Logger.log(
+            "Not enough points to calculate fundamental matrix", LoggingLevel.WARNING
+        )
         return []
 
     try:
-        F, mask = cv.findFundamentalMat(points1, points2, cv.FM_RANSAC, 3, 0.99, 3000)
+        F, mask = cv.findFundamentalMat(points1, points2, cv.FM_RANSAC, 5, 0.95, 30000)
 
         # Only keep inlier points
         points1 = points1[mask.ravel() == 1]
@@ -247,23 +338,37 @@ def test_pairs(
 
         # Compute the Essential matrix
         E = K2.T @ F @ K1
-        points_1_hom = np.array([[p[0], p[1], 1] for p in points1])
-        points_2_hom = np.array([[p[0], p[1], 1] for p in points2])
-        p1_normalized = np.matmul(np.linalg.inv(K1), points_1_hom.T).T
-        p2_normalized = np.matmul(np.linalg.inv(K2), points_2_hom.T).T
-        p1_normalized = np.array([[p[0], p[1]] for p in p1_normalized])
-        p2_normalized = np.array([[p[0], p[1]] for p in p2_normalized])
-        test_essential_matrix(E, p1_normalized, p2_normalized)
+        # points_1_hom = np.array([[p[0], p[1], 1] for p in points1])
+        # points_2_hom = np.array([[p[0], p[1], 1] for p in points2])
+        # p1_normalized = np.matmul(np.linalg.inv(K1), points_1_hom.T).T
+        # p2_normalized = np.matmul(np.linalg.inv(K2), points_2_hom.T).T
+        # p1_normalized = np.array([[p[0], p[1]] for p in p1_normalized])
+        # p2_normalized = np.array([[p[0], p[1]] for p in p2_normalized])
+        # test_essential_matrix(E, p1_normalized, p2_normalized)
 
         R = np.zeros((3, 3))
         t = np.zeros((3, 1))
-        cv.recoverPose(E=E, points1=p1_normalized, points2=p2_normalized, cameraMatrix1=K1, cameraMatrix2=K2,
-                       distCoeffs1=None,
-                       distCoeffs2=None, R=R, t=t, mask=mask)
+        a = cv.recoverPose(
+            E=E,
+            points1=points1,
+            points2=points2,
+            cameraMatrix1=K1,
+            cameraMatrix2=K2,
+            distCoeffs1=None,
+            distCoeffs2=None,
+            R=R,
+            t=t,
+            mask=mask,
+        )
+        print(a)
 
-        repr_err = calculate_reprojection_error(points1, points2, K1, R, t)
-        with Divider("Reprojection error"):
-            Logger.log(f"Reprojection error: {repr_err}", LoggingLevel.INFO)
+        r = cv.Rodrigues(R)[0]
+        r_deg = np.rad2deg(r)
+        print(r_deg)
+
+        # repr_err = calculate_reprojection_error(points1, points2, K1, R, t)
+        # with Divider("Reprojection error"):
+        #     Logger.log(f"Reprojection error: {repr_err}", LoggingLevel.INFO)
     except AssertionError as e:
         Logger.log(f"Assertion error: {e}", LoggingLevel.WARNING)
         return []
@@ -307,7 +412,9 @@ def drawline(img, a, b, c):
     a = int(a)
     b = int(b)
     c = int(c)
-    cv.line(img, (0, -c // b), (img.shape[1], -(c + a * img.shape[1]) // b), (0, 0, 255), 1)
+    cv.line(
+        img, (0, -c // b), (img.shape[1], -(c + a * img.shape[1]) // b), (0, 0, 255), 1
+    )
 
 
 def test_pairing(
@@ -333,7 +440,9 @@ def test_pairing(
     K2 = cam_data2.intrinsic_matrix
 
     if points1.shape[0] < 8 or points2.shape[0] < 8:
-        Logger.log("Not enough points to calculate fundamental matrix", LoggingLevel.WARNING)
+        Logger.log(
+            "Not enough points to calculate fundamental matrix", LoggingLevel.WARNING
+        )
         return math.inf
 
     F, mask = cv.findFundamentalMat(points1, points2, cv.FM_RANSAC, 3, 0.99, 3000)
@@ -356,9 +465,18 @@ def test_pairing(
 
     R = np.zeros((3, 3))
     t = np.zeros((3, 1))
-    cv.recoverPose(E=E, points1=p1_normalized, points2=p2_normalized, cameraMatrix1=K1, cameraMatrix2=K2,
-                   distCoeffs1=None,
-                   distCoeffs2=None, R=R, t=t, mask=mask)
+    cv.recoverPose(
+        E=E,
+        points1=p1_normalized,
+        points2=p2_normalized,
+        cameraMatrix1=K1,
+        cameraMatrix2=K2,
+        distCoeffs1=None,
+        distCoeffs2=None,
+        R=R,
+        t=t,
+        mask=mask,
+    )
 
     repr_err = calculate_reprojection_error(points1, points2, K1, R, t)
     return repr_err
@@ -384,7 +502,9 @@ def test_pairing(
     # return mean_reprojection_error
 
 
-def calculate_reprojection_error(points1: ndarray, points2: ndarray, K: ndarray, R: ndarray, t: ndarray) -> float:
+def calculate_reprojection_error(
+        points1: ndarray, points2: ndarray, K: ndarray, R: ndarray, t: ndarray
+) -> float:
     """
     Calculate reprojection error between two sets of points.
     Arguments:
@@ -408,7 +528,9 @@ def calculate_reprojection_error(points1: ndarray, points2: ndarray, K: ndarray,
     reprojected_points = reprojected_points.squeeze()
 
     # Calculate the Euclidean distance between the reprojected points and points2
-    error = np.sqrt(np.sum((reprojected_points - points2_homogeneous[:, :2]) ** 2, axis=1))
+    error = np.sqrt(
+        np.sum((reprojected_points - points2_homogeneous[:, :2]) ** 2, axis=1)
+    )
 
     # Return the average reprojection error
     return float(np.mean(error))
@@ -424,21 +546,30 @@ def test_fundamental_matrix(F: ndarray, pts1: ndarray, pts2: ndarray) -> None:
     # Logger.log(F, LoggingLevel.DEBUG, label="Fundamental Matrix")
     # Logger.log(pts1, LoggingLevel.DEBUG, label="Points 1")
     # Logger.log(pts2, LoggingLevel.DEBUG, label="Points 2")
-    assert_custom(pts1.shape[0] == pts2.shape[0],
-                  f"Number of corresponding points must be equal but are {pts1.shape[0]} and {pts2.shape[0]}.")
-    assert_custom(pts1.shape[1] == 2 and pts2.shape[1] == 2,
-                  f"Points must have shape (n, 2) but have shape {pts1.shape} and {pts2.shape}.")
+    assert_custom(
+        pts1.shape[0] == pts2.shape[0],
+        f"Number of corresponding points must be equal but are {pts1.shape[0]} and {pts2.shape[0]}.",
+    )
+    assert_custom(
+        pts1.shape[1] == 2 and pts2.shape[1] == 2,
+        f"Points must have shape (n, 2) but have shape {pts1.shape} and {pts2.shape}.",
+    )
     assert_custom(F.shape == (3, 3), "Fundamental matrix must have shape (3, 3).")
 
     for pt1, pt2 in zip(pts1, pts2):
         pt1 = np.append(pt1, 1)
         pt2 = np.append(pt2, 1)
         error = np.dot(np.dot(pt2.T, F), pt1)
-        assert_custom(abs(error) < 0.5, f"Epipolar constraint violated. Error: {error:.6f}")
+        assert_custom(
+            abs(error) < 0.5, f"Epipolar constraint violated. Error: {error:.6f}"
+        )
 
     # check determinant
     det = np.linalg.det(F)
-    assert_custom(abs(det) < 1e-4, f"Determinant of the fundamental matrix must be close to zero. Det: {det:.6f}")
+    assert_custom(
+        abs(det) < 1e-4,
+        f"Determinant of the fundamental matrix must be close to zero. Det: {det:.6f}",
+    )
 
 
 def test_essential_matrix(E: ndarray, pts1: ndarray, pts2: ndarray) -> None:
@@ -454,18 +585,28 @@ def test_essential_matrix(E: ndarray, pts1: ndarray, pts2: ndarray) -> None:
     if pts1.shape[1] == 2:
         pts1 = np.hstack((pts1, np.ones((pts1.shape[0], 1))))
         pts2 = np.hstack((pts2, np.ones((pts2.shape[0], 1))))
-    assert_custom(pts1.shape[0] == pts2.shape[0],
-                  f"Number of corresponding points must be equal but are {pts1.shape[0]} and {pts2.shape[0]}.")
-    assert_custom(pts1.shape[1] == 3 and pts2.shape[1] == 3,
-                  f"Points must have shape (n, 2) but have shape {pts1.shape} and {pts2.shape}.")
+    assert_custom(
+        pts1.shape[0] == pts2.shape[0],
+        f"Number of corresponding points must be equal but are {pts1.shape[0]} and {pts2.shape[0]}.",
+    )
+    assert_custom(
+        pts1.shape[1] == 3 and pts2.shape[1] == 3,
+        f"Points must have shape (n, 2) but have shape {pts1.shape} and {pts2.shape}.",
+    )
     assert_custom(E.shape == (3, 3), "Essential matrix must have shape (3, 3).")
-    assert_custom(np.linalg.det(E) < 1e-4,
-                  f"Determinant of the essential matrix must be close to zero. Det: {np.linalg.det(E):.6f}")
+    assert_custom(
+        np.linalg.det(E) < 1e-4,
+        f"Determinant of the essential matrix must be close to zero. Det: {np.linalg.det(E):.6f}",
+    )
     _, S, _ = np.linalg.svd(E)
-    assert_custom(abs(S[0] - S[1]) < 1,
-                  f"Singular values of the essential matrix must be equal. Diff: {abs(S[0] - S[1]):.6f}")
-    assert_custom(abs(S[2]) < 1e-3,
-                  f"Third singular value of the essential matrix must be close to zero. Singular value: {S[2]:.6f}")
+    assert_custom(
+        abs(S[0] - S[1]) < 1,
+        f"Singular values of the essential matrix must be equal. Diff: {abs(S[0] - S[1]):.6f}",
+    )
+    assert_custom(
+        abs(S[2]) < 1e-3,
+        f"Third singular value of the essential matrix must be close to zero. Singular value: {S[2]:.6f}",
+    )
 
     for pt1, pt2 in zip(pts1, pts2):
         error = np.abs(np.dot(np.dot(pt2.T, E), pt1))

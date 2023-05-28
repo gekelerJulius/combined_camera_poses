@@ -1,13 +1,8 @@
 import json
-import random
-from typing import List, Tuple
 
-import cameralib
 import numpy as np
 import cv2
 from numpy import ndarray
-
-from functions.funcs import points_are_close
 
 
 class CameraData:
@@ -61,11 +56,13 @@ class CameraData:
         aspect_ratio = width / height
 
         # Extract the individual parameters from extrinsic
-        R = np.array([
-            [extrinsic["r00"], extrinsic["r01"], extrinsic["r02"]],
-            [extrinsic["r10"], extrinsic["r11"], extrinsic["r12"]],
-            [extrinsic["r20"], extrinsic["r21"], extrinsic["r22"]],
-        ])
+        R = np.array(
+            [
+                [extrinsic["r00"], extrinsic["r01"], extrinsic["r02"]],
+                [extrinsic["r10"], extrinsic["r11"], extrinsic["r12"]],
+                [extrinsic["r20"], extrinsic["r21"], extrinsic["r22"]],
+            ]
+        )
         t = np.array([extrinsic["tx"], extrinsic["ty"], extrinsic["tz"]])
 
         return CameraData(fx, fy, cx, cy, aspect_ratio, R, t)
@@ -129,19 +126,3 @@ class CameraData:
         p_img_homogeneous = np.dot(K, p_cam)
         p_img = p_img_homogeneous[:2] / p_img_homogeneous[2]
         return p_img
-
-    def as_cameralib_camera(self) -> cameralib.Camera:
-        # R as rotation vector
-        r = cv2.Rodrigues(self.R)[0]
-
-        # Invert y
-        r[1] = -r[1]
-
-        # As matrix
-        R, _ = cv2.Rodrigues(r)
-
-        return cameralib.Camera(
-            optical_center=np.array([self.t[0], self.t[1], self.t[2]]) * 1000,
-            rot_world_to_cam=R,
-            intrinsic_matrix=self.intrinsic_matrix,
-        )

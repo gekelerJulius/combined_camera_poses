@@ -12,4 +12,6 @@ class ScoreManager:
         self.scores = np.append(self.scores, score)
 
     def get_score(self):
+        if len(self.scores) == 0:
+            return 0
         return np.mean(self.scores)

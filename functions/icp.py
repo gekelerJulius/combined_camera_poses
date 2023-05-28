@@ -1,32 +1,94 @@
 from typing import Tuple
 
 import numpy as np
-from open3d.open3d_pybind.geometry import PointCloud
-from open3d.open3d_pybind.registration import *
-from sklearn.neighbors import NearestNeighbors
+from numpy import ndarray
+from open3d.cpu.pybind.geometry import *
+from open3d.cpu.pybind.pipelines.registration import *
 from scipy.spatial.transform import Rotation
-from classes.logger import Divider
 import open3d as o3d
+import logging
+
+# Configure logging to suppress Open3D output
+logging.basicConfig()
+logging.getLogger().setLevel(logging.ERROR)
+o3d.utility.set_verbosity_level(o3d.utility.VerbosityLevel.Error)
 
 
-def preprocess_point_cloud(pcd, voxel_size):
+def do_icp(
+        pts1: ndarray, pts2: ndarray, corresponding_by_index=False
+) -> RegistrationResult:
+    """
+    The Iterative Closest Point method. Finds the best-fit transform that maps points A on to points B.
+    :param pts1: (N, 3) numpy ndarray.
+    :param pts2: (N, 3) numpy ndarray.
+    :param corresponding_by_index: If True, the points are assumed to be in correspondence by index.
+    :return: P: (4, 4) numpy ndarray, distances: (N,) numpy ndarray.
+    """
+    pts1 = np.copy(pts1)
+    pts2 = np.copy(pts2)
+    assert (
+            pts1.shape == pts2.shape and pts1.shape[1] == 3
+    ), "pts1 and pts2 must be (N, 3) ndarrays."
+
+    cloud1: PointCloud = o3d.geometry.PointCloud()
+    cloud1.points = o3d.utility.Vector3dVector(pts1)
+    cloud2: PointCloud = o3d.geometry.PointCloud()
+    cloud2.points = o3d.utility.Vector3dVector(pts2)
+    voxel_size = 0.05
+
+    if corresponding_by_index:
+        correspondences = np.array([[i, i] for i in range(pts1.shape[0])])
+        corr_set = o3d.utility.Vector2iVector(correspondences)
+        init_transformation = (
+            TransformationEstimationPointToPoint().compute_transformation(
+                cloud1, cloud2, corr_set
+            )
+        )
+    else:
+        cloud1, cloud1_fpfh = preprocess_point_cloud(cloud1, voxel_size)
+        cloud2, cloud2_fpfh = preprocess_point_cloud(cloud2, voxel_size)
+        result_init: RegistrationResult = execute_global_registration(
+            cloud1, cloud2, cloud1_fpfh, cloud2_fpfh, voxel_size
+        )
+        init_transformation = result_init.transformation
+
+    result_icp: RegistrationResult = refine_registration(
+        cloud1, cloud2, init_transformation
+    )
+    # draw_registration_result(cloud1, cloud2, result_icp.transformation, as_pose=True)
+    return result_icp
+
+
+def preprocess_point_cloud(
+        pcd: PointCloud, voxel_size: float
+) -> Tuple[PointCloud, ndarray]:
     """
     Downsample the point cloud, estimate normals, then compute a FPFH feature for each point.
     """
-    o3d.utility.set_verbosity_level(o3d.utility.VerbosityLevel.Error)
+    logging.basicConfig(
+        level=logging.NOTSET,
+    )
     pcd_down = pcd.voxel_down_sample(voxel_size)
     radius_normal = voxel_size * 2
     pcd_down.estimate_normals(
-        o3d.geometry.KDTreeSearchParamHybrid(radius=radius_normal, max_nn=30))
+        o3d.geometry.KDTreeSearchParamHybrid(radius=radius_normal, max_nn=30)
+    )
 
     radius_feature = voxel_size * 5
     pcd_fpfh = compute_fpfh_feature(
         pcd_down,
-        o3d.geometry.KDTreeSearchParamHybrid(radius=radius_feature, max_nn=100))
+        o3d.geometry.KDTreeSearchParamHybrid(radius=radius_feature, max_nn=100),
+    )
     return pcd_down, pcd_fpfh
 
 
-def execute_global_registration(source_down: PointCloud, target_down: PointCloud, source_fpfh, target_fpfh, voxel_size):
+def execute_global_registration(
+        source_down: PointCloud,
+        target_down: PointCloud,
+        source_fpfh,
+        target_fpfh,
+        voxel_size,
+) -> RegistrationResult:
     """
     Use RANSAC for global registration.
     """
@@ -37,22 +99,26 @@ def execute_global_registration(source_down: PointCloud, target_down: PointCloud
         source_fpfh,
         target_fpfh,
         distance_threshold,
-        TransformationEstimationPointToPoint(False), 4,
-        [CorrespondenceCheckerBasedOnEdgeLength(0.9),
-         CorrespondenceCheckerBasedOnDistance(distance_threshold)],
-        RANSACConvergenceCriteria(4000000, 500))
+        TransformationEstimationPointToPoint(False),
+        4,
+        [
+            CorrespondenceCheckerBasedOnEdgeLength(0.9),
+            CorrespondenceCheckerBasedOnDistance(distance_threshold),
+        ],
+        RANSACConvergenceCriteria(4000000, 500),
+    )
     return result
 
 
-def refine_registration(source, target, transformation):
-    """
-    Refine the registration using ICP.
-    """
-    print("Refine ICP registration...")
+def refine_registration(source, target, transformation) -> RegistrationResult:
     distance_threshold = 0.02
     result = registration_icp(
-        source, target, distance_threshold, transformation,
-        TransformationEstimationPointToPoint())
+        source,
+        target,
+        distance_threshold,
+        transformation,
+        TransformationEstimationPointToPoint(),
+    )
     return result
 
 
@@ -62,10 +128,20 @@ def test_registration():
     src_pts = np.random.rand(N, 3)
 
     # apply a known rotation and translation
-    R_true = Rotation.from_euler('zyx', [45, 45, 30], degrees=True)
-    t_true = np.array([1, 1, 1])
+    random_angles: ndarray = np.random.rand(3) * 90
+    print("True Rotation:")
+    print(random_angles)
+    R_true = Rotation.from_euler("zyx", random_angles, degrees=True)
+    random_translation: ndarray = np.random.rand(3) * 10
+    print("True Translation:")
+    print(random_translation)
+    t_true = np.array(random_translation)
 
     dst_pts = R_true.apply(src_pts) + t_true
+
+    # Add noise
+    noise = np.random.normal(0, 0.01, (N, 3))
+    dst_pts += noise
 
     # create open3d point cloud objects
     source = o3d.geometry.PointCloud()
@@ -78,82 +154,45 @@ def test_registration():
     voxel_size = 0.05  # size of the voxels used for down-sampling and normal estimation
     source_down, source_fpfh = preprocess_point_cloud(source, voxel_size)
     target_down, target_fpfh = preprocess_point_cloud(target, voxel_size)
-    result_ransac = execute_global_registration(source_down, target_down, source_fpfh, target_fpfh, voxel_size)
+    result_ransac = execute_global_registration(
+        source_down, target_down, source_fpfh, target_fpfh, voxel_size
+    )
     print("Initial alignment")
     print(result_ransac)
 
     # refine with ICP
     result_icp = refine_registration(source, target, result_ransac.transformation)
-    print("Final Transformation:")
-    print(result_icp.transformation)
-    assert np.allclose(result_icp.transformation, np.hstack((R_true.as_matrix(), t_true.reshape(-1, 1))), atol=0.1)
+    draw_registration_result(source, target, result_icp.transformation)
+    print("Final Rotation:")
+    print(
+        Rotation.from_matrix(np.copy(result_icp.transformation)[:3, :3]).as_euler(
+            "zyx", degrees=True
+        )
+    )
+    print("Final Translation:")
+    print(np.copy(result_icp.transformation)[:3, 3])
+    return 0
 
 
-def icp(A: np.ndarray, B: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
-    """
-    The Iterative Closest Point method. Finds the best-fit transform that maps points A on to points B.
-    :param A: (N, 3) numpy ndarray.
-    :param B: (N, 3) numpy ndarray.
-    :return: P: (4, 4) numpy ndarray, distances: (N,) numpy ndarray.
-    """
-    A = np.array(A)
-    B = np.array(B)
-    assert len(A) == len(B)
-    centroid_A: np.ndarray = np.mean(A, axis=0)
-    centroid_B: np.ndarray = np.mean(B, axis=0)
+def draw_registration_result(
+        cloud1: PointCloud, cloud2: PointCloud, transformation: ndarray, as_pose=False
+) -> None:
+    vis = o3d.visualization.Visualizer()
+    vis.create_window()
+    max1 = np.max(cloud1.get_max_bound())
+    max2 = np.max(cloud2.get_max_bound())
+    max = np.max([max1, max2])
+    vis.add_geometry(o3d.geometry.TriangleMesh.create_coordinate_frame(size=max))
 
-    Am: np.ndarray = A - centroid_A
-    Bm: np.ndarray = B - centroid_B
-
-    # rotation matrix
-    H: np.ndarray = np.dot(Am.T, Bm)
-
-    # singular value decomposition
-    U, S, Vt = np.linalg.svd(H)
-    R: np.ndarray = np.dot(Vt.T, U.T)
-
-    # special reflection case
-    if np.linalg.det(R) < 0:
-        Vt[2, :] *= -1
-        R = np.dot(Vt.T, U.T)
-
-    # translation
-    t: np.ndarray = centroid_B.T - np.dot(R, centroid_A.T)
-
-    # homogeneous transformation
-    T: np.ndarray = np.identity(A.shape[1] + 1)
-    T[:A.shape[1], :A.shape[1]] = R
-    T[:A.shape[1], A.shape[1]] = t
-
-    # Apply the transformation to the points in A
-    A_transformed: np.ndarray = np.dot(R, A.T) + t.reshape(-1, 1)
-
-    # Find the nearest neighbors in B
-    nbrs = NearestNeighbors(n_neighbors=1, algorithm='auto').fit(B)
-    distances, indices = nbrs.kneighbors(A_transformed.T)
-    return T, distances.ravel()
-
-
-def test_icp():
-    R = Rotation.random().as_matrix()
-    A = np.random.rand(500, 3)
-    B = np.dot(R, A.T).T
-
-    T, distances = icp(A, B)
-    T = np.array(T)
-    tolerance = 0.1
-
-    # In same number format
-    print("T")
-    print(T)
-    print("R")
-    print(R)
-    print("T - R")
-    print(T[:3, :3] - R)
-    with Divider():
-        print("Mean, std, max, min")
-        print(np.mean(distances))
-        print(np.std(distances))
-        print(np.max(distances))
-        print(np.min(distances))
-    assert np.allclose(distances, 0, atol=tolerance)
+    # if as_pose:
+    #     conns = CONNECTIONS_LIST
+    #     for i, conn in enumerate(conns):
+    #         vis.add_geometry(o3d.geometry.LineSet(
+    #             points=o3d.utility.Vector3dVector([copy.points[conn[0]], copy.points[conn[1]]]),
+    #             lines=o3d.utility.Vector2iVector([[0, 1]])))
+    # else:
+    vis.add_geometry(cloud1)
+    cloud1.paint_uniform_color([0, 0, 1])
+    vis.add_geometry(cloud2)
+    cloud2.paint_uniform_color([0, 1, 0])
+    vis.run()

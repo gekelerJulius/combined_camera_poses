@@ -45,7 +45,7 @@ class PersonRecorder:
         #         if not any(p.name == person.name for p in recently_seen):
         #             recently_seen.append(person)
 
-        if len(recently_seen) < 2:
+        if recently_seen is None or len(recently_seen) < 2:
             return []
         return [r for r in recently_seen]
 
@@ -84,21 +84,23 @@ class PersonRecorder:
     def init_kalman_filter(self, person: Person) -> None:
         centroid = person.centroid()
         kalman = cv2.KalmanFilter(4, 2)
-        kalman.measurementMatrix = np.array([[1, 0, 0, 0],
-                                             [0, 1, 0, 0]], np.float32)
-        kalman.transitionMatrix = np.array([[1, 0, 1, 0],
-                                            [0, 1, 0, 1],
-                                            [0, 0, 1, 0],
-                                            [0, 0, 0, 1]], np.float32)
+        kalman.measurementMatrix = np.array([[1, 0, 0, 0], [0, 1, 0, 0]], np.float32)
+        kalman.transitionMatrix = np.array(
+            [[1, 0, 1, 0], [0, 1, 0, 1], [0, 0, 1, 0], [0, 0, 0, 1]], np.float32
+        )
 
         kalman.statePre = np.array([[centroid[0]], [centroid[1]], [0], [0]], np.float32)
         self.kalman_dict[person.name] = (kalman, [person])
         prediction = kalman.predict()
         self.kalman_prediction_dict[person.name] = prediction
 
-    def update_kalman_filter(self, persons: List[Person], frame_num: int, img=None) -> None:
+    def update_kalman_filter(
+            self, persons: List[Person], frame_num: int, img=None
+    ) -> None:
         # Get all predictions
-        predictions = [(name, pred) for name, pred in self.kalman_prediction_dict.items()]
+        predictions = [
+            (name, pred) for name, pred in self.kalman_prediction_dict.items()
+        ]
         matched: List[str] = []
         # Use hungarian algorithm to match predictions to persons
         if len(predictions) > 0:
@@ -111,10 +113,15 @@ class PersonRecorder:
                 last_x, last_y = last_centroid[0], last_centroid[1]
                 for j, centroid in enumerate(centroids):
                     centroid = np.array([centroid[0], centroid[1]])
-                    last_vel_x, last_vel_y = (centroid[0] - last_x), (centroid[1] - last_y)
+                    last_vel_x, last_vel_y = (centroid[0] - last_x), (
+                            centroid[1] - last_y
+                    )
                     dist1 = np.linalg.norm(np.array([x_pred, y_pred]) - centroid)
                     dist2 = np.linalg.norm(np.array([last_x, last_y]) - centroid)
-                    vel_dist = np.linalg.norm(np.array([vel_x_pred, vel_y_pred]) - np.array([last_vel_x, last_vel_y]))
+                    vel_dist = np.linalg.norm(
+                        np.array([vel_x_pred, vel_y_pred])
+                        - np.array([last_vel_x, last_vel_y])
+                    )
                     dist = dist1 + dist2 + vel_dist
                     cost_matrix[i, j] = dist
 
@@ -126,7 +133,9 @@ class PersonRecorder:
                 persons[j].name = name
                 persons[j].color = self.name_dict[name][0].color
                 matched.append(name)
-                self.update_kalman_filter_single(persons[j].name, persons[j].centroid(), img)
+                self.update_kalman_filter_single(
+                    persons[j].name, persons[j].centroid(), img
+                )
                 kalman, person_list = self.kalman_dict[name]
                 person_list.append(persons[j])
 
@@ -149,10 +158,14 @@ class PersonRecorder:
         # cv2.imshow(self.id, img)
         # cv2.waitKey(1)
 
-    def update_kalman_filter_single(self, name: str, centroid: ndarray, img, correct=True) -> None:
+    def update_kalman_filter_single(
+            self, name: str, centroid: ndarray, img, correct=True
+    ) -> None:
         kalman, person_list = self.kalman_dict[name]
         if correct:
-            kalman.correct(np.array([[np.float32(centroid[0])], [np.float32(centroid[1])]]))
+            kalman.correct(
+                np.array([[np.float32(centroid[0])], [np.float32(centroid[1])]])
+            )
         kalman_prediction = kalman.predict()
         self.kalman_prediction_dict[name] = kalman_prediction
 
@@ -175,24 +188,40 @@ class PersonRecorder:
             for i in range(1, len(centroid_list)):
                 a = centroid_list[i - 1]
                 b = centroid_list[i]
-                cv2.line(img, (int(a[0]), int(a[1])), (int(b[0]), int(b[1])), (0, 255, 0), 2)
+                cv2.line(
+                    img, (int(a[0]), int(a[1])), (int(b[0]), int(b[1])), (0, 255, 0), 2
+                )
         cv2.imshow(self.id, img)
 
-    def get_frame_history(self, p: Person) -> Dict[int, Person]:
+    def get_frame_history(
+            self, p: Person, frame_range: Tuple[int, int] = (0, np.inf)
+    ) -> Dict[int, Person]:
         all_records = self.kalman_dict[p.name][1]
-        return {p.frame_count: p for p in all_records}
+        return {
+            p.frame_count: p
+            for p in all_records
+            if frame_range[0] <= p.frame_count <= frame_range[1]
+        }
 
     @staticmethod
-    def get_all_corresponding_frame_recordings(p1: Person, p2: Person, recorder1: "Recorder", recorder2: "Recorder") -> \
-            Tuple[List[Landmark], List[Landmark]]:
-        p1_rec_positions: Dict[int, Person] = recorder1.get_frame_history(p1)
-        p2_rec_positions: Dict[int, Person] = recorder2.get_frame_history(p2)
+    def get_all_corresponding_frame_recordings(
+            p1: Person, p2: Person, recorder1: "Recorder", recorder2: "Recorder"
+    ) -> Tuple[List[Landmark], List[Landmark], List[int]]:
+        p1_rec_positions: Dict[int, Person] = recorder1.get_frame_history(
+            p1, (p1.frame_count - 10, p1.frame_count)
+        )
+        p2_rec_positions: Dict[int, Person] = recorder2.get_frame_history(
+            p2, (p2.frame_count - 10, p2.frame_count)
+        )
         r1 = []
         r2 = []
+        lmk_indexes = []
 
-        common_keys = set(p1_rec_positions.keys()).intersection(set(p2_rec_positions.keys()))
+        common_keys = set(p1_rec_positions.keys()).intersection(
+            set(p2_rec_positions.keys())
+        )
         if len(common_keys) == 0:
-            return [], []
+            return [], [], []
 
         p1_positions: List[Person] = [p1_rec_positions[k] for k in common_keys]
         p2_positions: List[Person] = [p2_rec_positions[k] for k in common_keys]
@@ -200,14 +229,17 @@ class PersonRecorder:
         assert len(p1_positions) == len(p2_positions)
 
         for j in range(len(p1_positions)):
-            pers1 = p1_positions[j]
-            pers2 = p2_positions[j]
+            pers1: Person = p1_positions[j]
+            pers2: Person = p2_positions[j]
 
+            common_indices: List[int] = Person.get_common_visible_landmark_indexes(
+                pers1, pers2
+            )
             lmks1: List[Landmark] = [lmk for lmk in pers1.get_pose_landmarks()]
+            lmks1 = [lmks1[i] for i in common_indices]
             lmks2: List[Landmark] = [lmk for lmk in pers2.get_pose_landmarks()]
-
-            for k in range(len(lmks1)):
-                r1.append(lmks1[k])
-                r2.append(lmks2[k])
-
-        return r1, r2
+            lmks2 = [lmks2[i] for i in common_indices]
+            r1.extend(lmks1)
+            r2.extend(lmks2)
+            lmk_indexes.extend(common_indices)
+        return r1, r2, lmk_indexes
