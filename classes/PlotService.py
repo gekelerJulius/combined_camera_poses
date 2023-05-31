@@ -25,7 +25,7 @@ class PlotService:
         return plot_id
 
     def get_plot(self, plot_id: int) -> Figure:
-        return self.plot_map[plot_id]
+        return self.plot_map.get(plot_id)
 
     def remove_plot(self, plot_id: int):
         del self.plot_map[plot_id]
@@ -44,3 +44,6 @@ class PlotService:
 
     def get_next_plot_id(self) -> int:
         return max(self.plot_map.keys()) + 1 if self.plot_map else 0
+
+    def plot_exists(self, plot_id):
+        return plot_id in self.plot_map

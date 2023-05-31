@@ -189,17 +189,18 @@ class Person:
         return np.array([get_real_coordinates(feet_img[i], camera_data) for i in range(4)])
 
     @staticmethod
-    def get_common_visible_landmark_indexes(p1: "Person", p2: "Person") -> List[int]:
+    def get_common_visible_landmark_indexes(p1: "Person", p2: "Person", vis_tresh: float) -> List[int]:
         lmks1 = p1.get_pose_landmarks()
         lmks2 = p2.get_pose_landmarks()
 
-        return Person.get_common_visible_landmark_indexes_landmark_list(lmks1, lmks2)
+        return Person.get_common_visible_landmark_indexes_landmark_list(lmks1, lmks2, vis_tresh)
 
     @staticmethod
-    def get_common_visible_landmark_indexes_landmark_list(lmks1: List[Landmark], lmks2: List[Landmark]) -> List[int]:
+    def get_common_visible_landmark_indexes_landmark_list(lmks1: List[Landmark], lmks2: List[Landmark],
+                                                          vis_tresh: float) -> List[int]:
         common_lmks = []
         for i in range(len(lmks1)):
-            if lmks1[i].visibility > 0.5 and lmks2[i].visibility > 0.5:
+            if lmks1[i].visibility > vis_tresh and lmks2[i].visibility > vis_tresh:
                 common_lmks.append(i)
         return common_lmks
 

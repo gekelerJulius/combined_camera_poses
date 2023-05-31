@@ -11,6 +11,7 @@ from classes.camera_data import CameraData
 from classes.logger import Logger, Divider
 from classes.person import Person
 from classes.person_recorder import PersonRecorder
+from classes.record_matcher import RecordMatcher
 from classes.score_manager import ScoreManager
 from classes.true_person_loader import TruePersonLoader
 from classes.unity_person import UnityPerson
@@ -75,6 +76,7 @@ def annotate_video_multi(
     frame_count = 0
     person_recorder1: PersonRecorder = PersonRecorder("1")
     person_recorder2: PersonRecorder = PersonRecorder("2")
+    records_matcher: RecordMatcher = RecordMatcher(person_recorder1, person_recorder2)
     score_manager = ScoreManager()
     img1 = None
     img2 = None
@@ -155,6 +157,7 @@ def annotate_video_multi(
 
         person_recorder1.add(persons1, frame_count, img1)
         person_recorder2.add(persons2, frame_count, img2)
+        records_matcher.eval_frame(frame_count, img1, img2, cam1_data, cam2_data)
 
         if frame_count < 15:
             continue
@@ -176,21 +179,21 @@ def annotate_video_multi(
         # if frame_count < 15:
         #     continue
 
-        pairs = match_pairs(
-            person_recorder1,
-            person_recorder2,
-            frame_count,
-            img1,
-            img2,
-            cam1_data,
-            cam2_data,
-        )
+        # pairs = match_pairs(
+        #     person_recorder1,
+        #     person_recorder2,
+        #     frame_count,
+        #     img1,
+        #     img2,
+        #     cam1_data,
+        #     cam2_data,
+        # )
+
+        pairs = records_matcher.get_alignment(frame_count)
+
         unity_persons: List[UnityPerson] = TruePersonLoader.load(
             "simulation_data/persons"
         )
-
-        UnityPerson.plot_all_3d(unity_persons)
-        time.sleep(20)
 
         for i, (p1, p2) in enumerate(pairs):
             color1 = p1.color
@@ -237,7 +240,6 @@ def annotate_video_multi(
     score = score_manager.get_score()
     Logger.log(f"Correct percentage: {score * 100:.2f}%", LoggingLevel.INFO)
     Logger.log("Done!", LoggingLevel.INFO)
-    cv.waitKey(0)
     cv.destroyAllWindows()
 
 

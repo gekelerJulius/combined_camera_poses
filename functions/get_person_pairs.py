@@ -1,29 +1,23 @@
 import math
-import random
-from typing import List, Tuple, Optional, Dict
+from typing import List, Tuple
 
-import numpy
 import numpy as np
 import cv2 as cv
-from matplotlib import pyplot as plt
 from mediapipe.tasks.python.components.containers.landmark import Landmark
 from numpy import ndarray
 from open3d.cpu.pybind.pipelines.registration import RegistrationResult
 from scipy.optimize import linear_sum_assignment
 
 from classes.camera_data import CameraData
-from classes.logger import Logger, Divider
+from classes.logger import Logger
 from classes.person import Person
 from classes.person_recorder import PersonRecorder
 from enums.logging_levels import LoggingLevel
 from functions.funcs import (
     calc_cos_sim,
     normalize_points,
-    plot_pose_2d,
-    get_dominant_color,
     get_dominant_color_patch,
     colors_diff,
-    plot_pose_3d,
 )
 from functions.icp import do_icp
 
@@ -55,15 +49,14 @@ def match_pairs(
                 cam_data2,
             )
             cost_matrix[i, j] = diff
-
-    Logger.log(cost_matrix, LoggingLevel.DEBUG)
+    Logger.log(cost_matrix, LoggingLevel.DEBUG, "Cost Matrix")
 
     row_ind, col_ind = linear_sum_assignment(cost_matrix)
     pairs = []
     for i, j in zip(row_ind, col_ind):
         pairs.append((recent1[i], recent2[j]))
 
-    pairs = test_pairs(pairs, recorder1, recorder2, img1, img2, cam_data1, cam_data2)
+    # pairs = test_pairs(pairs, recorder1, recorder2, img1, img2, cam_data1, cam_data2)
     return pairs
 
 
@@ -79,21 +72,89 @@ def compare_persons(
         cam_data2: CameraData,
 ) -> float:
     crs = PersonRecorder.get_all_corresponding_frame_recordings(
-        p1, p2, recorder1, recorder2
+        p1,
+        p2,
+        recorder1,
+        recorder2,
+        (frame_count - 60, frame_count),
+        visibility_threshold=0.75,
     )
     lmks1: List[Landmark] = crs[0]
     lmks2: List[Landmark] = crs[1]
     lmk_indices: List[int] = crs[2]
-
     assert len(lmks1) == len(lmks2)
 
+    use_colors = False
     points1 = np.array([[lmk.x, lmk.y, lmk.z] for lmk in lmks1], dtype=np.float32)
     points2 = np.array([[lmk.x, lmk.y, lmk.z] for lmk in lmks2], dtype=np.float32)
     pts1_normalized, T1 = normalize_points(points1)
     pts2_normalized, T2 = normalize_points(points2)
-    result: RegistrationResult = do_icp(pts1_normalized, pts2_normalized, True)
-    icp_transformation = numpy.asarray(result.transformation)
 
+    if use_colors:
+        colors1 = np.array(
+            [get_dominant_color_patch(img1, lmk.x, lmk.y, 3) for lmk in lmks1],
+            dtype=np.float32,
+        )
+        colors2 = np.array(
+            [get_dominant_color_patch(img2, lmk.x, lmk.y, 3) for lmk in lmks2],
+            dtype=np.float32,
+        )
+
+        nan_indexes = []
+        for i, (c1, c2) in enumerate(zip(colors1, colors2)):
+            if np.isnan(c1).any() or np.isnan(c2).any():
+                nan_indexes.append(i)
+
+        colors1 = np.delete(colors1, nan_indexes, axis=0)
+        colors2 = np.delete(colors2, nan_indexes, axis=0)
+        pts1_normalized = np.delete(pts1_normalized, nan_indexes, axis=0)
+        pts2_normalized = np.delete(pts2_normalized, nan_indexes, axis=0)
+
+        colors1 = colors1 / 255
+        colors2 = colors2 / 255
+        pts1_normalized = np.hstack((pts1_normalized, colors1))
+        pts2_normalized = np.hstack((pts2_normalized, colors2))
+
+        # Draw image besides only the landmarks with dominant color
+        # img1_copy = img1.copy()
+        # img2_copy = img2.copy()
+        # for i, (lmk1, lmk2) in enumerate(zip(lmks1, lmks2)):
+        #     if i in nan_indexes:
+        #         continue
+        #     color1 = get_dominant_color_patch(img1, lmk1.x, lmk1.y, 3)
+        #     color2 = get_dominant_color_patch(img2, lmk2.x, lmk2.y, 3)
+        #     if np.isnan(color1).any() or np.isnan(color2).any():
+        #         continue
+        #
+        #     color1 = tuple(color1)
+        #     color2 = tuple(color2)
+        #     try:
+        #         cv.circle(
+        #             img=img1_copy,
+        #             center=(int(lmk1.x), int(lmk1.y)),
+        #             radius=8,
+        #             color=(int(color1[0]), int(color1[1]), int(color1[2])),
+        #             thickness=-1,
+        #         )
+        #         cv.circle(
+        #             img=img2_copy,
+        #             center=(int(lmk2.x), int(lmk2.y)),
+        #             radius=8,
+        #             color=(int(color2[0]), int(color2[1]), int(color2[2])),
+        #             thickness=-1,
+        #         )
+        #     except Exception as e:
+        #         print(e)
+        #         print(color1)
+        #         print(color2)
+        #         exit(1)
+        # cv.imshow("img1", img1_copy)
+        # cv.imshow("img2", img2_copy)
+        # cv.waitKey(0)
+        # cv.destroyAllWindows()
+
+    result: RegistrationResult = do_icp(pts1_normalized, pts2_normalized, True)
+    icp_transformation = np.asarray(result.transformation)
     # Combine the two transformations (T1 and T2 4x4 matrices) with the ICP transformation (4x4 matrix)
     combined_transformation_1 = np.matmul(T1, icp_transformation)
     combined_transformation_2 = np.matmul(T2, icp_transformation)
@@ -109,8 +170,8 @@ def compare_persons(
         pt2_transformed = np.matmul(combined_transformation_2, np.append(pt2, 1))
         pt2_transformed = pt2_transformed[:3]
         dist = np.linalg.norm(pt1_transformed - pt2_transformed)
-        # cos_sim = (calc_cos_sim(pt1_transformed, pt2_transformed) + 1) / 2
-        # dist = 1 - cos_sim
+        cos_sim = (calc_cos_sim(pt1_transformed, pt2_transformed) + 1) / 2
+        dist *= (1 - cos_sim)
 
         if (
                 lmk1.x is None
@@ -124,20 +185,14 @@ def compare_persons(
                 or img1 is None
                 or img2 is None
         ):
-            col_diff = 0
+            col_diff = 1
         else:
-            dom_color_1 = get_dominant_color_patch(img1, lmk1.x, lmk1.y, 4)
-            dom_color_2 = get_dominant_color_patch(img2, lmk2.x, lmk2.y, 4)
-            if dom_color_1 is None or dom_color_2 is None:
-                col_diff = 0
+            dom_color_1: ndarray = get_dominant_color_patch(img1, lmk1.x, lmk1.y, 2)
+            dom_color_2: ndarray = get_dominant_color_patch(img2, lmk2.x, lmk2.y, 2)
+            if np.isnan(dom_color_1).any() or np.isnan(dom_color_2).any():
+                col_diff = 1
             else:
-                col_diff = colors_diff(np.array([dom_color_1]), np.array([dom_color_2]))
-
-        # with Divider("Distance"):
-        #     Logger.log(dist, LoggingLevel.DEBUG, "Distance")
-        #     Logger.log(col_diff, LoggingLevel.DEBUG, "Color difference")
-        #     Logger.log(lmk1.visibility, LoggingLevel.DEBUG, "Visibility1")
-        #     Logger.log(lmk2.visibility, LoggingLevel.DEBUG, "Visibility2")
+                col_diff = colors_diff(dom_color_1, dom_color_2)
 
         assert (
                 dist >= 0
@@ -145,13 +200,22 @@ def compare_persons(
                 and lmk1.visibility >= 0
                 and lmk2.visibility >= 0
         )
+
+        # with Divider("Factors"):
+        # Logger.log(dist, LoggingLevel.DEBUG, "Distance")
+        # Logger.log(cos_sim, LoggingLevel.DEBUG, "Cosine Similarity")
+        # Logger.log(col_diff, LoggingLevel.DEBUG, "Color Difference")
+        # Logger.log(lmk1.visibility, LoggingLevel.DEBUG, "Landmark 1 Visibility")
+        # Logger.log(lmk2.visibility, LoggingLevel.DEBUG, "Landmark 2 Visibility")
+        # Logger.log(result.fitness, LoggingLevel.DEBUG, "Fitness")
+        # Logger.log(result.inlier_rmse, LoggingLevel.DEBUG, "Inlier RMSE")
+
         factored_dist = (
-                dist
+                result.inlier_rmse
+                * (1 - result.fitness)
                 * lmk1.visibility
                 * lmk2.visibility
-                * col_diff
-                * (1 - result.fitness)
-                * result.inlier_rmse
+                * col_diff ** 2
         )
         assert (
                 factored_dist is not None

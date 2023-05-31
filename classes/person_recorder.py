@@ -36,14 +36,15 @@ class PersonRecorder:
             self.frame_dict.get(person.frame_count).append(person)
         self.update_kalman_filter(persons, frame_num, img)
 
-    def get_recent_persons(self, frame_num: int) -> List[Person]:
+    def get_recent_persons(self, frame_num: int, look_back: int = 5) -> List[Person]:
         recently_seen: List[Person] = self.frame_dict.get(frame_num)
-        # TODO: Decide how many frames to look back, if any
-        # for i in range(1, 5):
-        #     rs_temp = self.get(frame_num - i)
-        #     for person in rs_temp:
-        #         if not any(p.name == person.name for p in recently_seen):
-        #             recently_seen.append(person)
+        for i in range(1, look_back):
+            rs_temp = self.frame_dict.get(frame_num - i)
+            if rs_temp is None:
+                continue
+            for person in rs_temp:
+                if not any(p.name == person.name for p in recently_seen):
+                    recently_seen.append(person)
 
         if recently_seen is None or len(recently_seen) < 2:
             return []
@@ -176,8 +177,13 @@ class PersonRecorder:
         #     prev_np = prev.get_pose_landmarks_numpy()
         #     after_np = after.get_pose_landmarks_numpy()
         # for j in range(1, 33):
-        #     cv2.line(img, (int(prev_np[j, 0]), int(prev_np[j, 1])), (int(after_np[j, 0]), int(after_np[j, 1])),
-        #              prev.color, 2)
+        #     cv2.line(
+        #         img,
+        #         (int(prev_np[j, 0]), int(prev_np[j, 1])),
+        #         (int(after_np[j, 0]), int(after_np[j, 1])),
+        #         prev.color,
+        #         2,
+        #     )
 
     def plot_trajectories(self, img) -> None:
         for name in self.kalman_dict:
@@ -210,6 +216,7 @@ class PersonRecorder:
             recorder1: "Recorder",
             recorder2: "Recorder",
             frame_range: Tuple[int, int] = (0, np.inf),
+            visibility_threshold: float = 0.5,
     ) -> Tuple[List[Landmark], List[Landmark], List[int]]:
         p1_rec_positions: Dict[int, Person] = recorder1.get_frame_history(
             p1, frame_range
@@ -237,7 +244,7 @@ class PersonRecorder:
             pers2: Person = p2_positions[j]
 
             common_indices: List[int] = Person.get_common_visible_landmark_indexes(
-                pers1, pers2
+                pers1, pers2, visibility_threshold
             )
             lmks1: List[Landmark] = [lmk for lmk in pers1.get_pose_landmarks()]
             lmks1 = [lmks1[i] for i in common_indices]

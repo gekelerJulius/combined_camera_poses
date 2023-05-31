@@ -1,3 +1,4 @@
+import math
 import xml.etree.ElementTree as ET
 from typing import Union, List, Tuple, Optional
 
@@ -459,10 +460,7 @@ def get_avg_color(image, x, y, patch_size):
 def get_dominant_color_patch(image, x: float, y: float, patch_size: int) -> ndarray:
     x = int(x)
     y = int(y)
-    patch_size = int(patch_size)
-    assert patch_size > 0, f"Patch size must be positive, got {patch_size}"
-    assert x >= 0, f"x must be positive, got {x}"
-    assert y >= 0, f"y must be positive, got {y}"
+    patch_size = int(np.abs(patch_size))
     min_x = x - patch_size
     max_x = x + patch_size
     min_y = y - patch_size
@@ -474,7 +472,7 @@ def get_dominant_color_bbox(image, bbox: BoundingBox) -> ndarray:
     return get_dominant_color(image, bbox.min_x, bbox.min_y, bbox.max_x, bbox.max_y)
 
 
-def get_dominant_color(img, x0: int, y0: int, x1: int, y1: int) -> Union[ndarray, None]:
+def get_dominant_color(img, x0: int, y0: int, x1: int, y1: int) -> ndarray:
     colors = []
 
     max_y = img.shape[0]
@@ -485,8 +483,8 @@ def get_dominant_color(img, x0: int, y0: int, x1: int, y1: int) -> Union[ndarray
     x1 = int(min(max_x, x1))
     y1 = int(min(max_y, y1))
 
-    if (x0 >= x1) or (y0 >= y1):
-        return None
+    if not (0 <= x0 <= x1 < max_x and 0 <= y0 <= y1 < max_y):
+        return np.array([np.nan, np.nan, np.nan])
 
     for i in range(y0, y1):
         for j in range(x0, x1):
@@ -693,7 +691,7 @@ def plot_pose_2d(points: ndarray, plot_id: int = None, title: str = "") -> int:
 def plot_pose_3d(points: ndarray, plot_id: int = None, title: str = "") -> int:
     assert points.shape[1] == 3
     plot_service: PlotService = PlotService.get_instance()
-    if plot_id is not None:
+    if plot_id is not None and plot_service.plot_exists(plot_id):
         fig: Figure = plot_service.get_plot(plot_id)
         ax: Axes3D = fig.get_axes()[0]
         ax.clear()
@@ -732,7 +730,7 @@ def plot_pose_3d(points: ndarray, plot_id: int = None, title: str = "") -> int:
     #     Z = simplex_points[:, 2]
     #     ax.plot_trisurf(X, Y, Z, alpha=0.3)
 
-    if plot_id is None:
+    if plot_id is None or not plot_service.plot_exists(plot_id):
         plot_id = plot_service.add_plot(fig)
     plt.pause(0.01)
     return plot_id

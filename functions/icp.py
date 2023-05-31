@@ -4,6 +4,7 @@ import numpy as np
 from numpy import ndarray
 from open3d.cpu.pybind.geometry import *
 from open3d.cpu.pybind.pipelines.registration import *
+from open3d.cpu.pybind.utility import Vector3dVector
 from scipy.spatial.transform import Rotation
 import open3d as o3d
 import logging
@@ -19,22 +20,25 @@ def do_icp(
 ) -> RegistrationResult:
     """
     The Iterative Closest Point method. Finds the best-fit transform that maps points A on to points B.
-    :param pts1: (N, 3) numpy ndarray.
-    :param pts2: (N, 3) numpy ndarray.
+    :param pts1: (N, 3) or (N, 6) numpy ndarray, where the first 3 columns are
+                 the xyz coordinates and the last 3 columns are the rgb values.
+    :param pts2: Same as pts1.
     :param corresponding_by_index: If True, the points are assumed to be in correspondence by index.
     :return: P: (4, 4) numpy ndarray, distances: (N,) numpy ndarray.
     """
     pts1 = np.copy(pts1)
     pts2 = np.copy(pts2)
     assert (
-            pts1.shape == pts2.shape and pts1.shape[1] == 3
-    ), "pts1 and pts2 must be (N, 3) ndarrays."
+            pts1.shape == pts2.shape and pts1.shape[1] == 3 or pts1.shape[1] == 6
+    ), "pts1 and pts2 must be (N, 3) or (N, 6) ndarrays."
 
-    cloud1: PointCloud = o3d.geometry.PointCloud()
-    cloud1.points = o3d.utility.Vector3dVector(pts1)
-    cloud2: PointCloud = o3d.geometry.PointCloud()
-    cloud2.points = o3d.utility.Vector3dVector(pts2)
-    voxel_size = 0.05
+    cloud1 = PointCloud()
+    cloud1.points = Vector3dVector(pts1[:, :3])
+    cloud2 = PointCloud()
+    cloud2.points = Vector3dVector(pts2[:, :3])
+    voxel_size = 0.2
+    result_init: RegistrationResult
+    result_icp: RegistrationResult
 
     if corresponding_by_index:
         correspondences = np.array([[i, i] for i in range(pts1.shape[0])])
@@ -44,18 +48,74 @@ def do_icp(
                 cloud1, cloud2, corr_set
             )
         )
+        # result_init = registration_fgr_based_on_correspondence(
+        #     cloud1, cloud2, corr_set, FastGlobalRegistrationOption()
+        # )
+        # init_transformation = np.asarray(result_init.transformation)
     else:
         cloud1, cloud1_fpfh = preprocess_point_cloud(cloud1, voxel_size)
         cloud2, cloud2_fpfh = preprocess_point_cloud(cloud2, voxel_size)
-        result_init: RegistrationResult = execute_global_registration(
+        result_init = execute_global_registration(
             cloud1, cloud2, cloud1_fpfh, cloud2_fpfh, voxel_size
         )
-        init_transformation = result_init.transformation
+        init_transformation = np.asarray(result_init.transformation)
 
-    result_icp: RegistrationResult = refine_registration(
-        cloud1, cloud2, init_transformation
-    )
+    if pts1.shape[1] == 6 and pts2.shape[1] == 6:
+        cloud1.colors = Vector3dVector(pts1[:, 3:6])
+        cloud2.colors = Vector3dVector(pts2[:, 3:6])
+        # result_icp = colored_registration(cloud1, cloud2, init_transformation)
+        result_icp = refine_registration(
+            cloud1, cloud2, init_transformation, voxel_size * 0.4
+        )
+    else:
+        result_icp = refine_registration(
+            cloud1, cloud2, init_transformation, voxel_size * 0.4
+        )
+
     # draw_registration_result(cloud1, cloud2, result_icp.transformation, as_pose=True)
+    return result_icp
+
+
+# CURRENTLY NOT WORKING
+def colored_registration(source: PointCloud, target: PointCloud, initial_transformation: ndarray) -> RegistrationResult:
+    # colored pointcloud registration
+    # This is implementation of following paper
+    # J. Park, Q.-Y. Zhou, V. Koltun,
+    # Colored Point Cloud Registration Revisited, ICCV 2017
+    voxel_radius = [0.4, 0.2, 0.1]
+    max_iter = [1000, 600, 300]
+    current_transformation = np.identity(4)
+    result_icp = None
+    print("3. Colored point cloud registration")
+    for scale in range(3):
+        cur_iter = max_iter[scale]
+        radius = voxel_radius[scale]
+        # print([cur_iter, radius, scale])
+        #
+        # print("3-1. Downsample with a voxel size %.2f" % radius)
+        # source_down = source.voxel_down_sample(radius)
+        # target_down = target.voxel_down_sample(radius)
+        #
+        # print("3-2. Estimate normal.")
+        source.estimate_normals(
+            o3d.geometry.KDTreeSearchParamHybrid(radius=radius * 2, max_nn=30)
+        )
+        target.estimate_normals(
+            o3d.geometry.KDTreeSearchParamHybrid(radius=radius * 2, max_nn=30)
+        )
+
+        print("3-3. Applying colored point cloud registration")
+        result_icp = o3d.pipelines.registration.registration_colored_icp(
+            source=source,
+            target=target,
+            max_correspondence_distance=radius,
+            init=current_transformation,
+            estimation_method=o3d.pipelines.registration.TransformationEstimationForColoredICP(),
+            criteria=o3d.pipelines.registration.ICPConvergenceCriteria(
+                relative_fitness=1e-2, relative_rmse=1e-2, max_iteration=cur_iter
+            ),
+        )
+        current_transformation = result_icp.transformation
     return result_icp
 
 
@@ -110,12 +170,13 @@ def execute_global_registration(
     return result
 
 
-def refine_registration(source, target, transformation) -> RegistrationResult:
-    distance_threshold = 0.02
+def refine_registration(
+        source, target, transformation, voxel_size
+) -> RegistrationResult:
     result = registration_icp(
         source,
         target,
-        distance_threshold,
+        voxel_size,
         transformation,
         TransformationEstimationPointToPoint(),
     )

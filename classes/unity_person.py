@@ -31,13 +31,15 @@ class UnityPerson:
 
     @staticmethod
     def plot_all_3d(persons: List["UnityPerson"]) -> None:
-        # TODO: Fix
         import matplotlib.pyplot as plt
-        from mpl_toolkits.mplot3d import Axes3D
+
         plot_id = 0
         for person in persons:
             for i in range(0, 100):
-                plot_pose_3d(person.get_frame(i), plot_id)
+                pts = person.get_frame(i)
+                # Invert y axis
+                pts[:, 1] *= -1
+                plot_pose_3d(pts, plot_id)
         plt.show()
 
 
@@ -45,7 +47,14 @@ def load_points(jsonpath: str) -> ndarray:
     org_dict = {}
     with open(jsonpath) as f:
         org_points_json = json.load(f)
-    strings_to_remove = ["mixamorig:", "Ch42_", "Walking_Man", "Ch41_", "mixamorig4:", "Walking_Woman"]
+    strings_to_remove = [
+        "mixamorig:",
+        "Ch42_",
+        "Walking_Man",
+        "Ch41_",
+        "mixamorig4:",
+        "Walking_Woman",
+    ]
     old_names = [a for a in org_points_json]
     for i in range(len(org_points_json)):
         name = old_names[i]
