@@ -23,8 +23,10 @@ class UnityPerson:
         return org_points
 
     def get_image_points(self, frame_count: int, camera_info: CameraData) -> ndarray:
-        org_points = self.get_frame(frame_count)
-        return camera_info.transform_points_to_camera(org_points)
+        points_3d = self.get_frame(frame_count)
+        points_cam = camera_info.points_from_world_to_camera(points_3d)
+        points_img = camera_info.points_from_camera_to_image(points_cam)
+        return points_img
 
     __str__ = lambda self: self.jsonpath
     __repr__ = lambda self: self.jsonpath

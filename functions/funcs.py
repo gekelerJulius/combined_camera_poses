@@ -947,8 +947,8 @@ def estimate_projection(
 def normalize_image(image):
     """
     Normalizes the image by subtracting the mean and dividing by the standard deviation
-    :param image: The image to normalize (480,640,3)
-    :return: The normalized image (480,640,3)
+    :param image: The image to normalize (h,w,3)
+    :return: The normalized image (h,w,3)
     """
     image = image.copy()
     image = image.astype("float32")

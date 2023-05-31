@@ -1,9 +1,9 @@
 import math
 import os
-import time
 from typing import List, Tuple
 
 import cv2 as cv
+import numpy as np
 from ultralytics import YOLO
 
 from classes.bounding_box import BoundingBox
@@ -17,7 +17,6 @@ from classes.true_person_loader import TruePersonLoader
 from classes.unity_person import UnityPerson
 from enums.logging_levels import LoggingLevel
 from functions.funcs import blend_colors, normalize_image
-from functions.get_person_pairs import match_pairs
 from functions.get_pose import get_pose
 from functions.get_yolo_boxes import get_yolo_bounding_boxes
 
@@ -159,9 +158,6 @@ def annotate_video_multi(
         person_recorder2.add(persons2, frame_count, img2)
         records_matcher.eval_frame(frame_count, img1, img2, cam1_data, cam2_data)
 
-        if frame_count < 15:
-            continue
-
         # for person in unity_persons:
         #     print(person)
         #     pts1: ndarray = person.get_image_points(frame_count, cam1_data)
@@ -190,6 +186,7 @@ def annotate_video_multi(
         # )
 
         pairs = records_matcher.get_alignment(frame_count)
+        records_matcher.estimate_extrinsic_matrix(frame_count, cam1_data, cam2_data)
 
         unity_persons: List[UnityPerson] = TruePersonLoader.load(
             "simulation_data/persons"
@@ -214,7 +211,7 @@ def annotate_video_multi(
         if frame_count > START_FRAME:
             cv.imshow("Frame 1", img1)
             cv.imshow("Frame 2", img2)
-            cv.waitKey(1)
+            cv.waitKey(200)
 
         # if out1 is None:
         #     out1 = cv.VideoWriter(f"{file1_pre}_annotated{file1_ext}", fourcc, 24, (img1.shape[1], img1.shape[0]))

@@ -8,13 +8,16 @@ from numpy import ndarray
 from open3d.cpu.pybind.pipelines.registration import RegistrationResult
 from scipy.optimize import linear_sum_assignment
 
+from functions.calc_repr_errors import calc_reprojection_errors
+from functions.estimate_extrinsic import estimate_extrinsic
+
 from classes.camera_data import CameraData
-from classes.logger import Logger
+from classes.logger import Logger, Divider
 from classes.person import Person
 from classes.person_recorder import PersonRecorder
 from enums.logging_levels import LoggingLevel
+from functions import calc_repr_errors
 from functions.funcs import (
-    calc_cos_sim,
     normalize_points,
     get_dominant_color_patch,
     colors_diff,
@@ -76,8 +79,8 @@ def compare_persons(
         p2,
         recorder1,
         recorder2,
-        (frame_count - 60, frame_count),
-        visibility_threshold=0.75,
+        (frame_count - 24, frame_count),
+        visibility_threshold=0.5,
     )
     lmks1: List[Landmark] = crs[0]
     lmks2: List[Landmark] = crs[1]
@@ -154,25 +157,19 @@ def compare_persons(
         # cv.destroyAllWindows()
 
     result: RegistrationResult = do_icp(pts1_normalized, pts2_normalized, True)
-    icp_transformation = np.asarray(result.transformation)
-    # Combine the two transformations (T1 and T2 4x4 matrices) with the ICP transformation (4x4 matrix)
-    combined_transformation_1 = np.matmul(T1, icp_transformation)
-    combined_transformation_2 = np.matmul(T2, icp_transformation)
+    # icp_transformation = np.asarray(result.transformation)
+    # icp_rotation = icp_transformation[:3, :3]
+    # icp_r = cv.Rodrigues(icp_rotation)[0]
+    # icp_rdeg = np.rad2deg(icp_r)
+    # Logger.log(icp_rdeg, LoggingLevel.DEBUG, "ICP rotation (deg):")
+    #
+    # real_rotation = cam_data1.rotation_between_cameras(cam_data2)
+    # real_r = cv.Rodrigues(real_rotation)[0]
+    # real_rdeg = np.rad2deg(real_r)
+    # Logger.log(real_rdeg, LoggingLevel.DEBUG, "Real rotation (deg):")
 
     distances: List[float] = []
     for lmk1, lmk2 in zip(lmks1, lmks2):
-        pt1, pt2 = np.array([lmk1.x, lmk1.y, lmk1.z]), np.array(
-            [lmk2.x, lmk2.y, lmk2.z]
-        )
-
-        pt1_transformed = np.matmul(combined_transformation_1, np.append(pt1, 1))
-        pt1_transformed = pt1_transformed[:3]
-        pt2_transformed = np.matmul(combined_transformation_2, np.append(pt2, 1))
-        pt2_transformed = pt2_transformed[:3]
-        dist = np.linalg.norm(pt1_transformed - pt2_transformed)
-        cos_sim = (calc_cos_sim(pt1_transformed, pt2_transformed) + 1) / 2
-        dist *= (1 - cos_sim)
-
         if (
                 lmk1.x is None
                 or lmk1.y is None
@@ -195,28 +192,25 @@ def compare_persons(
                 col_diff = colors_diff(dom_color_1, dom_color_2)
 
         assert (
-                dist >= 0
-                and col_diff >= 0
+                col_diff >= 0
                 and lmk1.visibility >= 0
                 and lmk2.visibility >= 0
         )
-
-        # with Divider("Factors"):
-        # Logger.log(dist, LoggingLevel.DEBUG, "Distance")
-        # Logger.log(cos_sim, LoggingLevel.DEBUG, "Cosine Similarity")
-        # Logger.log(col_diff, LoggingLevel.DEBUG, "Color Difference")
-        # Logger.log(lmk1.visibility, LoggingLevel.DEBUG, "Landmark 1 Visibility")
-        # Logger.log(lmk2.visibility, LoggingLevel.DEBUG, "Landmark 2 Visibility")
-        # Logger.log(result.fitness, LoggingLevel.DEBUG, "Fitness")
-        # Logger.log(result.inlier_rmse, LoggingLevel.DEBUG, "Inlier RMSE")
-
+        if result.fitness == 1 and result.inlier_rmse == 0:
+            with Divider("Factors"):
+                Logger.log(col_diff, LoggingLevel.DEBUG, "Color Difference")
+                Logger.log(lmk1.visibility, LoggingLevel.DEBUG, "Landmark 1 Visibility")
+                Logger.log(lmk2.visibility, LoggingLevel.DEBUG, "Landmark 2 Visibility")
+                Logger.log(result.fitness, LoggingLevel.DEBUG, "Fitness")
+                Logger.log(result.inlier_rmse, LoggingLevel.DEBUG, "Inlier RMSE")
         factored_dist = (
                 result.inlier_rmse
                 * (1 - result.fitness)
                 * lmk1.visibility
                 * lmk2.visibility
-                * col_diff ** 2
+                * col_diff
         )
+
         assert (
                 factored_dist is not None
                 and factored_dist >= 0
@@ -224,8 +218,29 @@ def compare_persons(
         )
         distances.append(factored_dist)
 
-    assert len(distances) == len(lmks1) == len(lmks2)
-    return float(np.mean(distances))
+    # Calculate Reprojection Errors
+    points1_img = points1[:, :2]
+    points2_img = points2[:, :2]
+    extr = estimate_extrinsic(
+        points1_img,
+        points2_img,
+        K1=cam_data1.intrinsic_matrix,
+        K2=cam_data2.intrinsic_matrix
+    )
+    K1 = cam_data1.intrinsic_matrix
+    K2 = cam_data2.intrinsic_matrix
+    R1, t1 = np.eye(3), np.zeros((3, 1))
+    R2, t2 = extr[:3, :3], extr[:3, 3]
+    est_cam_data1 = CameraData.from_matrices(K1, R1, t1)
+    est_cam_data2 = CameraData.from_matrices(K2, R2, t2)
+    err1, err2 = calc_reprojection_errors(points1_img, points2_img, est_cam_data1, est_cam_data2)
+
+    distances_np = np.array(distances)
+    distances_np *= err1
+    distances_np *= err2
+    assert len(distances_np) == len(lmks1) == len(lmks2)
+    mean_dist = float(np.mean(distances_np))
+    return mean_dist
 
 
 # def get_person_pairs(
@@ -552,55 +567,56 @@ def test_pairing(
 
     Returns the reprojection error.
     """
-    common_indices = Person.get_common_visible_landmark_indexes(person1, person2)
-    points1 = person1.get_pose_landmarks_numpy()[common_indices]
-    points2 = person2.get_pose_landmarks_numpy()[common_indices]
-    points1 = np.array([[p[0], p[1]] for p in points1])
-    points2 = np.array([[p[0], p[1]] for p in points2])
-    K1 = cam_data1.intrinsic_matrix
-    K2 = cam_data2.intrinsic_matrix
-
-    if points1.shape[0] < 8 or points2.shape[0] < 8:
-        Logger.log(
-            "Not enough points to calculate fundamental matrix", LoggingLevel.WARNING
-        )
-        return math.inf
-
-    F, mask = cv.findFundamentalMat(points1, points2, cv.FM_RANSAC, 3, 0.99, 3000)
-    test_fundamental_matrix(F, points1, points2)
-
-    # Only keep inlier points
-    points1 = points1[mask.ravel() == 1]
-    points2 = points2[mask.ravel() == 1]
-
-    # Compute the Essential matrix
-    E = K2.T @ F @ K1
-
-    points_1_hom = np.array([[p[0], p[1], 1] for p in points1])
-    points_2_hom = np.array([[p[0], p[1], 1] for p in points2])
-    p1_normalized = np.matmul(np.linalg.inv(K1), points_1_hom.T).T
-    p2_normalized = np.matmul(np.linalg.inv(K2), points_2_hom.T).T
-    p1_normalized = np.array([[p[0], p[1]] for p in p1_normalized])
-    p2_normalized = np.array([[p[0], p[1]] for p in p2_normalized])
-    test_essential_matrix(E, p1_normalized, p2_normalized)
-
-    R = np.zeros((3, 3))
-    t = np.zeros((3, 1))
-    cv.recoverPose(
-        E=E,
-        points1=p1_normalized,
-        points2=p2_normalized,
-        cameraMatrix1=K1,
-        cameraMatrix2=K2,
-        distCoeffs1=None,
-        distCoeffs2=None,
-        R=R,
-        t=t,
-        mask=mask,
-    )
-
-    repr_err, _ = calculate_reprojection_error(points1, points2, R, t, K1, K2)
-    return repr_err
+    pass
+    # common_indices = Person.get_common_visible_landmark_indexes(person1, person2)
+    # points1 = person1.get_pose_landmarks_numpy()[common_indices]
+    # points2 = person2.get_pose_landmarks_numpy()[common_indices]
+    # points1 = np.array([[p[0], p[1]] for p in points1])
+    # points2 = np.array([[p[0], p[1]] for p in points2])
+    # K1 = cam_data1.intrinsic_matrix
+    # K2 = cam_data2.intrinsic_matrix
+    #
+    # if points1.shape[0] < 8 or points2.shape[0] < 8:
+    #     Logger.log(
+    #         "Not enough points to calculate fundamental matrix", LoggingLevel.WARNING
+    #     )
+    #     return math.inf
+    #
+    # F, mask = cv.findFundamentalMat(points1, points2, cv.FM_RANSAC, 3, 0.99, 3000)
+    # test_fundamental_matrix(F, points1, points2)
+    #
+    # # Only keep inlier points
+    # points1 = points1[mask.ravel() == 1]
+    # points2 = points2[mask.ravel() == 1]
+    #
+    # # Compute the Essential matrix
+    # E = K2.T @ F @ K1
+    #
+    # points_1_hom = np.array([[p[0], p[1], 1] for p in points1])
+    # points_2_hom = np.array([[p[0], p[1], 1] for p in points2])
+    # p1_normalized = np.matmul(np.linalg.inv(K1), points_1_hom.T).T
+    # p2_normalized = np.matmul(np.linalg.inv(K2), points_2_hom.T).T
+    # p1_normalized = np.array([[p[0], p[1]] for p in p1_normalized])
+    # p2_normalized = np.array([[p[0], p[1]] for p in p2_normalized])
+    # test_essential_matrix(E, p1_normalized, p2_normalized)
+    #
+    # R = np.zeros((3, 3))
+    # t = np.zeros((3, 1))
+    # cv.recoverPose(
+    #     E=E,
+    #     points1=p1_normalized,
+    #     points2=p2_normalized,
+    #     cameraMatrix1=K1,
+    #     cameraMatrix2=K2,
+    #     distCoeffs1=None,
+    #     distCoeffs2=None,
+    #     R=R,
+    #     t=t,
+    #     mask=mask,
+    # )
+    #
+    # repr_err, _ = calculate_reprojection_error(points1, points2, R, t, K1, K2)
+    # return repr_err
 
     # points1_2d = np.array([[p1[0], p1[1]] for p1 in points1], dtype=np.float32)
     # points2_2d = np.array([[p2[0], p2[1]] for p2 in points2], dtype=np.float32)
@@ -621,52 +637,6 @@ def test_pairing(
     # mean_reprojection_error = (reprojection_error1 + reprojection_error2) / 2
     # Logger.log(mean_reprojection_error, LoggingLevel.DEBUG, label="Mean Reprojection Error")
     # return mean_reprojection_error
-
-
-def calculate_reprojection_error(
-        points1: ndarray, points2: ndarray, R: ndarray, t: ndarray, K1: ndarray, K2: ndarray
-) -> Tuple[float, ndarray]:
-    """
-    Calculate reprojection error between two sets of points.
-    Arguments:
-    - points1, points2: numpy arrays of shape (N, 2). Image points in pixels.
-    - K1, K2: camera matrices of shape (3, 3)
-    - R: rotation matrix of shape (3, 3)
-    - t: translation vector of shape (3)
-    Returns:
-    - Average reprojection error
-    """
-    print("points1", points1.shape)
-    print("points2", points2.shape)
-    print("K1", K1.shape)
-    print("K2", K2.shape)
-    print("R", R.shape)
-    print("t", t.shape)
-
-    cam_data1 = CameraData.from_matrices(K1, np.eye(3, 3), np.zeros((3, 1)))
-    cam_data2 = CameraData.from_matrices(K2, R, t)
-
-    # Reproject the points onto the second image
-    world_points1 = cam_data1.transform_points_to_world(points1)
-    reprojected_points = cam_data2.transform_points_to_camera(world_points1)
-
-    # # Add one additional dimension to the points (homogeneous coordinates)
-    # points1_homogeneous = np.hstack((points1, np.ones((points1.shape[0], 1))))
-    # points2_homogeneous = np.hstack((points2, np.ones((points2.shape[0], 1))))
-    #
-    # # Reproject the points onto the second image
-    # rotated = np.matmul(R, points1_homogeneous.T).T
-    # translated = rotated + t.T
-    # reprojected_points = np.matmul(K, translated.T).T
-    #
-    # # Normalize the points
-    # reprojected_points = reprojected_points[:, :2] / reprojected_points[:, 2:]
-
-    # Calculate the Euclidean distance between the reprojected points and points2
-    error = np.sqrt(np.sum((reprojected_points - points2) ** 2, axis=1))
-
-    # Return the average reprojection error
-    return float(np.mean(error)), reprojected_points
 
 
 def test_fundamental_matrix(F: ndarray, pts1: ndarray, pts2: ndarray) -> None:

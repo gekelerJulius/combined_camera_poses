@@ -45,14 +45,15 @@ class CameraData:
         Creates a CameraData object from the intrinsic and extrinsic matrices
         :param K: Intrinsic matrix (3x3)
         :param R: Rotation matrix (3x3)
-        :param t: Translation vector (3x1)
+        :param t: Translation vector (3x1) or (3,)
         """
+        if t.shape == (3,):
+            t = t.reshape((3, 1))
         fx = K[0][0]
         fy = K[1][1]
         cx = K[0][2]
         cy = K[1][2]
         aspect_ratio = fx / fy
-
         tx = t[0][0]
         ty = t[1][0]
         tz = t[2][0]
@@ -97,49 +98,73 @@ class CameraData:
     def __repr__(self):
         return self.__str__()
 
-    def transform_points_to_world(self, points: ndarray) -> ndarray:
+    def get_projection_matrix(self):
+        return np.dot(self.intrinsic_matrix, self.extrinsic_matrix3x4)
+
+    def points_from_camera_to_world(self, points: ndarray) -> ndarray:
         """Transforms points from camera coordinates to world coordinates"""
-        assert points.shape[1] == 2
-        return np.array([self.transform_point_to_world(point) for point in points])
+        assert len(points.shape) == 2, f"points.shape = {points.shape}"
+        assert points.shape[1] == 3, f"points.shape = {points.shape}"
+        return np.array([self.point_from_camera_to_world(point) for point in points])
 
-    def transform_point_to_world(self, point: ndarray) -> ndarray:
-        """Transforms a point from camera coordinates to world coordinates"""
-        assert point.shape == (2,)
-        u = point[0]
-        v = point[1]
+    def point_from_camera_to_world(self, point: ndarray) -> ndarray:
+        """
+        Transforms a point from camera coordinates to world coordinates
+        """
+        assert point.shape[0] == 3, f"point.shape = {point.shape}"
+        X = point[0]
+        Y = point[1]
+        Z = point[2]
+        world = np.dot(self.extrinsic_matrix4x4, np.array([X, Y, Z, 1]))
+        world = world / world[3]
+        return world[:3]
 
-        x = (u - self.cx) / self.fx
-        y = (v - self.cy) / self.fy
-        z = 1
-        # Use extrinsic matrix to transform the point to world coordinates
-        extrinsic_matrix = self.extrinsic_matrix4x4
-        p_world_homogeneous = np.dot(extrinsic_matrix, np.array([x, y, z, 1]))
-        p_world = p_world_homogeneous[:3] / p_world_homogeneous[3]
-        return p_world
+    def points_from_world_to_camera(self, points: ndarray) -> ndarray:
+        """Transforms Nx3 points from world coordinates to Nx3 camera coordinates"""
+        assert len(points.shape) == 2, f"points.shape = {points.shape}"
+        assert points.shape[1] == 3, f"points.shape = {points.shape}"
+        return np.array([self.point_from_world_to_camera(point) for point in points])
 
-    def transform_points_to_camera(self, points: ndarray) -> ndarray:
-        """Transforms Nx3 points from world coordinates to Nx2 image coordinates"""
-        assert len(points.shape) == 2
-        assert points.shape[1] == 3
-        return np.array([self.transform_point_to_camera(point) for point in points])
-
-    def transform_point_to_camera(self, point: ndarray) -> ndarray:
+    def point_from_world_to_camera(self, point: ndarray) -> ndarray:
         """Transforms a point from world coordinates to camera coordinates"""
-        assert point.shape[0] == 3
+        assert point.shape[0] == 3, f"point.shape = {point.shape}"
         X = point[0]
         Y = point[1]
         Z = point[2]
         K = self.intrinsic_matrix
         extrinsic_matrix = self.extrinsic_matrix4x4
-
-        # convert the world point to normalized camera coordinates
         p_cam_homogeneous = np.dot(extrinsic_matrix, np.array([X, Y, Z, 1]))
         p_cam = p_cam_homogeneous[:3] / p_cam_homogeneous[3]
+        return p_cam
 
-        # convert the normalized camera coordinates to image coordinates
-        p_img_homogeneous = np.dot(K, p_cam)
+    def points_from_camera_to_image(self, points: ndarray) -> ndarray:
+        """Transforms Nx3 points from camera coordinates to Nx2 image coordinates"""
+        assert len(points.shape) == 2, f"points.shape = {points.shape}"
+        assert points.shape[1] == 3, f"points.shape = {points.shape}"
+        return np.array([self.point_from_camera_to_image(point) for point in points])
+
+    def point_from_camera_to_image(self, point: ndarray) -> ndarray:
+        """Transforms a point from camera coordinates to image coordinates"""
+        assert point.shape[0] == 3, f"point.shape = {point.shape}"
+        K = self.intrinsic_matrix
+        p_img_homogeneous = np.dot(K, point)
         p_img = p_img_homogeneous[:2] / p_img_homogeneous[2]
         return p_img
+
+    def points_from_image_to_camera(self, points: ndarray) -> ndarray:
+        """Transforms Nx2 points from image coordinates to Nx3 camera coordinates"""
+        assert len(points.shape) == 2, f"points.shape = {points.shape}"
+        assert points.shape[1] == 2, f"points.shape = {points.shape}"
+        return np.array([self.point_from_image_to_camera(point) for point in points])
+
+    def point_from_image_to_camera(self, point: ndarray) -> ndarray:
+        """Transforms a point from image coordinates to camera coordinates"""
+        assert point.shape[0] == 2, f"point.shape = {point.shape}"
+        u = point[0]
+        v = point[1]
+        K_inv = np.linalg.inv(self.intrinsic_matrix)
+        p_cam_homogeneous = np.dot(K_inv, np.array([u, v, 1]))
+        return p_cam_homogeneous
 
     def rotation_between_cameras(self, cam2_data: "CameraData") -> ndarray:
         """Calculates the rotation matrix between the two cameras"""
