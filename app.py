@@ -1,11 +1,14 @@
 import math
 import os
-from typing import List, Tuple
+from typing import List, Tuple, Optional
 
 import cv2 as cv
+import matplotlib.pyplot as plt
 import numpy as np
+from cv2 import VideoWriter
 from ultralytics import YOLO
 
+from classes.PlotService import PlotService
 from classes.bounding_box import BoundingBox
 from classes.camera_data import CameraData
 from classes.logger import Logger, Divider
@@ -58,13 +61,13 @@ def annotate_video_multi(
     # viz = poseviz.PoseViz(NAMES_LIST, CONNECTIONS_LIST)
     # viz = poseviz.PoseViz(test_joint_names, test_joint_edges)
 
-    # fourcc = cv.VideoWriter_fourcc(*"mp4v")
-    # file1_pre, file1_ext = os.path.splitext(file1_name)
-    # file2_pre, file2_ext = os.path.splitext(file2_name)
+    fourcc = cv.VideoWriter_fourcc(*"mp4v")
+    file1_pre, file1_ext = os.path.splitext(file1_name)
+    file2_pre, file2_ext = os.path.splitext(file2_name)
     cap1 = cv.VideoCapture(file1_name)
     cap2 = cv.VideoCapture(file2_name)
-    # out1: VideoWriter = None
-    # out2: VideoWriter = None
+    out1: Optional[VideoWriter] = None
+    out2: Optional[VideoWriter] = None
     frame_count = 0
     person_recorder1: PersonRecorder = PersonRecorder("1")
     person_recorder2: PersonRecorder = PersonRecorder("2")
@@ -110,9 +113,6 @@ def annotate_video_multi(
         img1 = normalize_image(img1)
         img2 = normalize_image(img2)
 
-        # Save img1 to disk
-        # cv.imwrite(f"img1_{frame_count}.jpg", img1)
-
         persons1: List[Person] = []
         persons2: List[Person] = []
         bounding_boxes1: List[BoundingBox] = get_yolo_bounding_boxes(orig_img1, model)
@@ -120,7 +120,6 @@ def annotate_video_multi(
 
         for box in bounding_boxes1:
             img1, results1 = get_pose(orig_img1, box)
-
             if (
                     results1 is None
                     or results1.pose_landmarks is None
@@ -150,34 +149,6 @@ def annotate_video_multi(
         person_recorder1.add(persons1, frame_count, img1)
         person_recorder2.add(persons2, frame_count, img2)
         records_matcher.eval_frame(frame_count, img1, img2, cam1_data, cam2_data)
-
-        # for person in unity_persons:
-        #     print(person)
-        #     pts1: ndarray = person.get_image_points(frame_count, cam1_data)
-        #     pts2: ndarray = person.get_image_points(frame_count, cam2_data)
-        #
-        #     assert pts1 is not None and pts2 is not None
-        #     assert len(pts1) == len(pts2) != 0
-        #
-        #     for i in range(len(pts1)):
-        #         pt1 = tuple(pts1[i].astype(int))
-        #         pt2 = tuple(pts2[i].astype(int))
-        #         cv.circle(img1, pt1, 5, (255, 255, 0), -1)
-        #         cv.circle(img2, pt2, 5, (255, 255, 0), -1)
-
-        # if frame_count < 15:
-        #     continue
-
-        # pairs = match_pairs(
-        #     person_recorder1,
-        #     person_recorder2,
-        #     frame_count,
-        #     img1,
-        #     img2,
-        #     cam1_data,
-        #     cam2_data,
-        # )
-
         pairs = records_matcher.get_alignment(frame_count)
         records_matcher.estimate_extrinsic_matrix(frame_count, cam1_data, cam2_data)
 
@@ -188,12 +159,9 @@ def annotate_video_multi(
         for i, (p1, p2) in enumerate(pairs):
             color1 = p1.color
             color2 = p2.color
-            blended1, blended2 = blend_colors(color1, color2, 0)
+            blended1, blended2 = blend_colors(color1, color2, 0.5)
             p1.color = blended1
             p2.color = blended2
-            # color = [0, 0, 0]
-            # color[i] = 255
-            # color = tuple(color)
             p1.draw(img1, p1.color)
             p2.draw(img2, p2.color)
             confirmed = TruePersonLoader.confirm_pair(
@@ -206,30 +174,41 @@ def annotate_video_multi(
             cv.imshow("Frame 2", img2)
             cv.waitKey(1)
 
-        # if out1 is None:
-        #     out1 = cv.VideoWriter(f"{file1_pre}_annotated{file1_ext}", fourcc, 24, (img1.shape[1], img1.shape[0]))
-        # if out2 is None:
-        #     out2 = cv.VideoWriter(f"{file2_pre}_annotated{file2_ext}", fourcc, 24, (img2.shape[1], img2.shape[0]))
-
-        # out1.write(img1)
-        # out2.write(img2)
+        if out1 is None:
+            out1 = cv.VideoWriter(
+                f"{file1_pre}_annotated{file1_ext}",
+                fourcc,
+                24,
+                (img1.shape[1], img1.shape[0]),
+            )
+        if out2 is None:
+            out2 = cv.VideoWriter(
+                f"{file2_pre}_annotated{file2_ext}",
+                fourcc,
+                24,
+                (img2.shape[1], img2.shape[0]),
+            )
+        out1.write(img1)
+        out2.write(img2)
         if frame_count % 10 == 0:
             Logger.log(f"Frame: {frame_count}", LoggingLevel.INFO)
             score = score_manager.get_score()
-            # Show percentage with 2 decimal places
             Logger.log(f"Correct percentage: {score * 100:.2f}%", LoggingLevel.INFO)
-
-        # Debug
-        # if frame_count == 50:
-        #     break
 
     cap1.release()
     cap2.release()
-    # out1.release()
-    # out2.release()
+    out1.release()
+    out2.release()
+
+    # plotter: PlotService = PlotService.get_instance()
+    # repr_err_plot = plotter.get_plot("Reprojection Error")
+    # repr_err_plot.savefig("simulation_data/repr_err.png")
+
     score = score_manager.get_score()
     Logger.log(f"Correct percentage: {score * 100:.2f}%", LoggingLevel.INFO)
     Logger.log("Done!", LoggingLevel.INFO)
+    plt.pause(500000)
+    cv.waitKey(0)
     cv.destroyAllWindows()
 
 

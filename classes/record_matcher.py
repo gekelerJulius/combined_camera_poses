@@ -1,13 +1,10 @@
-import time
 from typing import Dict, List, Tuple, Optional
 
 import numpy as np
 from matplotlib import pyplot as plt
 from matplotlib.axes import Axes
 from matplotlib.figure import Figure
-from numpy import ndarray
 from scipy.optimize import linear_sum_assignment
-import cv2 as cv
 
 from classes.PlotService import PlotService
 from classes.camera_data import CameraData
@@ -47,11 +44,13 @@ class RecordMatcher:
     rec1: PersonRecorder
     rec2: PersonRecorder
     frame_records: List[FrameRecord]
+    reprojection_errors: List[float]
 
     def __init__(self, rec1: PersonRecorder, rec2: PersonRecorder):
         self.rec1 = rec1
         self.rec2 = rec2
         self.frame_records = []
+        self.reprojection_errors = []
 
     def get_frame_record(self, frame_num: int) -> Optional[FrameRecord]:
         for record in self.frame_records:
@@ -78,9 +77,7 @@ class RecordMatcher:
             return []
 
         relevant_records = [
-            x
-            for x in self.frame_records
-            if x.frame_num >= frame_num - look_back
+            x for x in self.frame_records if x.frame_num >= frame_num - look_back
         ]
         assert len(relevant_records) > 0, "No relevant records found"
 
@@ -195,18 +192,10 @@ class RecordMatcher:
         if len(prevs) < 5:
             return
 
-        # Calculate mean of previous extrinsics
+        # Calculate median of previous extrinsics
         median = np.median(prevs, axis=0)
         median_R = median[:, :3]
         median_t = median[:, 3]
-        median_r = cv.Rodrigues(median_R)[0]
-        median_rdeg = np.rad2deg(median_r)
-
-        r = cv.Rodrigues(R)[0]
-        rdeg = np.rad2deg(r)
-        rot_diff = np.linalg.norm(median_rdeg - rdeg)
-        if rot_diff > 20:
-            return
 
         K1 = cam_data1.intrinsic_matrix
         K2 = cam_data2.intrinsic_matrix
@@ -220,15 +209,19 @@ class RecordMatcher:
             points1_img, points2_img, est_cam_data1, est_cam_data2
         )
         mean_err = float(np.mean(err1 + err2))
+        self.reprojection_errors.append(mean_err)
 
         plotter = PlotService.get_instance()
         err_plot: Figure = plotter.get_plot("reprojection_error")
         if err_plot is None:
             err_plot = plt.figure()
             axis: Axes = err_plot.add_subplot(111)
+            axis.yaxis.axis_name = "Reprojection error"
+            axis.xaxis.axis_name = "Frame number"
         else:
             axis: Axes = err_plot.axes[0]
 
-        axis.plot(frame_num, mean_err, "bo")
+        axis.clear()
+        axis.plot(self.reprojection_errors, color="blue")
         plotter.add_plot(err_plot, "reprojection_error")
-        plt.pause(0.001)
+        # plt.pause(0.001)
