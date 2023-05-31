@@ -48,13 +48,6 @@ def annotate_video_multi(
 
     cam1_data: CameraData = CameraData.create_from_json(cam1_data_path)
     cam2_data: CameraData = CameraData.create_from_json(cam2_data_path)
-
-    R_between_cameras = cam1_data.rotation_between_cameras(cam2_data)
-    t_between_cameras = cam1_data.translation_between_cameras(cam2_data)
-    with Divider("Camera Data"):
-        Logger.log(R_between_cameras, LoggingLevel.INFO)
-        Logger.log(t_between_cameras, LoggingLevel.INFO)
-
     model = YOLO()
     Logger.log("Starting analysis...", LoggingLevel.INFO)
 
@@ -87,7 +80,7 @@ def annotate_video_multi(
             break
 
         frame_count += 1
-        START_FRAME = 0
+        START_FRAME = 15
         END_FRAME = math.inf
 
         if frame_count < START_FRAME:
@@ -198,11 +191,11 @@ def annotate_video_multi(
             blended1, blended2 = blend_colors(color1, color2, 0)
             p1.color = blended1
             p2.color = blended2
-            color = [0, 0, 0]
-            color[i] = 255
-            color = tuple(color)
-            p1.draw(img1, color)
-            p2.draw(img2, color)
+            # color = [0, 0, 0]
+            # color[i] = 255
+            # color = tuple(color)
+            p1.draw(img1, p1.color)
+            p2.draw(img2, p2.color)
             confirmed = TruePersonLoader.confirm_pair(
                 (p1, p2), unity_persons, frame_count, cam1_data, cam2_data
             )
@@ -211,7 +204,7 @@ def annotate_video_multi(
         if frame_count > START_FRAME:
             cv.imshow("Frame 1", img1)
             cv.imshow("Frame 2", img2)
-            cv.waitKey(200)
+            cv.waitKey(1)
 
         # if out1 is None:
         #     out1 = cv.VideoWriter(f"{file1_pre}_annotated{file1_ext}", fourcc, 24, (img1.shape[1], img1.shape[0]))

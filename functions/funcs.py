@@ -8,6 +8,7 @@ import numpy as np
 from matplotlib import pyplot as plt
 from matplotlib.axes import Axes
 from matplotlib.figure import Figure
+from mediapipe.python.solutions.pose_connections import POSE_CONNECTIONS
 from numpy import ndarray
 from pyhull.simplex import Simplex
 from scipy.linalg import orthogonal_procrustes
@@ -256,8 +257,17 @@ def draw_landmarks_list(
                 3,
             )
     else:
-        for i, landmark in enumerate(landmarks):
-            cv2.circle(image, (int(landmark.x), int(landmark.y)), 2, color, -1)
+        # for i, landmark in enumerate(landmarks):
+        #     cv2.circle(image, (int(landmark.x), int(landmark.y)), 2, color, -1)
+
+        for connection in POSE_CONNECTIONS:
+            cv2.line(
+                image,
+                (int(landmarks[connection[0]].x), int(landmarks[connection[0]].y)),
+                (int(landmarks[connection[1]].x), int(landmarks[connection[1]].y)),
+                color,
+                1,
+            )
 
         top_right = (
             int(max([landmark.x for landmark in landmarks])),

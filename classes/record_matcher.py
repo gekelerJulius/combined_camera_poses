@@ -2,10 +2,14 @@ import time
 from typing import Dict, List, Tuple, Optional
 
 import numpy as np
+from matplotlib import pyplot as plt
+from matplotlib.axes import Axes
+from matplotlib.figure import Figure
 from numpy import ndarray
 from scipy.optimize import linear_sum_assignment
 import cv2 as cv
 
+from classes.PlotService import PlotService
 from classes.camera_data import CameraData
 from classes.logger import Logger
 from classes.person import Person
@@ -63,38 +67,47 @@ class RecordMatcher:
         return [x for x in res if x is not None]
 
     def get_alignment(self, frame_num: int) -> List[Tuple[Person, Person]]:
-        look_back = 10000
+        look_back = 5
         recent_persons1 = self.rec1.get_recent_persons(frame_num, look_back)
         recent_persons2 = self.rec2.get_recent_persons(frame_num, look_back)
+
+        Logger.log(recent_persons1, LoggingLevel.DEBUG, "recent_persons1")
+        Logger.log(recent_persons2, LoggingLevel.DEBUG, "recent_persons2")
 
         if len(recent_persons1) == 0 or len(recent_persons2) == 0:
             return []
 
+        relevant_records = [
+            x
+            for x in self.frame_records
+            if x.frame_num >= frame_num - look_back
+        ]
+        assert len(relevant_records) > 0, "No relevant records found"
+
         cost_matrix = np.zeros((len(recent_persons1), len(recent_persons2)))
         for i, a in enumerate(recent_persons1):
             for j, b in enumerate(recent_persons2):
-                relevant_records = [
-                    x
-                    for x in self.frame_records
-                    if x.frame_num >= frame_num - look_back
-                ]
-
-                if len(relevant_records) == 0:
-                    # cost_matrix[i, j] = np.inf
-                    # continue
-                    print("No relevant records found")
-                    exit(1)
-
                 costs = []
                 for record in relevant_records:
-                    if a in record.persons1 and b in record.persons2:
-                        matr_a = record.cost_matrix.get(a.name)
-                        if matr_a is None:
-                            continue
-                        matr_b = matr_a.get(b.name)
-                        if matr_b is None:
-                            continue
-                        costs.append(matr_b)
+                    has_person1 = False
+                    has_person2 = False
+                    for person in record.persons1:
+                        if person.name == a.name:
+                            has_person1 = True
+                            break
+                    for person in record.persons2:
+                        if person.name == b.name:
+                            has_person2 = True
+                            break
+                    if not has_person1 or not has_person2:
+                        continue
+                    matr_a = record.cost_matrix.get(a.name)
+                    if matr_a is None:
+                        continue
+                    matr_b = matr_a.get(b.name)
+                    if matr_b is None:
+                        continue
+                    costs.append(matr_b)
                 if len(costs) == 0:
                     cost_matrix[i, j] = 1e12
                     continue
@@ -127,7 +140,6 @@ class RecordMatcher:
             persons1 = []
             persons2 = []
 
-        max_diff = 0
         cost_matrix: Dict[str, Dict[str, float]] = {}
         for i in range(len(persons1)):
             a = persons1[i]
@@ -146,8 +158,6 @@ class RecordMatcher:
                     cam_data1,
                     cam_data2,
                 )
-                if diff > max_diff:
-                    max_diff = diff
                 matr[b.name] = diff
         self.frame_records.append(
             FrameRecord(frame_num, persons1, persons2, cost_matrix)
@@ -172,7 +182,10 @@ class RecordMatcher:
         points1_img = np.array(points1_img)
         points2_img = np.array(points2_img)
         frame_record.estimated_extrinsic_matrix = estimate_extrinsic(
-            points1_img, points2_img, cam_data1.intrinsic_matrix, cam_data2.intrinsic_matrix
+            points1_img,
+            points2_img,
+            cam_data1.intrinsic_matrix,
+            cam_data2.intrinsic_matrix,
         )
         R, t = (
             frame_record.estimated_extrinsic_matrix[:, :3],
@@ -203,6 +216,19 @@ class RecordMatcher:
         t2 = np.array([median_t]).T
         est_cam_data1 = CameraData.from_matrices(K1, R1, t1)
         est_cam_data2 = CameraData.from_matrices(K2, R2, t2)
-        err1, err2 = calc_reprojection_errors(points1_img, points2_img, est_cam_data1, est_cam_data2)
-        Logger.log(err1, LoggingLevel.DEBUG, "Reprojection error 1")
-        Logger.log(err2, LoggingLevel.DEBUG, "Reprojection error 2")
+        err1, err2 = calc_reprojection_errors(
+            points1_img, points2_img, est_cam_data1, est_cam_data2
+        )
+        mean_err = float(np.mean(err1 + err2))
+
+        plotter = PlotService.get_instance()
+        err_plot: Figure = plotter.get_plot("reprojection_error")
+        if err_plot is None:
+            err_plot = plt.figure()
+            axis: Axes = err_plot.add_subplot(111)
+        else:
+            axis: Axes = err_plot.axes[0]
+
+        axis.plot(frame_num, mean_err, "bo")
+        plotter.add_plot(err_plot, "reprojection_error")
+        plt.pause(0.001)

@@ -4,7 +4,7 @@ from matplotlib.figure import Figure
 
 
 class PlotService:
-    plot_map: Dict[int, Figure] = {}
+    plot_map: Dict[str, Figure] = {}
 
     @staticmethod
     def get_instance():
@@ -16,21 +16,19 @@ class PlotService:
         if not hasattr(PlotService, "_instance"):
             PlotService._instance = self
         else:
-            raise Exception("You cannot create another PlotService class")
+            raise Exception("You cannot create another PlotService class, use PlotService.get_instance() instead")
 
-    def add_plot(self, figure: Figure, plot_id: int = None) -> int:
-        if plot_id is None:
-            plot_id = self.get_next_plot_id()
+    def add_plot(self, figure: Figure, plot_id: str) -> str:
         self.plot_map[plot_id] = figure
         return plot_id
 
-    def get_plot(self, plot_id: int) -> Figure:
+    def get_plot(self, plot_id: str) -> Figure:
         return self.plot_map.get(plot_id)
 
-    def remove_plot(self, plot_id: int):
+    def remove_plot(self, plot_id: str):
         del self.plot_map[plot_id]
 
-    def get_plot_ids(self) -> List[int]:
+    def get_plot_ids(self) -> List[str]:
         return list(self.plot_map.keys())
 
     def get_plot_count(self) -> int:
@@ -39,11 +37,8 @@ class PlotService:
     def clear_plots(self):
         self.plot_map.clear()
 
-    def get_plot_map(self) -> Dict[int, Figure]:
+    def get_plot_map(self) -> Dict[str, Figure]:
         return self.plot_map
-
-    def get_next_plot_id(self) -> int:
-        return max(self.plot_map.keys()) + 1 if self.plot_map else 0
 
     def plot_exists(self, plot_id):
         return plot_id in self.plot_map

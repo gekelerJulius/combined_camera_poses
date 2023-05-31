@@ -1,4 +1,3 @@
-import math
 from typing import List, Tuple
 
 import numpy as np
@@ -16,7 +15,6 @@ from classes.logger import Logger, Divider
 from classes.person import Person
 from classes.person_recorder import PersonRecorder
 from enums.logging_levels import LoggingLevel
-from functions import calc_repr_errors
 from functions.funcs import (
     normalize_points,
     get_dominant_color_patch,
@@ -26,13 +24,13 @@ from functions.icp import do_icp
 
 
 def match_pairs(
-        recorder1: PersonRecorder,
-        recorder2: PersonRecorder,
-        frame_count: int,
-        img1,
-        img2,
-        cam_data1: CameraData,
-        cam_data2: CameraData,
+    recorder1: PersonRecorder,
+    recorder2: PersonRecorder,
+    frame_count: int,
+    img1,
+    img2,
+    cam_data1: CameraData,
+    cam_data2: CameraData,
 ) -> List[Tuple[Person, Person]]:
     recent1: List[Person] = recorder1.get_recent_persons(frame_count)
     recent2: List[Person] = recorder2.get_recent_persons(frame_count)
@@ -64,22 +62,22 @@ def match_pairs(
 
 
 def compare_persons(
-        p1: Person,
-        p2: Person,
-        img1,
-        img2,
-        recorder1: PersonRecorder,
-        recorder2: PersonRecorder,
-        frame_count: int,
-        cam_data1: CameraData,
-        cam_data2: CameraData,
+    p1: Person,
+    p2: Person,
+    img1,
+    img2,
+    recorder1: PersonRecorder,
+    recorder2: PersonRecorder,
+    frame_count: int,
+    cam_data1: CameraData,
+    cam_data2: CameraData,
 ) -> float:
     crs = PersonRecorder.get_all_corresponding_frame_recordings(
         p1,
         p2,
         recorder1,
         recorder2,
-        (frame_count - 24, frame_count),
+        (frame_count - 8, frame_count),
         visibility_threshold=0.5,
     )
     lmks1: List[Landmark] = crs[0]
@@ -171,16 +169,16 @@ def compare_persons(
     distances: List[float] = []
     for lmk1, lmk2 in zip(lmks1, lmks2):
         if (
-                lmk1.x is None
-                or lmk1.y is None
-                or lmk2.x is None
-                or lmk2.y is None
-                or lmk1.x < 0
-                or lmk1.y < 0
-                or lmk2.x < 0
-                or lmk2.y < 0
-                or img1 is None
-                or img2 is None
+            lmk1.x is None
+            or lmk1.y is None
+            or lmk2.x is None
+            or lmk2.y is None
+            or lmk1.x < 0
+            or lmk1.y < 0
+            or lmk2.x < 0
+            or lmk2.y < 0
+            or img1 is None
+            or img2 is None
         ):
             col_diff = 1
         else:
@@ -191,11 +189,7 @@ def compare_persons(
             else:
                 col_diff = colors_diff(dom_color_1, dom_color_2)
 
-        assert (
-                col_diff >= 0
-                and lmk1.visibility >= 0
-                and lmk2.visibility >= 0
-        )
+        assert col_diff >= 0 and lmk1.visibility >= 0 and lmk2.visibility >= 0
         if result.fitness == 1 and result.inlier_rmse == 0:
             with Divider("Factors"):
                 Logger.log(col_diff, LoggingLevel.DEBUG, "Color Difference")
@@ -204,17 +198,17 @@ def compare_persons(
                 Logger.log(result.fitness, LoggingLevel.DEBUG, "Fitness")
                 Logger.log(result.inlier_rmse, LoggingLevel.DEBUG, "Inlier RMSE")
         factored_dist = (
-                result.inlier_rmse
-                * (1 - result.fitness)
-                * lmk1.visibility
-                * lmk2.visibility
-                * col_diff
+            result.inlier_rmse
+            * (1 - result.fitness)
+            * lmk1.visibility
+            * lmk2.visibility
+            * col_diff
         )
 
         assert (
-                factored_dist is not None
-                and factored_dist >= 0
-                and not np.isnan(factored_dist)
+            factored_dist is not None
+            and factored_dist >= 0
+            and not np.isnan(factored_dist)
         )
         distances.append(factored_dist)
 
@@ -225,7 +219,7 @@ def compare_persons(
         points1_img,
         points2_img,
         K1=cam_data1.intrinsic_matrix,
-        K2=cam_data2.intrinsic_matrix
+        K2=cam_data2.intrinsic_matrix,
     )
     K1 = cam_data1.intrinsic_matrix
     K2 = cam_data2.intrinsic_matrix
@@ -233,14 +227,15 @@ def compare_persons(
     R2, t2 = extr[:3, :3], extr[:3, 3]
     est_cam_data1 = CameraData.from_matrices(K1, R1, t1)
     est_cam_data2 = CameraData.from_matrices(K2, R2, t2)
-    err1, err2 = calc_reprojection_errors(points1_img, points2_img, est_cam_data1, est_cam_data2)
-
+    err1, err2 = calc_reprojection_errors(
+        points1_img, points2_img, est_cam_data1, est_cam_data2
+    )
     distances_np = np.array(distances)
     distances_np *= err1
     distances_np *= err2
     assert len(distances_np) == len(lmks1) == len(lmks2)
     mean_dist = float(np.mean(distances_np))
-    return mean_dist
+    return mean_dist * (err1**2) * (err2**2)
 
 
 # def get_person_pairs(
@@ -341,13 +336,13 @@ def is_rotation_matrix(R):
 
 
 def test_pairs(
-        pairs: List[Tuple[Person, Person]],
-        recorder1: PersonRecorder,
-        recorder2: PersonRecorder,
-        img1,
-        img2,
-        cam_data1: CameraData,
-        cam_data2: CameraData,
+    pairs: List[Tuple[Person, Person]],
+    recorder1: PersonRecorder,
+    recorder2: PersonRecorder,
+    img1,
+    img2,
+    cam_data1: CameraData,
+    cam_data2: CameraData,
 ) -> List[Tuple[Person, Person]]:
     if len(pairs) == 0:
         return []
@@ -469,7 +464,7 @@ def test_pairs(
 
 
 def get_points_for_pair(
-        pair: Tuple[Person, Person], recorder1: PersonRecorder, recorder2: PersonRecorder
+    pair: Tuple[Person, Person], recorder1: PersonRecorder, recorder2: PersonRecorder
 ) -> Tuple[ndarray, ndarray]:
     p1, p2 = pair
     points1 = []
@@ -491,7 +486,7 @@ def get_points_for_pair(
 
 
 def calc_epipolar_error(
-        points1: ndarray, points2: ndarray, cam_data1: CameraData, cam_data2: CameraData
+    points1: ndarray, points2: ndarray, cam_data1: CameraData, cam_data2: CameraData
 ) -> float:
     points1 = np.array(points1)
     points2 = np.array(points2)
@@ -554,12 +549,12 @@ def drawline(img, a, b, c):
 
 
 def test_pairing(
-        person1: Person,
-        person2: Person,
-        img1,
-        img2,
-        cam_data1: CameraData,
-        cam_data2: CameraData,
+    person1: Person,
+    person2: Person,
+    img1,
+    img2,
+    cam_data1: CameraData,
+    cam_data2: CameraData,
 ) -> float:
     """
     Tests if two Person objects are the same person by calculating the reprojection error

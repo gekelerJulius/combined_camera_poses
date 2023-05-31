@@ -37,16 +37,17 @@ class PersonRecorder:
         self.update_kalman_filter(persons, frame_num, img)
 
     def get_recent_persons(self, frame_num: int, look_back: int = 5) -> List[Person]:
-        recently_seen: List[Person] = self.frame_dict.get(frame_num)
-        for i in range(1, look_back):
-            rs_temp = self.frame_dict.get(frame_num - i)
-            if rs_temp is None:
-                continue
-            for person in rs_temp:
-                if not any(p.name == person.name for p in recently_seen):
+        recently_seen = []
+        frames = [frame_num - i for i in range(look_back)]
+        for frame in frames:
+            if self.frame_dict.get(frame) is not None:
+                persons = self.frame_dict.get(frame)
+                for person in persons:
+                    if person.name in [p.name for p in recently_seen]:
+                        continue
                     recently_seen.append(person)
 
-        if recently_seen is None or len(recently_seen) < 2:
+        if recently_seen is None or len(recently_seen) == 0:
             return []
         return [r for r in recently_seen]
 
@@ -98,7 +99,6 @@ class PersonRecorder:
     def update_kalman_filter(
             self, persons: List[Person], frame_num: int, img=None
     ) -> None:
-        # Get all predictions
         predictions = [
             (name, pred) for name, pred in self.kalman_prediction_dict.items()
         ]
@@ -126,7 +126,6 @@ class PersonRecorder:
                     dist = dist1 + dist2 + vel_dist
                     cost_matrix[i, j] = dist
 
-            # Use hungarian algorithm to find best matches
             row_ind, col_ind = linear_sum_assignment(cost_matrix)
             # Update kalman filters with best matches
             for i, j in zip(row_ind, col_ind):
@@ -150,14 +149,13 @@ class PersonRecorder:
         unmatched_predictions = list(filter(lambda x: x[0] not in matched, predictions))
         for name, prediction in unmatched_predictions:
             last_frame = self.get_latest_frame_for_person(name)
-            if last_frame is None:
-                continue
-            if frame_num - last_frame > 24:
-                continue
-            self.update_kalman_filter_single(name, prediction, img)
-
-        # cv2.imshow(self.id, img)
-        # cv2.waitKey(1)
+            if last_frame is None or frame_num - last_frame > 5:
+                self.kalman_dict.pop(name)
+                self.kalman_prediction_dict.pop(name)
+                assert self.kalman_dict.get(name) is None
+                assert self.kalman_prediction_dict.get(name) is None
+            else:
+                self.update_kalman_filter_single(name, prediction, img, correct=False)
 
     def update_kalman_filter_single(
             self, name: str, centroid: ndarray, img, correct=True
