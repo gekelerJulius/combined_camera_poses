@@ -83,7 +83,7 @@ def annotate_video_multi(
             break
 
         frame_count += 1
-        START_FRAME = 15
+        START_FRAME = 0
         END_FRAME = math.inf
 
         if frame_count < START_FRAME:
@@ -156,14 +156,18 @@ def annotate_video_multi(
             "simulation_data/persons"
         )
 
+        pairs = sorted(pairs, key=lambda x: x[0].name)
         for i, (p1, p2) in enumerate(pairs):
             color1 = p1.color
             color2 = p2.color
             blended1, blended2 = blend_colors(color1, color2, 0.5)
             p1.color = blended1
             p2.color = blended2
-            p1.draw(img1, p1.color)
-            p2.draw(img2, p2.color)
+            color = [0, 0, 0]
+            color[i] = 255
+            color = tuple(color)
+            p1.draw(img1, color)
+            p2.draw(img2, color)
             confirmed = TruePersonLoader.confirm_pair(
                 (p1, p2), unity_persons, frame_count, cam1_data, cam2_data
             )

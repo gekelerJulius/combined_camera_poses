@@ -1,4 +1,4 @@
-from typing import List, Tuple
+from typing import List, Tuple, Optional
 
 import numpy as np
 import cv2 as cv
@@ -23,54 +23,17 @@ from functions.funcs import (
 from functions.icp import do_icp
 
 
-def match_pairs(
-    recorder1: PersonRecorder,
-    recorder2: PersonRecorder,
-    frame_count: int,
-    img1,
-    img2,
-    cam_data1: CameraData,
-    cam_data2: CameraData,
-) -> List[Tuple[Person, Person]]:
-    recent1: List[Person] = recorder1.get_recent_persons(frame_count)
-    recent2: List[Person] = recorder2.get_recent_persons(frame_count)
-    cost_matrix = np.zeros((len(recent1), len(recent2)))
-
-    for i, a in enumerate(recent1):
-        for j, b in enumerate(recent2):
-            diff = compare_persons(
-                a,
-                b,
-                img1,
-                img2,
-                recorder1,
-                recorder2,
-                frame_count,
-                cam_data1,
-                cam_data2,
-            )
-            cost_matrix[i, j] = diff
-    Logger.log(cost_matrix, LoggingLevel.DEBUG, "Cost Matrix")
-
-    row_ind, col_ind = linear_sum_assignment(cost_matrix)
-    pairs = []
-    for i, j in zip(row_ind, col_ind):
-        pairs.append((recent1[i], recent2[j]))
-
-    # pairs = test_pairs(pairs, recorder1, recorder2, img1, img2, cam_data1, cam_data2)
-    return pairs
-
-
 def compare_persons(
-    p1: Person,
-    p2: Person,
-    img1,
-    img2,
-    recorder1: PersonRecorder,
-    recorder2: PersonRecorder,
-    frame_count: int,
-    cam_data1: CameraData,
-    cam_data2: CameraData,
+        p1: Person,
+        p2: Person,
+        img1,
+        img2,
+        recorder1: PersonRecorder,
+        recorder2: PersonRecorder,
+        frame_count: int,
+        cam_data1: CameraData,
+        cam_data2: CameraData,
+        estimated_extr: Optional[np.ndarray] = None,
 ) -> float:
     crs = PersonRecorder.get_all_corresponding_frame_recordings(
         p1,
@@ -116,69 +79,20 @@ def compare_persons(
         pts1_normalized = np.hstack((pts1_normalized, colors1))
         pts2_normalized = np.hstack((pts2_normalized, colors2))
 
-        # Draw image besides only the landmarks with dominant color
-        # img1_copy = img1.copy()
-        # img2_copy = img2.copy()
-        # for i, (lmk1, lmk2) in enumerate(zip(lmks1, lmks2)):
-        #     if i in nan_indexes:
-        #         continue
-        #     color1 = get_dominant_color_patch(img1, lmk1.x, lmk1.y, 3)
-        #     color2 = get_dominant_color_patch(img2, lmk2.x, lmk2.y, 3)
-        #     if np.isnan(color1).any() or np.isnan(color2).any():
-        #         continue
-        #
-        #     color1 = tuple(color1)
-        #     color2 = tuple(color2)
-        #     try:
-        #         cv.circle(
-        #             img=img1_copy,
-        #             center=(int(lmk1.x), int(lmk1.y)),
-        #             radius=8,
-        #             color=(int(color1[0]), int(color1[1]), int(color1[2])),
-        #             thickness=-1,
-        #         )
-        #         cv.circle(
-        #             img=img2_copy,
-        #             center=(int(lmk2.x), int(lmk2.y)),
-        #             radius=8,
-        #             color=(int(color2[0]), int(color2[1]), int(color2[2])),
-        #             thickness=-1,
-        #         )
-        #     except Exception as e:
-        #         print(e)
-        #         print(color1)
-        #         print(color2)
-        #         exit(1)
-        # cv.imshow("img1", img1_copy)
-        # cv.imshow("img2", img2_copy)
-        # cv.waitKey(0)
-        # cv.destroyAllWindows()
-
     result: RegistrationResult = do_icp(pts1_normalized, pts2_normalized, True)
-    # icp_transformation = np.asarray(result.transformation)
-    # icp_rotation = icp_transformation[:3, :3]
-    # icp_r = cv.Rodrigues(icp_rotation)[0]
-    # icp_rdeg = np.rad2deg(icp_r)
-    # Logger.log(icp_rdeg, LoggingLevel.DEBUG, "ICP rotation (deg):")
-    #
-    # real_rotation = cam_data1.rotation_between_cameras(cam_data2)
-    # real_r = cv.Rodrigues(real_rotation)[0]
-    # real_rdeg = np.rad2deg(real_r)
-    # Logger.log(real_rdeg, LoggingLevel.DEBUG, "Real rotation (deg):")
-
     distances: List[float] = []
     for lmk1, lmk2 in zip(lmks1, lmks2):
         if (
-            lmk1.x is None
-            or lmk1.y is None
-            or lmk2.x is None
-            or lmk2.y is None
-            or lmk1.x < 0
-            or lmk1.y < 0
-            or lmk2.x < 0
-            or lmk2.y < 0
-            or img1 is None
-            or img2 is None
+                lmk1.x is None
+                or lmk1.y is None
+                or lmk2.x is None
+                or lmk2.y is None
+                or lmk1.x < 0
+                or lmk1.y < 0
+                or lmk2.x < 0
+                or lmk2.y < 0
+                or img1 is None
+                or img2 is None
         ):
             col_diff = 1
         else:
@@ -190,37 +104,33 @@ def compare_persons(
                 col_diff = colors_diff(dom_color_1, dom_color_2)
 
         assert col_diff >= 0 and lmk1.visibility >= 0 and lmk2.visibility >= 0
-        if result.fitness == 1 and result.inlier_rmse == 0:
-            with Divider("Factors"):
-                Logger.log(col_diff, LoggingLevel.DEBUG, "Color Difference")
-                Logger.log(lmk1.visibility, LoggingLevel.DEBUG, "Landmark 1 Visibility")
-                Logger.log(lmk2.visibility, LoggingLevel.DEBUG, "Landmark 2 Visibility")
-                Logger.log(result.fitness, LoggingLevel.DEBUG, "Fitness")
-                Logger.log(result.inlier_rmse, LoggingLevel.DEBUG, "Inlier RMSE")
         factored_dist = (
-            result.inlier_rmse
-            * (1 - result.fitness)
-            * lmk1.visibility
-            * lmk2.visibility
-            * col_diff
+                result.inlier_rmse
+                * (1 - result.fitness)
+                * lmk1.visibility
+                * lmk2.visibility
+                * col_diff
         )
-
         assert (
-            factored_dist is not None
-            and factored_dist >= 0
-            and not np.isnan(factored_dist)
+                factored_dist is not None
+                and factored_dist >= 0
+                and not np.isnan(factored_dist)
         )
         distances.append(factored_dist)
+    distances_np = np.array(distances)
+    assert len(distances_np) == len(lmks1) == len(lmks2)
 
-    # Calculate Reprojection Errors
     points1_img = points1[:, :2]
     points2_img = points2[:, :2]
-    extr = estimate_extrinsic(
-        points1_img,
-        points2_img,
-        K1=cam_data1.intrinsic_matrix,
-        K2=cam_data2.intrinsic_matrix,
-    )
+    if estimated_extr is not None:
+        extr = estimated_extr
+    else:
+        extr = estimate_extrinsic(
+            points1_img,
+            points2_img,
+            K1=cam_data1.intrinsic_matrix,
+            K2=cam_data2.intrinsic_matrix,
+        )
     K1 = cam_data1.intrinsic_matrix
     K2 = cam_data2.intrinsic_matrix
     R1, t1 = np.eye(3), np.zeros((3, 1))
@@ -230,12 +140,11 @@ def compare_persons(
     err1, err2 = calc_reprojection_errors(
         points1_img, points2_img, est_cam_data1, est_cam_data2
     )
-    distances_np = np.array(distances)
     distances_np *= err1
     distances_np *= err2
-    assert len(distances_np) == len(lmks1) == len(lmks2)
     mean_dist = float(np.mean(distances_np))
-    return mean_dist * (err1**2) * (err2**2)
+    # return mean_dist * (err1 ** 2) * (err2 ** 2)
+    return (err1 ** 2) * (err2 ** 2)
 
 
 # def get_person_pairs(
@@ -336,13 +245,13 @@ def is_rotation_matrix(R):
 
 
 def test_pairs(
-    pairs: List[Tuple[Person, Person]],
-    recorder1: PersonRecorder,
-    recorder2: PersonRecorder,
-    img1,
-    img2,
-    cam_data1: CameraData,
-    cam_data2: CameraData,
+        pairs: List[Tuple[Person, Person]],
+        recorder1: PersonRecorder,
+        recorder2: PersonRecorder,
+        img1,
+        img2,
+        cam_data1: CameraData,
+        cam_data2: CameraData,
 ) -> List[Tuple[Person, Person]]:
     if len(pairs) == 0:
         return []
@@ -464,7 +373,7 @@ def test_pairs(
 
 
 def get_points_for_pair(
-    pair: Tuple[Person, Person], recorder1: PersonRecorder, recorder2: PersonRecorder
+        pair: Tuple[Person, Person], recorder1: PersonRecorder, recorder2: PersonRecorder
 ) -> Tuple[ndarray, ndarray]:
     p1, p2 = pair
     points1 = []
@@ -486,7 +395,7 @@ def get_points_for_pair(
 
 
 def calc_epipolar_error(
-    points1: ndarray, points2: ndarray, cam_data1: CameraData, cam_data2: CameraData
+        points1: ndarray, points2: ndarray, cam_data1: CameraData, cam_data2: CameraData
 ) -> float:
     points1 = np.array(points1)
     points2 = np.array(points2)
@@ -549,12 +458,12 @@ def drawline(img, a, b, c):
 
 
 def test_pairing(
-    person1: Person,
-    person2: Person,
-    img1,
-    img2,
-    cam_data1: CameraData,
-    cam_data2: CameraData,
+        person1: Person,
+        person2: Person,
+        img1,
+        img2,
+        cam_data1: CameraData,
+        cam_data2: CameraData,
 ) -> float:
     """
     Tests if two Person objects are the same person by calculating the reprojection error

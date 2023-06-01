@@ -1,19 +1,22 @@
+import sys
 from typing import Dict, List, Tuple, Optional
 
 import numpy as np
 from matplotlib import pyplot as plt
 from matplotlib.axes import Axes
 from matplotlib.figure import Figure
+from numpy import ndarray
 from scipy.optimize import linear_sum_assignment
 
 from classes.PlotService import PlotService
 from classes.camera_data import CameraData
-from classes.logger import Logger
+from classes.logger import Logger, Divider
 from classes.person import Person
 from classes.person_recorder import PersonRecorder
 from enums.logging_levels import LoggingLevel
 from functions.calc_repr_errors import calc_reprojection_errors
 from functions.estimate_extrinsic import estimate_extrinsic
+from functions.funcs import rotation_matrix_to_angles, diff_rotation_matrices
 from functions.get_person_pairs import compare_persons
 
 
@@ -66,7 +69,7 @@ class RecordMatcher:
         return [x for x in res if x is not None]
 
     def get_alignment(self, frame_num: int) -> List[Tuple[Person, Person]]:
-        look_back = 5
+        look_back = 6
         recent_persons1 = self.rec1.get_recent_persons(frame_num, look_back)
         recent_persons2 = self.rec2.get_recent_persons(frame_num, look_back)
 
@@ -106,7 +109,7 @@ class RecordMatcher:
                         continue
                     costs.append(matr_b)
                 if len(costs) == 0:
-                    cost_matrix[i, j] = 1e12
+                    cost_matrix[i, j] = sys.maxsize
                     continue
                 cost_matrix[i, j] = np.mean(costs)
 
@@ -125,6 +128,29 @@ class RecordMatcher:
             cam_data1: CameraData = None,
             cam_data2: CameraData = None,
     ) -> None:
+        prev_exts = self.get_all_previous_extrinsics(frame_num)
+        estimated_extr = None
+        extrs_length = len(prev_exts)
+        if extrs_length >= 24:
+
+            middle_index = int(extrs_length / 2)
+            indexes_around_middle = [
+                middle_index - 3,
+                middle_index - 2,
+                middle_index - 1,
+                middle_index + 1,
+                middle_index + 2,
+                middle_index + 3,
+            ]
+
+            # Calculate average distance between middle index and other indexes
+            diffs = []
+            for i in indexes_around_middle:
+                d = diff_rotation_matrices(prev_exts[middle_index][:3, :3], prev_exts[i][:3, :3])
+                diffs.append(d)
+            diff = float(np.mean(diffs))
+            if diff < 5:
+                estimated_extr = prev_exts[middle_index]
         persons1 = self.rec1.frame_dict.get(frame_num)
         persons2 = self.rec2.frame_dict.get(frame_num)
 
@@ -154,11 +180,18 @@ class RecordMatcher:
                     frame_num,
                     cam_data1,
                     cam_data2,
+                    estimated_extr=estimated_extr,
                 )
                 matr[b.name] = diff
         self.frame_records.append(
             FrameRecord(frame_num, persons1, persons2, cost_matrix)
         )
+
+    def get_median_extrinsic(self, frame_num: int):
+        extrinsics = self.get_all_previous_extrinsics(frame_num)
+        if len(extrinsics) == 0:
+            return None
+        return np.median(extrinsics, axis=0)
 
     def estimate_extrinsic_matrix(
             self, frame_num: int, cam_data1: CameraData, cam_data2: CameraData
@@ -193,7 +226,10 @@ class RecordMatcher:
             return
 
         # Calculate median of previous extrinsics
-        median = np.median(prevs, axis=0)
+        ext: ndarray = np.hstack((R, t.reshape(3, 1)))
+        all_exts: List[ndarray] = [ext]
+        all_exts.extend(prevs)
+        median = np.median(all_exts, axis=0)
         median_R = median[:, :3]
         median_t = median[:, 3]
 
@@ -205,6 +241,14 @@ class RecordMatcher:
         t2 = np.array([median_t]).T
         est_cam_data1 = CameraData.from_matrices(K1, R1, t1)
         est_cam_data2 = CameraData.from_matrices(K2, R2, t2)
+
+        # points3d = triangulate_3d_points(
+        #     points1_img,
+        #     points2_img,
+        #     est_cam_data1.get_projection_matrix(),
+        #     est_cam_data2.get_projection_matrix()
+        # )
+
         err1, err2 = calc_reprojection_errors(
             points1_img, points2_img, est_cam_data1, est_cam_data2
         )

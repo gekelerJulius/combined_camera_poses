@@ -974,6 +974,36 @@ def normalize_image(image):
     )
 
 
+def rotation_matrix_to_angles(R: ndarray) -> ndarray:
+    """
+    Converts a rotation matrix to a rotation vector
+    :param R: The rotation matrix (3,3)
+    :return: The rotation vector (3,1) in degrees
+    """
+    return np.rad2deg(cv2.Rodrigues(R)[0])
+
+
+def angles_to_rotation_matrix(angles: ndarray) -> ndarray:
+    """
+    Converts a rotation vector to a rotation matrix
+    :param angles: The rotation vector (3,1) in degrees
+    :return: The rotation matrix (3,3)
+    """
+    return cv2.Rodrigues(np.deg2rad(angles))[0]
+
+
+def diff_rotation_matrices(R1: ndarray, R2: ndarray) -> float:
+    """
+    Computes the difference between two rotation matrices
+    :param R1: The first rotation matrix (3,3)
+    :param R2: The second rotation matrix (3,3)
+    :return: The difference between the rotation matrices
+    """
+    deg1 = rotation_matrix_to_angles(R1)
+    deg2 = rotation_matrix_to_angles(R2)
+    return np.linalg.norm(deg1 - deg2)
+
+
 def test_normalize_image():
     image_path = "G:\\Uni\\Bachelor\\Project\\combined_camera_poses\\demo\\test.jpg"
     image = cv2.imread(image_path)

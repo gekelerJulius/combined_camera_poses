@@ -56,6 +56,9 @@ def load_points(jsonpath: str) -> ndarray:
         "Ch41_",
         "mixamorig4:",
         "Walking_Woman",
+        "Ch28_",
+        "mixamorig10:",
+        "Running_Man",
     ]
     old_names = [a for a in org_points_json]
     for i in range(len(org_points_json)):

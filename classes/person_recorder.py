@@ -22,8 +22,8 @@ class PersonRecorder:
     kalman_prediction_dict: Dict[str, ndarray]
     id: str
 
-    def __init__(self, id: str):
-        self.id = id
+    def __init__(self, recorder_id: str):
+        self.id = recorder_id
         self.frame_dict = {}
         self.name_dict = {}
         self.kalman_dict = {}
