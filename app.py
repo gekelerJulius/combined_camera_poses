@@ -4,14 +4,12 @@ from typing import List, Tuple, Optional
 
 import cv2 as cv
 import matplotlib.pyplot as plt
-import numpy as np
 from cv2 import VideoWriter
 from ultralytics import YOLO
 
-from classes.PlotService import PlotService
 from classes.bounding_box import BoundingBox
 from classes.camera_data import CameraData
-from classes.logger import Logger, Divider
+from classes.logger import Logger
 from classes.person import Person
 from classes.person_recorder import PersonRecorder
 from classes.record_matcher import RecordMatcher
@@ -148,6 +146,11 @@ def annotate_video_multi(
 
         person_recorder1.add(persons1, frame_count, img1)
         person_recorder2.add(persons2, frame_count, img2)
+
+        # Get some records before starting to match
+        if frame_count < START_FRAME + 15:
+            continue
+
         records_matcher.eval_frame(frame_count, img1, img2, cam1_data, cam2_data)
         pairs = records_matcher.get_alignment(frame_count)
         records_matcher.estimate_extrinsic_matrix(frame_count, cam1_data, cam2_data)

@@ -40,7 +40,7 @@ def compare_persons(
         p2,
         recorder1,
         recorder2,
-        (frame_count - 8, frame_count),
+        (frame_count - 14, frame_count),
         visibility_threshold=0.5,
     )
     lmks1: List[Landmark] = crs[0]
@@ -143,8 +143,8 @@ def compare_persons(
     distances_np *= err1
     distances_np *= err2
     mean_dist = float(np.mean(distances_np))
-    # return mean_dist * (err1 ** 2) * (err2 ** 2)
-    return (err1 ** 2) * (err2 ** 2)
+    return mean_dist * (err1 ** 2) * (err2 ** 2)
+    # return (err1 ** 2) * (err2 ** 2)
 
 
 # def get_person_pairs(

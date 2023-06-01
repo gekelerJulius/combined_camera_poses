@@ -10,13 +10,13 @@ from scipy.optimize import linear_sum_assignment
 
 from classes.PlotService import PlotService
 from classes.camera_data import CameraData
-from classes.logger import Logger, Divider
+from classes.logger import Logger
 from classes.person import Person
 from classes.person_recorder import PersonRecorder
 from enums.logging_levels import LoggingLevel
 from functions.calc_repr_errors import calc_reprojection_errors
 from functions.estimate_extrinsic import estimate_extrinsic
-from functions.funcs import rotation_matrix_to_angles, diff_rotation_matrices
+from functions.funcs import diff_rotation_matrices, rotation_matrix_to_angles
 from functions.get_person_pairs import compare_persons
 
 
@@ -69,7 +69,7 @@ class RecordMatcher:
         return [x for x in res if x is not None]
 
     def get_alignment(self, frame_num: int) -> List[Tuple[Person, Person]]:
-        look_back = 6
+        look_back = 12
         recent_persons1 = self.rec1.get_recent_persons(frame_num, look_back)
         recent_persons2 = self.rec2.get_recent_persons(frame_num, look_back)
 
@@ -85,6 +85,7 @@ class RecordMatcher:
         assert len(relevant_records) > 0, "No relevant records found"
 
         cost_matrix = np.zeros((len(recent_persons1), len(recent_persons2)))
+
         for i, a in enumerate(recent_persons1):
             for j, b in enumerate(recent_persons2):
                 costs = []
@@ -116,7 +117,10 @@ class RecordMatcher:
         row_ind, col_ind = linear_sum_assignment(cost_matrix)
         pairs: List[Tuple[Person, Person]] = []
         for i, j in zip(row_ind, col_ind):
-            pairs.append((recent_persons1[i], recent_persons2[j]))
+            cost = cost_matrix[i, j]
+            print(f"Cost: {cost}")
+            if cost < 14:
+                pairs.append((recent_persons1[i], recent_persons2[j]))
         self.get_frame_record(frame_num).estimated_person_pairs = pairs
         return pairs
 
@@ -131,8 +135,7 @@ class RecordMatcher:
         prev_exts = self.get_all_previous_extrinsics(frame_num)
         estimated_extr = None
         extrs_length = len(prev_exts)
-        if extrs_length >= 24:
-
+        if extrs_length >= 72:
             middle_index = int(extrs_length / 2)
             indexes_around_middle = [
                 middle_index - 3,
@@ -222,26 +225,30 @@ class RecordMatcher:
             frame_record.estimated_extrinsic_matrix[:, 3],
         )
         prevs = self.get_all_previous_extrinsics(frame_num)
-        if len(prevs) < 5:
+        if len(prevs) == 0:
             return
 
         # Calculate median of previous extrinsics
         ext: ndarray = np.hstack((R, t.reshape(3, 1)))
         all_exts: List[ndarray] = [ext]
         all_exts.extend(prevs)
-        median = np.median(all_exts, axis=0)
-        median_R = median[:, :3]
-        median_t = median[:, 3]
+        # median = np.median(all_exts, axis=0)
+        # median_R = median[:, :3]
+        # median_t = median[:, 3]
+        mean = np.mean(all_exts, axis=0)
+        mean_R = mean[:, :3]
+        mean_t = mean[:, 3]
 
         K1 = cam_data1.intrinsic_matrix
         K2 = cam_data2.intrinsic_matrix
         R1 = np.eye(3)
-        R2 = median_R
+        R2 = mean_R
         t1 = np.zeros((3, 1))
-        t2 = np.array([median_t]).T
+        t2 = np.array([mean_t]).T
         est_cam_data1 = CameraData.from_matrices(K1, R1, t1)
         est_cam_data2 = CameraData.from_matrices(K2, R2, t2)
 
+        print(f"Y-Axis angle: {rotation_matrix_to_angles(R2)[1]}")
         # points3d = triangulate_3d_points(
         #     points1_img,
         #     points2_img,
@@ -253,6 +260,7 @@ class RecordMatcher:
             points1_img, points2_img, est_cam_data1, est_cam_data2
         )
         mean_err = float(np.mean(err1 + err2))
+        print("Total reprojection error: ", mean_err)
         self.reprojection_errors.append(mean_err)
 
         plotter = PlotService.get_instance()
