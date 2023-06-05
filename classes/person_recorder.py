@@ -149,7 +149,7 @@ class PersonRecorder:
         unmatched_predictions = list(filter(lambda x: x[0] not in matched, predictions))
         for name, prediction in unmatched_predictions:
             last_frame = self.get_latest_frame_for_person(name)
-            if last_frame is None or frame_num - last_frame > 5:
+            if last_frame is None or frame_num - last_frame > 24:
                 self.kalman_dict.pop(name)
                 self.kalman_prediction_dict.pop(name)
                 assert self.kalman_dict.get(name) is None

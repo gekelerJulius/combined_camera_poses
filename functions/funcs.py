@@ -204,16 +204,14 @@ def colors_diff(colors1: ndarray, colors2: ndarray) -> Union[float, None]:
     Returns the average color difference between two arrays of colors
     colors1 and colors2 should be of shape (n, 3)
     """
-    if len(colors1) != len(colors2):
-        return None
-
+    assert colors1.shape == colors2.shape and len(colors1.shape) == 2 and colors1.shape[1] == 3
     if len(colors1) == 0:
         return None
 
     avg_color_diff = 0
-
-    for i in range(len(colors1)):
-        avg_color_diff += np.linalg.norm(colors1[i] - colors2[i])
+    for col1, col2 in zip(colors1, colors2):
+        assert col1.shape == (3,) and col2.shape == (3,)
+        avg_color_diff += np.linalg.norm(col1 - col2)
     avg_color_diff /= len(colors1)
 
     max_possible_color_diff = np.linalg.norm(

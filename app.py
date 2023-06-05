@@ -152,7 +152,7 @@ def annotate_video_multi(
             continue
 
         records_matcher.eval_frame(frame_count, img1, img2, cam1_data, cam2_data)
-        pairs = records_matcher.get_alignment(frame_count)
+        pairs = records_matcher.get_alignment(frame_count, cam1_data, cam2_data)
         records_matcher.estimate_extrinsic_matrix(frame_count, cam1_data, cam2_data)
 
         unity_persons: List[UnityPerson] = TruePersonLoader.load(
@@ -167,7 +167,11 @@ def annotate_video_multi(
             p1.color = blended1
             p2.color = blended2
             color = [0, 0, 0]
-            color[i] = 255
+
+            color[0] = 0 if i % 2 == 0 else 255
+            color[1] = 0 if i % 4 < 2 else 255
+            color[2] = 0 if i < 4 else 255
+
             color = tuple(color)
             p1.draw(img1, color)
             p2.draw(img2, color)

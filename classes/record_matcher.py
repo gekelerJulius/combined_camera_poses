@@ -1,3 +1,4 @@
+import itertools
 import sys
 from typing import Dict, List, Tuple, Optional
 
@@ -68,61 +69,103 @@ class RecordMatcher:
                 res.append(record.estimated_extrinsic_matrix)
         return [x for x in res if x is not None]
 
-    def get_alignment(self, frame_num: int) -> List[Tuple[Person, Person]]:
-        look_back = 12
+    def get_alignment(self, frame_num: int, cam_data1: CameraData, cam_data2: CameraData) -> List[
+        Tuple[Person, Person]]:
+        look_back = 24  # 1 second for 24 fps
         recent_persons1 = self.rec1.get_recent_persons(frame_num, look_back)
         recent_persons2 = self.rec2.get_recent_persons(frame_num, look_back)
-
-        Logger.log(recent_persons1, LoggingLevel.DEBUG, "recent_persons1")
-        Logger.log(recent_persons2, LoggingLevel.DEBUG, "recent_persons2")
-
         if len(recent_persons1) == 0 or len(recent_persons2) == 0:
             return []
 
+        # Look at all past records for now
         relevant_records = [
-            x for x in self.frame_records if x.frame_num >= frame_num - look_back
+            x for x in self.frame_records if x.frame_num <= frame_num
         ]
         assert len(relevant_records) > 0, "No relevant records found"
 
-        cost_matrix = np.zeros((len(recent_persons1), len(recent_persons2)))
+        possible_pairings = generate_unique_pairings(recent_persons1, recent_persons2)
+        print(possible_pairings)
+        best_pairing = None
+        best_pairing_cost = sys.maxsize
 
-        for i, a in enumerate(recent_persons1):
-            for j, b in enumerate(recent_persons2):
-                costs = []
-                for record in relevant_records:
-                    has_person1 = False
-                    has_person2 = False
-                    for person in record.persons1:
-                        if person.name == a.name:
-                            has_person1 = True
-                            break
-                    for person in record.persons2:
-                        if person.name == b.name:
-                            has_person2 = True
-                            break
-                    if not has_person1 or not has_person2:
-                        continue
-                    matr_a = record.cost_matrix.get(a.name)
-                    if matr_a is None:
-                        continue
-                    matr_b = matr_a.get(b.name)
-                    if matr_b is None:
-                        continue
-                    costs.append(matr_b)
-                if len(costs) == 0:
-                    cost_matrix[i, j] = sys.maxsize
+        for pairing in possible_pairings:
+            cost = 0
+            # for record in relevant_records:
+            #     for pair in subset:
+            #         cost += record.cost_matrix[pair[0].name][pair[1].name]
+
+            lmks1 = []
+            lmks2 = []
+            for pair in pairing:
+                crs = PersonRecorder.get_all_corresponding_frame_recordings(
+                    pair[0],
+                    pair[1],
+                    self.rec1,
+                    self.rec2,
+                    (frame_num - 24, frame_num),
+                    visibility_threshold=0.75,
+                )
+                if len(crs) == 0:
                     continue
-                cost_matrix[i, j] = np.mean(costs)
+                lmks1.extend(crs[0])
+                lmks2.extend(crs[1])
 
-        row_ind, col_ind = linear_sum_assignment(cost_matrix)
-        pairs: List[Tuple[Person, Person]] = []
-        for i, j in zip(row_ind, col_ind):
-            cost = cost_matrix[i, j]
-            print(f"Cost: {cost}")
-            if cost < 14:
-                pairs.append((recent_persons1[i], recent_persons2[j]))
-        self.get_frame_record(frame_num).estimated_person_pairs = pairs
-        return pairs
+            if len(lmks1) == 0 or len(lmks2) == 0:
+                continue
+
+            pts1 = np.array([[lmk.x, lmk.y] for lmk in lmks1])
+            pts2 = np.array([[lmk.x, lmk.y] for lmk in lmks2])
+            err1, err2 = calc_reprojection_errors(pts1, pts2, cam_data1, cam_data2)
+            cost += np.mean(err1) + np.mean(err2)
+            if cost < best_pairing_cost:
+                best_pairing = pairing
+                best_pairing_cost = cost
+
+        if best_pairing is None:
+            return []
+
+        return best_pairing
+
+        # cost_matrix = np.zeros((len(recent_persons1), len(recent_persons2)))
+        #
+        # for i, a in enumerate(recent_persons1):
+        #     for j, b in enumerate(recent_persons2):
+        #         costs = []
+        #         for record in relevant_records:
+        #             has_person1 = False
+        #             has_person2 = False
+        #             for person in record.persons1:
+        #                 if person.name == a.name:
+        #                     has_person1 = True
+        #                     break
+        #             for person in record.persons2:
+        #                 if person.name == b.name:
+        #                     has_person2 = True
+        #                     break
+        #             if not has_person1 or not has_person2:
+        #                 continue
+        #             matr_a = record.cost_matrix.get(a.name)
+        #             if matr_a is None:
+        #                 continue
+        #             matr_b = matr_a.get(b.name)
+        #             if matr_b is None:
+        #                 continue
+        #             costs.append(matr_b)
+        #         cost_matrix[i, j] = np.mean(costs) if len(costs) > 0 else sys.maxsize
+        #
+        # row_ind, col_ind = linear_sum_assignment(cost_matrix)
+        # pairs: List[Tuple[Person, Person]] = []
+        # for i, j in zip(row_ind, col_ind):
+        #     for pair in pairs:
+        #         if pair[0].name == recent_persons1[i].name:
+        #             print("Duplicate found")
+        #             exit(1)
+        #         if pair[1].name == recent_persons2[j].name:
+        #             print("Duplicate found")
+        #             exit(1)
+        #     pairs.append((recent_persons1[i], recent_persons2[j]))
+        # self.get_frame_record(frame_num).estimated_person_pairs = pairs
+        # return pairs
 
     def eval_frame(
             self,
@@ -149,7 +192,9 @@ class RecordMatcher:
             # Calculate average distance between middle index and other indexes
             diffs = []
             for i in indexes_around_middle:
-                d = diff_rotation_matrices(prev_exts[middle_index][:3, :3], prev_exts[i][:3, :3])
+                d = diff_rotation_matrices(
+                    prev_exts[middle_index][:3, :3], prev_exts[i][:3, :3]
+                )
                 diffs.append(d)
             diff = float(np.mean(diffs))
             if diff < 5:
@@ -183,7 +228,7 @@ class RecordMatcher:
                     frame_num,
                     cam_data1,
                     cam_data2,
-                    estimated_extr=estimated_extr,
+                    estimated_extr=None,  # estimated_extr,
                 )
                 matr[b.name] = diff
         self.frame_records.append(
@@ -277,3 +322,19 @@ class RecordMatcher:
         axis.plot(self.reprojection_errors, color="blue")
         plotter.add_plot(err_plot, "reprojection_error")
         # plt.pause(0.001)
+
+
+def generate_subsets(pairs: List[Tuple[Person, Person]]) -> List[List[Tuple[Person, Person]]]:
+    subsets = []
+    for r in range(1, len(pairs) + 1):
+        subsets.extend(itertools.combinations(pairs, r))
+    return subsets
+
+
+def generate_pairings_subsets(persons1: List[Person], persons2: List[Person]) -> List[List[Tuple[Person, Person]]]:
+    pairs = list(itertools.product(persons1, persons2))
+    return generate_subsets(pairs)
+
+
+def generate_unique_pairings(list1: List[Person], list2: List[Person]) -> List[List[Tuple[Person, Person]]]:
+    return [list(zip(list1, p)) for p in itertools.permutations(list2)]

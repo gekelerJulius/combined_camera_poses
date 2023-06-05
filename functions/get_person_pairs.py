@@ -18,7 +18,7 @@ from enums.logging_levels import LoggingLevel
 from functions.funcs import (
     normalize_points,
     get_dominant_color_patch,
-    colors_diff,
+    colors_diff, rotation_matrix_to_angles,
 )
 from functions.icp import do_icp
 
@@ -40,8 +40,8 @@ def compare_persons(
         p2,
         recorder1,
         recorder2,
-        (frame_count - 14, frame_count),
-        visibility_threshold=0.5,
+        (frame_count - 24, frame_count),
+        visibility_threshold=0.75,
     )
     lmks1: List[Landmark] = crs[0]
     lmks2: List[Landmark] = crs[1]
@@ -81,6 +81,7 @@ def compare_persons(
 
     result: RegistrationResult = do_icp(pts1_normalized, pts2_normalized, True)
     distances: List[float] = []
+    col_diffs: List[float] = []
     for lmk1, lmk2 in zip(lmks1, lmks2):
         if (
                 lmk1.x is None
@@ -101,14 +102,15 @@ def compare_persons(
             if np.isnan(dom_color_1).any() or np.isnan(dom_color_2).any():
                 col_diff = 1
             else:
-                col_diff = colors_diff(dom_color_1, dom_color_2)
+                col_diff = colors_diff(np.array([dom_color_1]), np.array([dom_color_2]))
 
         assert col_diff >= 0 and lmk1.visibility >= 0 and lmk2.visibility >= 0
+        col_diffs.append(col_diff)
         factored_dist = (
-                result.inlier_rmse
-                * (1 - result.fitness)
-                * lmk1.visibility
-                * lmk2.visibility
+                result.inlier_rmse ** 4
+                * (1 - result.fitness) ** 4
+                * (1 - lmk1.visibility)
+                * (1 - lmk2.visibility)
                 * col_diff
         )
         assert (
@@ -140,10 +142,9 @@ def compare_persons(
     err1, err2 = calc_reprojection_errors(
         points1_img, points2_img, est_cam_data1, est_cam_data2
     )
-    distances_np *= err1
-    distances_np *= err2
     mean_dist = float(np.mean(distances_np))
-    return mean_dist * (err1 ** 2) * (err2 ** 2)
+    mean_col_diff = float(np.mean(col_diffs))
+    return mean_dist * (err1 ** 4) * (err2 ** 4)
     # return (err1 ** 2) * (err2 ** 2)
 
 

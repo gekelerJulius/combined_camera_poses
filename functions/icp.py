@@ -9,9 +9,6 @@ from scipy.spatial.transform import Rotation
 import open3d as o3d
 import logging
 
-from classes.logger import Logger
-from enums.logging_levels import LoggingLevel
-
 # Configure logging to suppress Open3D output
 logging.basicConfig()
 logging.getLogger().setLevel(logging.ERROR)
