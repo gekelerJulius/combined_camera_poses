@@ -43,8 +43,9 @@ class TruePersonLoader:
         p1: Person = pair[0]
         p2: Person = pair[1]
 
-        # Match each person to a unity person using the hungarian algorithm
+        # TODO: Use triangulated 3d points instead of the 2d points here
 
+        # Match each person to a unity person using the hungarian algorithm
         l1: List[Tuple[UnityPerson, ndarray]] = [(p, p.get_image_points(frame_count, cam_data1)) for p in unity_persons]
         l2: List[Tuple[UnityPerson, ndarray]] = [(p, p.get_image_points(frame_count, cam_data2)) for p in unity_persons]
 

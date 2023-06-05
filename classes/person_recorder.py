@@ -21,13 +21,15 @@ class PersonRecorder:
     kalman_dict: Dict[str, Tuple[cv2.KalmanFilter, List[Person]]]
     kalman_prediction_dict: Dict[str, ndarray]
     id: str
+    look_back: int = 24
 
-    def __init__(self, recorder_id: str):
+    def __init__(self, recorder_id: str, look_back: int = 24):
         self.id = recorder_id
         self.frame_dict = {}
         self.name_dict = {}
         self.kalman_dict = {}
         self.kalman_prediction_dict = {}
+        self.look_back = look_back
 
     def add(self, persons: List[Person], frame_num: int, img=None):
         for person in persons:
@@ -36,7 +38,9 @@ class PersonRecorder:
             self.frame_dict.get(person.frame_count).append(person)
         self.update_kalman_filter(persons, frame_num, img)
 
-    def get_recent_persons(self, frame_num: int, look_back: int = 5) -> List[Person]:
+    def get_recent_persons(self, frame_num: int, look_back: int = None) -> List[Person]:
+        if look_back is None:
+            look_back = self.look_back
         recently_seen = []
         frames = [frame_num - i for i in range(look_back)]
         for frame in frames:
@@ -149,7 +153,7 @@ class PersonRecorder:
         unmatched_predictions = list(filter(lambda x: x[0] not in matched, predictions))
         for name, prediction in unmatched_predictions:
             last_frame = self.get_latest_frame_for_person(name)
-            if last_frame is None or frame_num - last_frame > 24:
+            if last_frame is None or frame_num - last_frame > self.look_back:
                 self.kalman_dict.pop(name)
                 self.kalman_prediction_dict.pop(name)
                 assert self.kalman_dict.get(name) is None
@@ -220,7 +224,7 @@ class PersonRecorder:
             p1, frame_range
         )
         p2_rec_positions: Dict[int, Person] = recorder2.get_frame_history(
-            p2, (p2.frame_count - 10, p2.frame_count)
+            p2, frame_range
         )
         r1 = []
         r2 = []
