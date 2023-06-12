@@ -16,7 +16,7 @@ o3d.utility.set_verbosity_level(o3d.utility.VerbosityLevel.Error)
 
 
 def do_icp(
-        pts1: ndarray, pts2: ndarray, corresponding_by_index=False
+    pts1: ndarray, pts2: ndarray, corresponding_by_index=False
 ) -> RegistrationResult:
     """
     The Iterative Closest Point method. Finds the best-fit transform that maps points A on to points B.
@@ -24,12 +24,11 @@ def do_icp(
                  the xyz coordinates and the last 3 columns are the rgb values.
     :param pts2: Same as pts1.
     :param corresponding_by_index: If True, the points are assumed to be in correspondence by index.
-    :return: P: (4, 4) numpy ndarray, distances: (N,) numpy ndarray.
     """
     pts1 = np.copy(pts1)
     pts2 = np.copy(pts2)
     assert (
-            pts1.shape == pts2.shape and pts1.shape[1] == 3 or pts1.shape[1] == 6
+        pts1.shape == pts2.shape and pts1.shape[1] == 3 or pts1.shape[1] == 6
     ), "pts1 and pts2 must be (N, 3) or (N, 6) ndarrays."
 
     cloud1 = PointCloud()
@@ -76,8 +75,47 @@ def do_icp(
     return result_icp
 
 
+def do_icp_correl(
+    pts1: ndarray, pts2: ndarray, corresponding_by_index=False
+) -> Tuple[ndarray, float]:
+    """
+    The Iterative Closest Point method. Finds the best-fit transform that maps points A on to points B.
+    :param pts1: (N, 3) or (N, 6) numpy ndarray, where the first 3 columns are
+                 the xyz coordinates and the last 3 columns are the rgb values.
+    :param pts2: Same as pts1.
+    :param corresponding_by_index: If True, the points are assumed to be in correspondence by index.
+    :return: P: (4, 4) numpy ndarray
+    """
+    pts1 = np.copy(pts1)
+    pts2 = np.copy(pts2)
+    assert (
+        pts1.shape == pts2.shape and pts1.shape[1] == 3
+    ), "pts1 and pts2 must be (N, 3) or (N, 6) ndarrays."
+
+    cloud1 = PointCloud()
+    cloud1.points = Vector3dVector(pts1)
+    cloud2 = PointCloud()
+    cloud2.points = Vector3dVector(pts2)
+    correspondences = np.array([[i, i] for i in range(pts1.shape[0])])
+    corr_set = o3d.utility.Vector2iVector(correspondences)
+    transformation = TransformationEstimationPointToPoint().compute_transformation(
+        cloud1, cloud2, corr_set
+    )
+
+    pts1cloned = np.copy(pts1)
+    pts1cloned = np.hstack((pts1cloned, np.ones((pts1cloned.shape[0], 1))))
+    pts1cloned = np.dot(transformation, pts1cloned.T).T
+    pts1cloned = pts1cloned[:, :3]
+    cloned: PointCloud = PointCloud()
+    cloned.points = Vector3dVector(pts1cloned)
+    rmse = TransformationEstimationPointToPoint().compute_rmse(cloned, cloud2, corr_set)
+    return transformation, rmse
+
+
 # CURRENTLY NOT WORKING
-def colored_registration(source: PointCloud, target: PointCloud, initial_transformation: ndarray) -> RegistrationResult:
+def colored_registration(
+    source: PointCloud, target: PointCloud, initial_transformation: ndarray
+) -> RegistrationResult:
     # colored pointcloud registration
     # This is implementation of following paper
     # J. Park, Q.-Y. Zhou, V. Koltun,
@@ -120,7 +158,7 @@ def colored_registration(source: PointCloud, target: PointCloud, initial_transfo
 
 
 def preprocess_point_cloud(
-        pcd: PointCloud, voxel_size: float
+    pcd: PointCloud, voxel_size: float
 ) -> Tuple[PointCloud, ndarray]:
     """
     Downsample the point cloud, estimate normals, then compute a FPFH feature for each point.
@@ -143,11 +181,11 @@ def preprocess_point_cloud(
 
 
 def execute_global_registration(
-        source_down: PointCloud,
-        target_down: PointCloud,
-        source_fpfh,
-        target_fpfh,
-        voxel_size,
+    source_down: PointCloud,
+    target_down: PointCloud,
+    source_fpfh,
+    target_fpfh,
+    voxel_size,
 ) -> RegistrationResult:
     """
     Use RANSAC for global registration.
@@ -171,7 +209,7 @@ def execute_global_registration(
 
 
 def refine_registration(
-        source, target, transformation, voxel_size
+    source, target, transformation, voxel_size
 ) -> RegistrationResult:
     result = registration_icp(
         source,
@@ -236,7 +274,7 @@ def test_registration():
 
 
 def draw_registration_result(
-        cloud1: PointCloud, cloud2: PointCloud, transformation: ndarray, as_pose=False
+    cloud1: PointCloud, cloud2: PointCloud, transformation: ndarray, as_pose=False
 ) -> None:
     vis = o3d.visualization.Visualizer()
     vis.create_window()

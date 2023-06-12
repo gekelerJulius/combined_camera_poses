@@ -4,7 +4,9 @@ from typing import List, Tuple, Optional
 
 import cv2 as cv
 import matplotlib.pyplot as plt
+import numpy as np
 from cv2 import VideoWriter
+from numpy import ndarray
 from ultralytics import YOLO
 
 from classes.bounding_box import BoundingBox
@@ -25,10 +27,10 @@ resolution = (1280, 720)
 
 
 def annotate_video_multi(
-        file1_name: str,
-        file2_name: str,
-        cam1_data_path: str = None,
-        cam2_data_path: str = None,
+    file1_name: str,
+    file2_name: str,
+    cam1_data_path: str = None,
+    cam2_data_path: str = None,
 ):
     if cam1_data_path is None:
         raise ValueError("cam1_data_path must be specified")
@@ -49,6 +51,14 @@ def annotate_video_multi(
 
     cam1_data: CameraData = CameraData.create_from_json(cam1_data_path)
     cam2_data: CameraData = CameraData.create_from_json(cam2_data_path)
+    rotation_between_cameras: ndarray = cam1_data.rotation_between_cameras(cam2_data)
+    translation_between_cameras: ndarray = cam1_data.translation_between_cameras(
+        cam2_data
+    )
+    extrinsic_truth: ndarray = np.hstack(
+        (rotation_between_cameras, translation_between_cameras)
+    )
+
     model = YOLO()
     Logger.log("Starting analysis...", LoggingLevel.INFO)
 
@@ -67,8 +77,8 @@ def annotate_video_multi(
     out1: Optional[VideoWriter] = None
     out2: Optional[VideoWriter] = None
     frame_count = 0
-    person_recorder1: PersonRecorder = PersonRecorder("1")
-    person_recorder2: PersonRecorder = PersonRecorder("2")
+    person_recorder1: PersonRecorder = PersonRecorder("1", 1)
+    person_recorder2: PersonRecorder = PersonRecorder("2", 1)
     records_matcher: RecordMatcher = RecordMatcher(person_recorder1, person_recorder2)
     score_manager = ScoreManager()
     img1 = None
@@ -92,10 +102,10 @@ def annotate_video_multi(
         print(f"Frame {frame_count}")
 
         if (
-                img1.shape[0] == 0
-                or img1.shape[1] == 0
-                or img2.shape[0] == 0
-                or img2.shape[1] == 0
+            img1.shape[0] == 0
+            or img1.shape[1] == 0
+            or img2.shape[0] == 0
+            or img2.shape[1] == 0
         ):
             Logger.log(
                 f"Invalid frame size: {img1.shape}, {img2.shape}", LoggingLevel.ERROR
@@ -119,9 +129,9 @@ def annotate_video_multi(
         for box in bounding_boxes1:
             img1, results1 = get_pose(orig_img1, box)
             if (
-                    results1 is None
-                    or results1.pose_landmarks is None
-                    or results1.pose_world_landmarks is None
+                results1 is None
+                or results1.pose_landmarks is None
+                or results1.pose_world_landmarks is None
             ):
                 continue
             length = len([x for x in results1.pose_landmarks.landmark])
@@ -133,9 +143,9 @@ def annotate_video_multi(
         for box in bounding_boxes2:
             img2, results2 = get_pose(orig_img2, box)
             if (
-                    results2 is None
-                    or results2.pose_landmarks is None
-                    or results2.pose_world_landmarks is None
+                results2 is None
+                or results2.pose_landmarks is None
+                or results2.pose_world_landmarks is None
             ):
                 continue
             length = len([x for x in results2.pose_landmarks.landmark])
@@ -148,16 +158,19 @@ def annotate_video_multi(
         person_recorder2.add(persons2, frame_count, img2)
 
         # Get some records before starting to match
-        if frame_count < START_FRAME + 15:
-            continue
+        # if frame_count < START_FRAME + 6:
+        #     continue
 
         records_matcher.eval_frame(frame_count, img1, img2, cam1_data, cam2_data)
         pairs = records_matcher.get_alignment(frame_count, cam1_data, cam2_data)
-        records_matcher.estimate_extrinsic_matrix(frame_count, cam1_data, cam2_data)
 
         unity_persons: List[UnityPerson] = TruePersonLoader.load(
             "simulation_data/persons"
         )
+
+        # UnityPerson.draw_persons(
+        #     unity_persons, [img1, img2], [cam1_data, cam2_data], frame_count
+        # )
 
         pairs = sorted(pairs, key=lambda x: x[0].name)
         for i, (p1, p2) in enumerate(pairs):
@@ -176,7 +189,7 @@ def annotate_video_multi(
             p1.draw(img1, color)
             p2.draw(img2, color)
             confirmed = TruePersonLoader.confirm_pair(
-                (p1, p2), unity_persons, frame_count, cam1_data, cam2_data
+                (p1, p2), unity_persons, frame_count, img1, img2
             )
             score_manager.add_score(1 if confirmed else 0)
 
@@ -184,6 +197,9 @@ def annotate_video_multi(
             cv.imshow("Frame 1", img1)
             cv.imshow("Frame 2", img2)
             cv.waitKey(1)
+
+        if frame_count == START_FRAME + 1:
+            plt.pause(10)
 
         if out1 is None:
             out1 = cv.VideoWriter(
@@ -201,10 +217,8 @@ def annotate_video_multi(
             )
         out1.write(img1)
         out2.write(img2)
-        if frame_count % 10 == 0:
-            Logger.log(f"Frame: {frame_count}", LoggingLevel.INFO)
-            score = score_manager.get_score()
-            Logger.log(f"Correct percentage: {score * 100:.2f}%", LoggingLevel.INFO)
+        score = score_manager.get_score()
+        Logger.log(f"Correct percentage: {score * 100:.2f}%", LoggingLevel.INFO)
 
     cap1.release()
     cap2.release()
@@ -216,6 +230,8 @@ def annotate_video_multi(
     # repr_err_plot.savefig("simulation_data/repr_err.png")
 
     score = score_manager.get_score()
+    records_matcher.report()
+    print(extrinsic_truth)
     Logger.log(f"Correct percentage: {score * 100:.2f}%", LoggingLevel.INFO)
     Logger.log("Done!", LoggingLevel.INFO)
     plt.pause(500000)

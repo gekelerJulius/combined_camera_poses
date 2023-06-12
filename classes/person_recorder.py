@@ -5,14 +5,10 @@ import cv2
 import numpy as np
 import randomname
 import seaborn as sns
-from matplotlib import pyplot as plt
 from mediapipe.tasks.python.components.containers import Landmark
 from numpy import ndarray
 from scipy.optimize import linear_sum_assignment
-
-from classes.logger import Logger, Divider
 from classes.person import Person
-from enums.logging_levels import LoggingLevel
 
 
 class PersonRecorder:
@@ -21,9 +17,9 @@ class PersonRecorder:
     kalman_dict: Dict[str, Tuple[cv2.KalmanFilter, List[Person]]]
     kalman_prediction_dict: Dict[str, ndarray]
     id: str
-    look_back: int = 24
+    look_back: int
 
-    def __init__(self, recorder_id: str, look_back: int = 24):
+    def __init__(self, recorder_id: str, look_back: int = 12):
         self.id = recorder_id
         self.frame_dict = {}
         self.name_dict = {}
@@ -101,7 +97,7 @@ class PersonRecorder:
         self.kalman_prediction_dict[person.name] = prediction
 
     def update_kalman_filter(
-            self, persons: List[Person], frame_num: int, img=None
+        self, persons: List[Person], frame_num: int, img=None
     ) -> None:
         predictions = [
             (name, pred) for name, pred in self.kalman_prediction_dict.items()
@@ -113,21 +109,25 @@ class PersonRecorder:
             cost_matrix = np.zeros((len(predictions), len(centroids)))
             for i, (name, prediction) in enumerate(predictions):
                 last_centroid = self.kalman_dict[name][1][-1].centroid()
+                last_x, last_y = last_centroid[0], last_centroid[1]
                 x_pred, y_pred = prediction[0], prediction[1]
                 vel_x_pred, vel_y_pred = prediction[2], prediction[3]
-                last_x, last_y = last_centroid[0], last_centroid[1]
+
                 for j, centroid in enumerate(centroids):
                     centroid = np.array([centroid[0], centroid[1]])
                     last_vel_x, last_vel_y = (centroid[0] - last_x), (
-                            centroid[1] - last_y
+                        centroid[1] - last_y
                     )
+                    # dist1 is distance between predicted centroid and current centroid
                     dist1 = np.linalg.norm(np.array([x_pred, y_pred]) - centroid)
+                    # dist2 is distance between last centroid and current centroid
                     dist2 = np.linalg.norm(np.array([last_x, last_y]) - centroid)
+                    # vel_dist is distance between predicted velocity and last velocity
                     vel_dist = np.linalg.norm(
                         np.array([vel_x_pred, vel_y_pred])
                         - np.array([last_vel_x, last_vel_y])
                     )
-                    dist = dist1 + dist2 + vel_dist
+                    dist = dist1 * (vel_dist**2)
                     cost_matrix[i, j] = dist
 
             row_ind, col_ind = linear_sum_assignment(cost_matrix)
@@ -162,7 +162,7 @@ class PersonRecorder:
                 self.update_kalman_filter_single(name, prediction, img, correct=False)
 
     def update_kalman_filter_single(
-            self, name: str, centroid: ndarray, img, correct=True
+        self, name: str, centroid: ndarray, img, correct=True
     ) -> None:
         kalman, person_list = self.kalman_dict[name]
         if correct:
@@ -178,14 +178,14 @@ class PersonRecorder:
         #     after: Person = person_list[i]
         #     prev_np = prev.get_pose_landmarks_numpy()
         #     after_np = after.get_pose_landmarks_numpy()
-        # for j in range(1, 33):
-        #     cv2.line(
-        #         img,
-        #         (int(prev_np[j, 0]), int(prev_np[j, 1])),
-        #         (int(after_np[j, 0]), int(after_np[j, 1])),
-        #         prev.color,
-        #         2,
-        #     )
+        #     for j in range(1, 33):
+        #         cv2.line(
+        #             img,
+        #             (int(prev_np[j, 0]), int(prev_np[j, 1])),
+        #             (int(after_np[j, 0]), int(after_np[j, 1])),
+        #             prev.color,
+        #             2,
+        #         )
 
     def plot_trajectories(self, img) -> None:
         for name in self.kalman_dict:
@@ -202,7 +202,7 @@ class PersonRecorder:
         cv2.imshow(self.id, img)
 
     def get_frame_history(
-            self, p: Person, frame_range: Tuple[int, int] = (0, np.inf)
+        self, p: Person, frame_range: Tuple[int, int] = (0, np.inf)
     ) -> Dict[int, Person]:
         all_records = self.kalman_dict[p.name][1]
         return {
@@ -213,12 +213,12 @@ class PersonRecorder:
 
     @staticmethod
     def get_all_corresponding_frame_recordings(
-            p1: Person,
-            p2: Person,
-            recorder1: "Recorder",
-            recorder2: "Recorder",
-            frame_range: Tuple[int, int] = (0, np.inf),
-            visibility_threshold: float = 0.5,
+        p1: Person,
+        p2: Person,
+        recorder1: "Recorder",
+        recorder2: "Recorder",
+        frame_range: Tuple[int, int] = (0, np.inf),
+        visibility_threshold: float = 0.5,
     ) -> Tuple[List[Landmark], List[Landmark], List[int]]:
         p1_rec_positions: Dict[int, Person] = recorder1.get_frame_history(
             p1, frame_range

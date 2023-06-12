@@ -79,7 +79,7 @@ def calc_cos_sim(v1: ndarray, v2: ndarray) -> float:
 
 
 def compare_landmarks(
-        landmarks1: List[ColoredLandmark], landmarks2: List[ColoredLandmark]
+    landmarks1: List[ColoredLandmark], landmarks2: List[ColoredLandmark]
 ) -> [Union[float, None]]:
     if len(landmarks1) != len(landmarks2):
         Logger.divider()
@@ -188,7 +188,7 @@ def compare_landmarks(
 
     # Check if any value in one of the dom color arrays is [None, None, None]
     if not np.any(pose1_dom_colors == [None, None, None]) and not np.any(
-            pose2_dom_colors == [None, None, None]
+        pose2_dom_colors == [None, None, None]
     ):
         dom_color_sim = 1 - colors_diff(pose1_dom_colors, pose2_dom_colors)
 
@@ -204,7 +204,11 @@ def colors_diff(colors1: ndarray, colors2: ndarray) -> Union[float, None]:
     Returns the average color difference between two arrays of colors
     colors1 and colors2 should be of shape (n, 3)
     """
-    assert colors1.shape == colors2.shape and len(colors1.shape) == 2 and colors1.shape[1] == 3
+    assert (
+        colors1.shape == colors2.shape
+        and len(colors1.shape) == 2
+        and colors1.shape[1] == 3
+    )
     if len(colors1) == 0:
         return None
 
@@ -241,7 +245,7 @@ def draw_landmarks(results, image):
 
 
 def draw_landmarks_list(
-        image, landmarks, with_index=False, color=(0, 255, 0), title: str = "Landmarks"
+    image, landmarks, with_index=False, color=(0, 255, 0), title: str = "Landmarks"
 ):
     if with_index:
         for i, landmark in enumerate(landmarks):
@@ -541,7 +545,7 @@ def sampson_distance(x1: ndarray, x2: ndarray, F: ndarray):
     grad_x1 = (x2.T @ F).reshape(-1, 1)
     grad_x2 = (F @ x1).reshape(-1, 1)
     second_term = 1 / (grad_x1.T @ grad_x1 + grad_x2.T @ grad_x2)
-    return constraint ** 2 * second_term
+    return constraint**2 * second_term
 
 
 def sampson_error(P1: ndarray, P2: ndarray, points1: ndarray, points2: ndarray, F):
@@ -696,19 +700,8 @@ def plot_pose_2d(points: ndarray, plot_id: int = None, title: str = "") -> int:
     return plot_id
 
 
-def plot_pose_3d(points: ndarray, plot_id: int = None, title: str = "") -> int:
+def plot_pose_3d(points: ndarray, ax: Axes) -> None:
     assert points.shape[1] == 3
-    plot_service: PlotService = PlotService.get_instance()
-    if plot_id is not None and plot_service.plot_exists(plot_id):
-        fig: Figure = plot_service.get_plot(plot_id)
-        ax: Axes3D = fig.get_axes()[0]
-        ax.clear()
-    else:
-        fig: Figure = plt.figure()
-        ax: Axes3D = fig.add_subplot(111, projection="3d")
-
-    fig.suptitle(title)
-    # Set axes labels
     ax.set_xlabel("X")
     ax.set_ylabel("Y")
     ax.set_zlabel("Z")
@@ -727,25 +720,9 @@ def plot_pose_3d(points: ndarray, plot_id: int = None, title: str = "") -> int:
         pt2 = pts[connection[1]]
         ax.plot([pt1[0], pt2[0]], [pt1[1], pt2[1]], [pt1[2], pt2[2]], "b-")
 
-    # conv_hull = ConvexHull(pts)
-    # for j in range(len(conv_hull.simplices)):
-    #     simplex: Simplex = conv_hull.simplices[j]
-    #
-    #     # Draw planes for the specified simplices
-    #     simplex_points: ndarray = simplex.coords
-    #     X = simplex_points[:, 0]
-    #     Y = simplex_points[:, 1]
-    #     Z = simplex_points[:, 2]
-    #     ax.plot_trisurf(X, Y, Z, alpha=0.3)
-
-    if plot_id is None or not plot_service.plot_exists(plot_id):
-        plot_id = plot_service.add_plot(fig)
-    plt.pause(0.01)
-    return plot_id
-
 
 def blend_colors(
-        c1: Tuple[int], c2: Tuple[int], blend_factor: float
+    c1: Tuple[int], c2: Tuple[int], blend_factor: float
 ) -> Tuple[Tuple[int], Tuple[int]]:
     """
     Combines two RGB colors by taking the average of each color channel.
@@ -800,7 +777,7 @@ def compute_essential_normalized(p1: ndarray, p2: ndarray) -> ndarray:
 
 
 def validate_essential_matrix(
-        E: ndarray, p1: ndarray, p2: ndarray, tolerance=1e-4
+    E: ndarray, p1: ndarray, p2: ndarray, tolerance=1e-4
 ) -> bool:
     """
     Validates an essential matrix by checking that the epipolar constraint is satisfied for each point pair.
@@ -873,12 +850,12 @@ def decompose_essential_matrix(E):
 
 # TODO: DEBUG
 def find_correct_projection_matrix(
-        P1: ndarray,
-        P2: ndarray,
-        P3: ndarray,
-        P4: ndarray,
-        points1: ndarray,
-        points2: ndarray,
+    P1: ndarray,
+    P2: ndarray,
+    P3: ndarray,
+    P4: ndarray,
+    points1: ndarray,
+    points2: ndarray,
 ) -> Tuple[ndarray, ndarray]:
     P = None
     points_3D = None
@@ -904,7 +881,7 @@ def find_correct_projection_matrix(
 
 
 def estimate_projection(
-        p1: ndarray, p2: ndarray, K1: ndarray, K2: ndarray
+    p1: ndarray, p2: ndarray, K1: ndarray, K2: ndarray
 ) -> [Tuple[Optional[ndarray], Optional[ndarray]]]:
     # p1 = cv2.undistortPoints(src=p1, cameraMatrix=K1, distCoeffs=None)
     # p2 = cv2.undistortPoints(src=p2, cameraMatrix=K2, distCoeffs=None)
@@ -968,8 +945,16 @@ def normalize_image(image):
         normalized_channels.append(normalized_channel)
     normalized_image = cv2.merge(normalized_channels)
     return (normalized_image - normalized_image.min()) / (
-            normalized_image.max() - normalized_image.min()
+        normalized_image.max() - normalized_image.min()
     )
+
+
+# TODO: Fix this or drop the changes to the original code
+def unity_to_cv(point: ndarray) -> ndarray:
+    # Unity (x, y, z) is equivalent to CV (x, z, -y)
+    # return np.array([point[0], point[2], -point[1]])
+    # return np.array([-point[1], point[2], point[0]])
+    return np.array([point[0], point[1], point[2]])
 
 
 def rotation_matrix_to_angles(R: ndarray) -> ndarray:
@@ -981,6 +966,38 @@ def rotation_matrix_to_angles(R: ndarray) -> ndarray:
     return np.rad2deg(cv2.Rodrigues(R)[0])
 
 
+def angle_difference(angle1: float, angle2: float) -> float:
+    """
+    Calculates the difference between two angles in degrees
+    :param angle1: The first angle in degrees
+    :param angle2: The second angle in degrees
+    :return: The difference between the two angles in degrees
+    """
+    return min((angle1 - angle2) % 360, (angle2 - angle1) % 360)
+
+
+def angles_differences(angles1: ndarray, angles2: ndarray) -> ndarray:
+    """
+    Calculates the difference between two rotation vectors in degrees
+    :param angles1: The first rotation vector (3,1) in degrees
+    :param angles2: The second rotation vector (3,1) in degrees
+    :return: The difference between the two rotation vectors in degrees
+    """
+    return np.array([angle_difference(a, b) for a, b in zip(angles1, angles2)])
+
+
+def rotation_matrices_angles_differences(R1: ndarray, R2: ndarray) -> ndarray:
+    """
+    Calculates the difference between two rotation matrices in degrees
+    :param R1: The first rotation matrix (3,3)
+    :param R2: The second rotation matrix (3,3)
+    :return: The difference between the two rotation matrices in degrees
+    """
+    return angles_differences(
+        rotation_matrix_to_angles(R1), rotation_matrix_to_angles(R2)
+    )
+
+
 def angles_to_rotation_matrix(angles: ndarray) -> ndarray:
     """
     Converts a rotation vector to a rotation matrix
@@ -988,18 +1005,6 @@ def angles_to_rotation_matrix(angles: ndarray) -> ndarray:
     :return: The rotation matrix (3,3)
     """
     return cv2.Rodrigues(np.deg2rad(angles))[0]
-
-
-def diff_rotation_matrices(R1: ndarray, R2: ndarray) -> float:
-    """
-    Computes the difference between two rotation matrices
-    :param R1: The first rotation matrix (3,3)
-    :param R2: The second rotation matrix (3,3)
-    :return: The difference between the rotation matrices
-    """
-    deg1 = rotation_matrix_to_angles(R1)
-    deg2 = rotation_matrix_to_angles(R2)
-    return np.linalg.norm(deg1 - deg2)
 
 
 def test_normalize_image():

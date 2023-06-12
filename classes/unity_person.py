@@ -1,15 +1,15 @@
-from typing import List
+from typing import List, Any
 import json
 
+import cv2
 import numpy as np
 from numpy import ndarray
 
 from classes.bounding_box import BoundingBox
-from classes.camera_data import CameraData
-from classes.person import Person
 from consts.consts import NAMES_LIST
 from consts.mixamo_mapping import from_mixamo
-from functions.funcs import plot_pose_3d
+
+json_cam_keys = ["cam1", "cam2"]
 
 
 class UnityPerson:
@@ -18,37 +18,51 @@ class UnityPerson:
     def __init__(self, jsonpath: str):
         self.jsonpath = jsonpath
 
-    def get_frame(self, n: int) -> ndarray:
-        org_points = load_points(self.jsonpath + f"/{n}.json")
-        return org_points
+    def get_frame(self, n: int, camera_num: int) -> ndarray:
+        org_points = load_points(
+            self.jsonpath + f"/{n}.json", json_cam_keys[camera_num]
+        )
+        cv_points = np.copy(org_points)
+        return cv_points
 
-    def get_image_points(self, frame_count: int, camera_info: CameraData) -> ndarray:
-        points_3d = self.get_frame(frame_count)
-        points_cam = camera_info.points_from_world_to_camera(points_3d)
-        points_img = camera_info.points_from_camera_to_image(points_cam)
-        return points_img
+    def get_image_points(
+        self, frame_count: int, cam_num: int, img_height: int
+    ) -> ndarray:
+        pts = self.get_frame(frame_count, cam_num)
+        pts[:, 1] = img_height - pts[:, 1]
+        return pts
 
     __str__ = lambda self: self.jsonpath
     __repr__ = lambda self: self.jsonpath
 
     @staticmethod
-    def plot_all_3d(persons: List["UnityPerson"]) -> None:
-        import matplotlib.pyplot as plt
+    def draw_persons(
+        persons: List["UnityPerson"],
+        images: List[Any],
+        frame_count: int,
+    ) -> None:
+        for i in range(len(images)):
+            img = images[i]
+            height = img.shape[0]
+            for person in persons:
+                points = person.get_image_points(frame_count, i, height)
+                for point in points:
+                    point = np.copy(point).astype(int)
+                    cv2.circle(img, tuple(point), 3, (255, 255, 0), -1)
 
-        plot_id = 0
-        for person in persons:
-            for i in range(0, 100):
-                pts = person.get_frame(i)
-                # Invert y axis
-                pts[:, 1] *= -1
-                plot_pose_3d(pts, plot_id)
-        plt.show()
+    def get_bounding_box(
+        self, frame_count: int, cam_num: int, img_height: int
+    ) -> BoundingBox:
+        points = self.get_image_points(frame_count, cam_num, img_height)
+        return BoundingBox.from_points(points)
 
 
-def load_points(jsonpath: str) -> ndarray:
+def load_points(jsonpath: str, cam_key: str) -> ndarray:
     org_dict = {}
     with open(jsonpath) as f:
-        org_points_json = json.load(f)
+        json_data = json.load(f)
+
+    org_points_json = json_data[cam_key]
     strings_to_remove = [
         "mixamorig:",
         "Ch42_",
@@ -86,6 +100,5 @@ def load_points(jsonpath: str) -> ndarray:
     for name in NAMES_LIST:
         if name in org_dict:
             val = org_dict[name]
-            org_points.append([val["x"], val["y"], val["z"]])
-
+            org_points.append([val[0], val[1]])
     return np.array(org_points)

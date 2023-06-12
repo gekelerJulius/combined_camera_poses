@@ -15,7 +15,7 @@ from functions.funcs import (
     compare_landmarks,
     draw_landmarks_list,
     get_avg_color,
-    plot_pose_3d, plot_pose_2d, calc_cos_sim, get_dominant_color_patch,
+    plot_pose_2d, calc_cos_sim, get_dominant_color_patch,
 )
 
 mp_drawing = mp.solutions.drawing_utils
@@ -141,10 +141,6 @@ class Person:
             self.get_pose_landmarks_with_color(img1),
             person2.get_pose_landmarks_with_color(img2),
         )
-
-    def plot_3d(self, plot_id: int = None, title: str = "") -> int:
-        # visualize(image, [self.bounding_box], self.get_world_landmarks_numpy())
-        return plot_pose_3d(self.get_world_landmarks_numpy(), title=title)
 
     def plot_2d(self, plot_id: int = None, title: str = "") -> int:
         return plot_pose_2d(self.get_pose_landmarks_numpy(), title=title)

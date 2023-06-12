@@ -23,9 +23,11 @@ class BoundingBox:
         return self.__str__()
 
     def draw(self, img) -> ndarray:
-        cv2.rectangle(
-            img, (self.min_x, self.min_y), (self.max_x, self.max_y), (0, 255, 0), 2
-        )
+        start_x = int(self.min_x)
+        start_y = int(self.min_y)
+        end_x = int(self.max_x)
+        end_y = int(self.max_y)
+        cv2.rectangle(img, (start_x, start_y), (end_x, end_y), (0, 255, 0), thickness=2)
         return img
 
     def get_center(self):
@@ -33,6 +35,19 @@ class BoundingBox:
 
     def to_numpy(self):
         return np.array([self.min_x, self.min_y, self.max_x, self.max_y])
+
+    def calculate_overlap_percentage(self, other: "BoundingBox") -> float:
+        if self.min_x > other.max_x or self.max_x < other.min_x:
+            return 0
+        if self.min_y > other.max_y or self.max_y < other.min_y:
+            return 0
+
+        intersection = max(
+            0, min(self.max_x, other.max_x) - max(self.min_x, other.min_x)
+        ) * max(0, min(self.max_y, other.max_y) - max(self.min_y, other.min_y))
+
+        area = self.get_width() * self.get_height()
+        return intersection / area
 
     @staticmethod
     def from_points(org_points: ndarray) -> "BoundingBox":

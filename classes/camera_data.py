@@ -1,8 +1,9 @@
 import json
+from typing import Optional
 
 import numpy as np
-import cv2
 from numpy import ndarray
+from scipy.spatial.transform import Rotation
 
 
 class CameraData:
@@ -64,7 +65,26 @@ class CameraData:
         # Extract the intrinsic and extrinsic parameters
         json_data = CameraData.load_json(json_path)
         intrinsic = json_data["intrinsic"]
-        extrinsic = json_data["extrinsic"]
+        euler_unity = np.array(
+            [
+                json_data["eulerAngles"]["rx"],
+                json_data["eulerAngles"]["ry"],
+                json_data["eulerAngles"]["rz"],
+            ]
+        )
+        # euler_cv = unity_to_cv_euler(euler_unity)
+        # euler_cv = euler_unity
+        t_unity = np.array(
+            [
+                json_data["position"]["tx"],
+                json_data["position"]["ty"],
+                json_data["position"]["tz"],
+            ]
+        )
+        # t_cv = unity_to_cv(t_unity)
+        t_cv = t_unity
+        # R_cv = Rotation.from_euler("xyz", euler_cv).as_matrix()
+        R_cv = Rotation.from_euler("xyz", euler_unity).as_matrix()
 
         # Extract the individual parameters from intrinsic
         fx = intrinsic["fx"]
@@ -74,18 +94,7 @@ class CameraData:
         width = intrinsic["width"]
         height = intrinsic["height"]
         aspect_ratio = width / height
-
-        # Extract the individual parameters from extrinsic
-        R = np.array(
-            [
-                [extrinsic["r00"], extrinsic["r01"], extrinsic["r02"]],
-                [extrinsic["r10"], extrinsic["r11"], extrinsic["r12"]],
-                [extrinsic["r20"], extrinsic["r21"], extrinsic["r22"]],
-            ]
-        )
-        t = np.array([extrinsic["tx"], extrinsic["ty"], extrinsic["tz"]])
-
-        return CameraData(fx, fy, cx, cy, aspect_ratio, R, t)
+        return CameraData(fx, fy, cx, cy, aspect_ratio, R_cv, t_cv)
 
     @staticmethod
     def load_json(json_path):
@@ -131,11 +140,9 @@ class CameraData:
         X = point[0]
         Y = point[1]
         Z = point[2]
-        K = self.intrinsic_matrix
         extrinsic_matrix = self.extrinsic_matrix4x4
         p_cam_homogeneous = np.dot(extrinsic_matrix, np.array([X, Y, Z, 1]))
-        p_cam = p_cam_homogeneous[:3] / p_cam_homogeneous[3]
-        return p_cam
+        return p_cam_homogeneous[:3]
 
     def points_from_camera_to_image(self, points: ndarray) -> ndarray:
         """Transforms Nx3 points from camera coordinates to Nx2 image coordinates"""
@@ -146,9 +153,12 @@ class CameraData:
     def point_from_camera_to_image(self, point: ndarray) -> ndarray:
         """Transforms a point from camera coordinates to image coordinates"""
         assert point.shape[0] == 3, f"point.shape = {point.shape}"
+        X = point[0]
+        Y = point[1]
+        Z = point[2]
         K = self.intrinsic_matrix
-        p_img_homogeneous = np.dot(K, point)
-        p_img = p_img_homogeneous[:2] / p_img_homogeneous[2]
+        p_cam_homogeneous = np.dot(K, np.array([X, Y, Z]))
+        p_img = p_cam_homogeneous[:2] / p_cam_homogeneous[2]
         return p_img
 
     def points_from_image_to_camera(self, points: ndarray) -> ndarray:
@@ -174,3 +184,11 @@ class CameraData:
         """Calculates the translation vector between the two cameras as a (3x1) vector"""
         t = np.dot(self.R, cam2_data.t - self.t)
         return t.reshape((3, 1))
+
+
+def unity_to_cv_euler(euler_unity: ndarray) -> ndarray:
+    euler_cv = np.array(
+        [euler_unity[0], euler_unity[2], euler_unity[1]]
+    )  # swap Y and Z
+    euler_cv[1:] = -euler_cv[1:]  # negate Y and Z
+    return euler_cv
