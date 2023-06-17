@@ -8,6 +8,8 @@ from matplotlib.axes import Axes
 from matplotlib.figure import Figure
 from numpy import ndarray
 from scipy.optimize import linear_sum_assignment
+from scipy.spatial.transform import Rotation
+from sksurgerycore.algorithms.averagequaternions import weighted_average_quaternions
 
 from classes.PlotService import PlotService
 from classes.camera_data import CameraData
@@ -31,7 +33,7 @@ class FrameRecord:
     cost_matrix: Dict[str, Dict[str, float]]
     estimated_person_pairs: List[Tuple[Person, Person]]
     estimated_extrinsic_matrix: Optional[np.ndarray]
-    reprojection_error: float
+    reprojection_error: Optional[float]
 
     def __init__(
         self,
@@ -46,7 +48,7 @@ class FrameRecord:
         self.cost_matrix = cost_matrix
         self.estimated_person_pairs = []
         self.estimated_extrinsic_matrix = None
-        self.reprojection_error = sys.float_info.max
+        self.reprojection_error = None
 
 
 class RecordMatcher:
@@ -123,7 +125,7 @@ class RecordMatcher:
         repr_error = 1000
         pairs: List[Tuple[Person, Person]] = []
         limit: int = 15
-        while repr_error > limit:
+        while repr_error > limit and limit < 200:
             row_ind, col_ind = linear_sum_assignment(cost_matrix)
             for i, j in zip(row_ind, col_ind):
                 for pair in pairs:
@@ -139,12 +141,12 @@ class RecordMatcher:
             repr_error = self.get_mean_err(
                 frame_num, cam_data1, cam_data2, pairs, False, False, False
             )
-            print("Reprojection error:", repr_error)
             if repr_error > limit:
                 pairs = []
                 cost_matrix[row_ind, col_ind] *= 1.5
-                limit *= 1.25
+                limit *= 1.1
 
+        print("Reprojection error:", repr_error)
         self.get_frame_record(frame_num).estimated_person_pairs = pairs
         self.get_frame_record(frame_num).reprojection_error = self.get_mean_err(
             frame_num, cam_data1, cam_data2, None, False, False, False
@@ -164,7 +166,20 @@ class RecordMatcher:
             self.get_all_previous_extrinsics(frame_num),
             self.get_all_previous_reprojection_errors(frame_num),
         )
-        estimation_confidence = 0.3
+
+        prev_errs = self.get_all_previous_reprojection_errors(frame_num)
+        prev_errs = [x for x in prev_errs if x is not None]
+        if len(prev_errs) > 0:
+            min_err = np.min(prev_errs)
+        else:
+            min_err = 1000
+        # Max confidence is <= 1 and min confidence is >=30
+        confidence = 1 - (min_err / 30)
+        if confidence < 0:
+            confidence = 0
+        if confidence > 1:
+            confidence = 1
+        estimation_confidence = confidence * 0.5
         # if len(self.frame_records) > 6:
         #     estimated_extr = calculate_weighted_extrinsic(
         #         self.get_all_previous_extrinsics(frame_num),
@@ -240,14 +255,14 @@ class RecordMatcher:
         use_weighted_mean: bool = True,
         update_plots=False,
         print_stuff=False,
-    ) -> float:
+    ) -> Optional[float]:
         frame_record = self.get_frame_record(frame_num)
         if frame_record is None:
-            return sys.float_info.max
+            return None
         if pairs is None:
             pairs = frame_record.estimated_person_pairs
             if pairs is None or len(pairs) == 0:
-                return sys.float_info.max
+                return None
         points1_img = []
         points2_img = []
         for pair in pairs:
@@ -268,11 +283,11 @@ class RecordMatcher:
         )
 
         ext = None
-        # if use_weighted_mean:
-        #     ext = calculate_weighted_extrinsic(
-        #         self.get_all_previous_extrinsics(frame_num),
-        #         self.get_all_previous_reprojection_errors(frame_num),
-        #     )
+        if use_weighted_mean:
+            ext = calculate_weighted_extrinsic(
+                self.get_all_previous_extrinsics(frame_num),
+                self.get_all_previous_reprojection_errors(frame_num),
+            )
 
         if ext is None:
             ext = np.hstack([R, t[:, np.newaxis]])
@@ -313,7 +328,11 @@ class RecordMatcher:
                 axis: Axes = err_plot.axes[0]
 
             axis.clear()
-            axis.plot([r.reprojection_error for r in self.frame_records], "b-")
+            axis.set_ylim(0, 100)
+            axis.set_xlim(0, frame_num)
+            errs = [r.reprojection_error for r in self.frame_records]
+            print(errs)
+            axis.plot(errs, "b-")
             plotter.add_plot(err_plot, "reprojection_error")
 
             points3d = triangulate_3d_points(
@@ -340,6 +359,9 @@ class RecordMatcher:
             else:
                 axis: Axes = scene_plot.axes[0]
             axis.clear()
+            axis.set_ylim3d(-1, 1)
+            axis.set_xlim3d(-1, 1)
+            axis.set_zlim3d(-1, 1)
             for points3d_person in points3d_persons:
                 points3d_person = np.array(points3d_person)
                 plot_pose_3d(points3d_person, axis)
@@ -376,7 +398,7 @@ class RecordMatcher:
 def calculate_weighted_extrinsic(
     past_extrinsics: List[ndarray],
     reprojection_errors: List[float],
-    decay_base: float = 0.5,
+    decay_base: float = 0,
 ) -> Optional[ndarray]:
     """Calculate a weighted average of past camera extrinsics.
     Args:
@@ -393,15 +415,32 @@ def calculate_weighted_extrinsic(
         return None
 
     for i in range(num_frames):
-        error_weight = 1 / (reprojection_errors[i])
+        if reprojection_errors[i] is None:
+            error_weight = 0
+        else:
+            error_weight = 1 / (reprojection_errors[i])
         n = num_frames - i - 1
         recency_weight = 1 / (decay_base * n + 1)
         weights[i] = error_weight * recency_weight
 
     weights = weights / np.sum(weights)
     weighted_extrinsic = np.zeros_like(past_extrinsics[0])
-    for i in range(num_frames):
-        weighted_extrinsic += weights[i] * past_extrinsics[i]
+    translations = [e[:3, 3] for e in past_extrinsics]
+    rotations = [Rotation.from_matrix(e[:3, :3]) for e in past_extrinsics]
+    quaternions = [r.as_quat() for r in rotations]
+
+    # From (x, y, z, w) format to (w, x, y, z) format
+    quaternions = np.array([np.array([q[3], q[0], q[1], q[2]]) for q in quaternions])
+    avg_rotation = weighted_average_quaternions(quaternions, weights)
+
+    # From (w, x, y, z) format to (x, y, z, w) format
+    avg_rotation = np.array(
+        [avg_rotation[1], avg_rotation[2], avg_rotation[3], avg_rotation[0]]
+    )
+    avg_rotation = Rotation.from_quat(avg_rotation)
+    avg_translation = np.average(translations, axis=0, weights=weights)
+    weighted_extrinsic[:3, :3] = avg_rotation.as_matrix()
+    weighted_extrinsic[:3, 3] = avg_translation
     return weighted_extrinsic
 
 

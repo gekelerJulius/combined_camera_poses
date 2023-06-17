@@ -79,7 +79,7 @@ def compare_persons(
         pts1_normalized = np.hstack((pts1_normalized, colors1))
         pts2_normalized = np.hstack((pts2_normalized, colors2))
 
-    icp_translation, rmse = do_icp_correl(pts1_normalized, pts2_normalized, True)
+    icp_translation, rmse = do_icp_correl(pts1_normalized, pts2_normalized)
     distances: List[float] = []
     for lmk1, lmk2 in zip(lmks1, lmks2):
         if (
@@ -104,7 +104,7 @@ def compare_persons(
                 col_diff = colors_diff(np.array([dom_color_1]), np.array([dom_color_2]))
 
         assert col_diff >= 0 and lmk1.visibility >= 0 and lmk2.visibility >= 0
-        factored_dist = col_diff * (1 - lmk1.visibility) * (1 - lmk2.visibility)
+        factored_dist = (col_diff ** 2) * (1 - lmk1.visibility) * (1 - lmk2.visibility)
         assert (
             factored_dist is not None
             and factored_dist >= 0
@@ -149,6 +149,7 @@ def compare_persons(
     err1, err2 = calc_reprojection_errors(
         points1_img, points2_img, est_cam_data1, est_cam_data2
     )
+    mean_err = (err1 + err2) / 2
     mean_dist = float(np.mean(distances_np))
     return mean_dist
 

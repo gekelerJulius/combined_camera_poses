@@ -76,14 +76,13 @@ def do_icp(
 
 
 def do_icp_correl(
-    pts1: ndarray, pts2: ndarray, corresponding_by_index=False
+    pts1: ndarray, pts2: ndarray
 ) -> Tuple[ndarray, float]:
     """
     The Iterative Closest Point method. Finds the best-fit transform that maps points A on to points B.
     :param pts1: (N, 3) or (N, 6) numpy ndarray, where the first 3 columns are
                  the xyz coordinates and the last 3 columns are the rgb values.
     :param pts2: Same as pts1.
-    :param corresponding_by_index: If True, the points are assumed to be in correspondence by index.
     :return: P: (4, 4) numpy ndarray
     """
     pts1 = np.copy(pts1)
