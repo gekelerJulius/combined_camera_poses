@@ -179,14 +179,16 @@ def annotate_video_multi(
             blended1, blended2 = blend_colors(color1, color2, 0.5)
             p1.color = blended1
             p2.color = blended2
-            color = [0, 0, 0]
 
+            color = [0, 0, 0]
             color[0] = 0 if i % 2 == 0 else 255
             color[1] = 0 if i % 4 < 2 else 255
             color[2] = 0 if i < 4 else 255
-
             color = tuple(color)
+
+            color = p1.color
             p1.draw(img1, color)
+            color = p2.color
             p2.draw(img2, color)
             confirmed = TruePersonLoader.confirm_pair(
                 (p1, p2), unity_persons, frame_count, img1, img2
@@ -231,8 +233,12 @@ def annotate_video_multi(
 
     score = score_manager.get_score()
     records_matcher.report()
-    print(extrinsic_truth)
-    Logger.log(f"Correct percentage: {score * 100:.2f}%", LoggingLevel.INFO)
+    correct_percentage_str = f"Correct percentage: {score * 100:.2f}%"
+    # Save correct percentage to file
+    with open("simulation_data/correct_percentage.txt", "w") as f:
+        f.write(correct_percentage_str)
+
+    Logger.log(correct_percentage_str, LoggingLevel.INFO)
     Logger.log("Done!", LoggingLevel.INFO)
     plt.pause(500000)
     cv.waitKey(0)

@@ -125,7 +125,7 @@ class RecordMatcher:
         repr_error = 1000
         pairs: List[Tuple[Person, Person]] = []
         limit: int = 15
-        while repr_error > limit and limit < 200:
+        while repr_error > limit and limit < 500:
             row_ind, col_ind = linear_sum_assignment(cost_matrix)
             for i, j in zip(row_ind, col_ind):
                 for pair in pairs:
@@ -277,10 +277,17 @@ class RecordMatcher:
             cam_data1.intrinsic_matrix,
             cam_data2.intrinsic_matrix,
         )
-        R, t = (
-            frame_record.estimated_extrinsic_matrix[:, :3],
-            frame_record.estimated_extrinsic_matrix[:, 3],
-        )
+
+        R = np.zeros((3, 3))
+        t = np.zeros((3, 1))
+
+        if frame_record.estimated_extrinsic_matrix is None:
+            use_weighted_mean = True
+        else:
+            R, t = (
+                frame_record.estimated_extrinsic_matrix[:, :3],
+                frame_record.estimated_extrinsic_matrix[:, 3],
+            )
 
         ext = None
         if use_weighted_mean:
@@ -331,7 +338,6 @@ class RecordMatcher:
             axis.set_ylim(0, 100)
             axis.set_xlim(0, frame_num)
             errs = [r.reprojection_error for r in self.frame_records]
-            print(errs)
             axis.plot(errs, "b-")
             plotter.add_plot(err_plot, "reprojection_error")
 
@@ -398,7 +404,7 @@ class RecordMatcher:
 def calculate_weighted_extrinsic(
     past_extrinsics: List[ndarray],
     reprojection_errors: List[float],
-    decay_base: float = 0,
+    decay_base: float = 1,
 ) -> Optional[ndarray]:
     """Calculate a weighted average of past camera extrinsics.
     Args:

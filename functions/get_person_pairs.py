@@ -4,13 +4,10 @@ import numpy as np
 import cv2 as cv
 from mediapipe.tasks.python.components.containers.landmark import Landmark
 from numpy import ndarray
-from scipy.spatial.transform import Slerp, Rotation
-
-from functions.calc_repr_errors import calc_reprojection_errors
-from functions.estimate_extrinsic import estimate_extrinsic
+from scipy.spatial.transform import Rotation
 
 from classes.camera_data import CameraData
-from classes.logger import Logger
+from classes.logger import Logger, Divider
 from classes.person import Person
 from classes.person_recorder import PersonRecorder
 from enums.logging_levels import LoggingLevel
@@ -41,45 +38,34 @@ def compare_persons(
         recorder1,
         recorder2,
         (frame_count - 6, frame_count),
-        visibility_threshold=0.8,
+        visibility_threshold=0.6,
     )
     lmks1: List[Landmark] = crs[0]
     lmks2: List[Landmark] = crs[1]
     lmk_indices: List[int] = crs[2]
     assert len(lmks1) == len(lmks2)
 
-    use_colors = False
     points1 = np.array([[lmk.x, lmk.y, lmk.z] for lmk in lmks1], dtype=np.float32)
     points2 = np.array([[lmk.x, lmk.y, lmk.z] for lmk in lmks2], dtype=np.float32)
     pts1_normalized, T1 = normalize_points(points1)
     pts2_normalized, T2 = normalize_points(points2)
 
-    if use_colors:
-        colors1 = np.array(
-            [get_dominant_color_patch(img1, lmk.x, lmk.y, 3) for lmk in lmks1],
-            dtype=np.float32,
-        )
-        colors2 = np.array(
-            [get_dominant_color_patch(img2, lmk.x, lmk.y, 3) for lmk in lmks2],
-            dtype=np.float32,
-        )
-
-        nan_indexes = []
-        for i, (c1, c2) in enumerate(zip(colors1, colors2)):
-            if np.isnan(c1).any() or np.isnan(c2).any():
-                nan_indexes.append(i)
-
-        colors1 = np.delete(colors1, nan_indexes, axis=0)
-        colors2 = np.delete(colors2, nan_indexes, axis=0)
-        pts1_normalized = np.delete(pts1_normalized, nan_indexes, axis=0)
-        pts2_normalized = np.delete(pts2_normalized, nan_indexes, axis=0)
-
-        colors1 = colors1 / 255
-        colors2 = colors2 / 255
-        pts1_normalized = np.hstack((pts1_normalized, colors1))
-        pts2_normalized = np.hstack((pts2_normalized, colors2))
+    # a, b, c = cv.estimateAffine3D(pts1_normalized, pts2_normalized)
+    # inliers: ndarray = c
+    # affine_transformation: ndarray = b
+    # aff_angles = Rotation.from_matrix(affine_transformation[:3, :3]).as_euler(
+    #     "xyz", degrees=True
+    # )
 
     icp_translation, rmse = do_icp_correl(pts1_normalized, pts2_normalized)
+    # icp_angles = Rotation.from_matrix(icp_translation[:3, :3]).as_euler(
+    #     "xyz", degrees=True
+    # )
+    # with Divider("Angles"):
+    #     print(aff_angles)
+    #     print("#" * 10)
+    #     print(icp_angles)
+
     distances: List[float] = []
     for lmk1, lmk2 in zip(lmks1, lmks2):
         if (
@@ -104,7 +90,7 @@ def compare_persons(
                 col_diff = colors_diff(np.array([dom_color_1]), np.array([dom_color_2]))
 
         assert col_diff >= 0 and lmk1.visibility >= 0 and lmk2.visibility >= 0
-        factored_dist = (col_diff ** 2) * (1 - lmk1.visibility) * (1 - lmk2.visibility)
+        factored_dist = (col_diff**2) * (1 - lmk1.visibility) * (1 - lmk2.visibility)
         assert (
             factored_dist is not None
             and factored_dist >= 0
@@ -115,42 +101,43 @@ def compare_persons(
     distances_np *= rmse**2
     distances_np = distances_np / np.max(distances_np)
     assert len(distances_np) == len(lmks1) == len(lmks2)
-
-    points1_img = points1[:, :2]
-    points2_img = points2[:, :2]
-    extr = estimate_extrinsic(
-        points1_img,
-        points2_img,
-        K1=cam_data1.intrinsic_matrix,
-        K2=cam_data2.intrinsic_matrix,
-    )
-    if estimated_extr is not None:
-        # Slerp rotation, linear translation
-        R1, t1 = extr[:3, :3], extr[:3, 3]
-        R2, t2 = estimated_extr[:3, :3], estimated_extr[:3, 3]
-        rotations = [Rotation.from_matrix(R1), Rotation.from_matrix(R2)]
-        rotations_quat = Rotation.from_quat([r.as_quat() for r in rotations])
-        slerp = Slerp([0, 1], rotations_quat)
-
-        if estimation_confidence is None:
-            estimation_confidence = 0.5
-        R = slerp([estimation_confidence]).as_matrix()[0]
-        t = (t1 + t2) / 2
-        extr = np.eye(4)
-        extr[:3, :3] = R
-        extr[:3, 3] = t
-
-    K1 = cam_data1.intrinsic_matrix
-    K2 = cam_data2.intrinsic_matrix
-    R1, t1 = np.eye(3), np.zeros((3, 1))
-    R2, t2 = extr[:3, :3], extr[:3, 3]
-    est_cam_data1 = CameraData.from_matrices(K1, R1, t1)
-    est_cam_data2 = CameraData.from_matrices(K2, R2, t2)
-    err1, err2 = calc_reprojection_errors(
-        points1_img, points2_img, est_cam_data1, est_cam_data2
-    )
-    mean_err = (err1 + err2) / 2
     mean_dist = float(np.mean(distances_np))
+    assert mean_dist >= 0 and not np.isnan(mean_dist)
+
+    # points1_img = points1[:, :2]
+    # points2_img = points2[:, :2]
+    #
+    # extr = estimate_extrinsic(
+    #     points1_img,
+    #     points2_img,
+    #     K1=cam_data1.intrinsic_matrix,
+    #     K2=cam_data2.intrinsic_matrix,
+    # )
+    # if estimated_extr is not None:
+    #     R1, t1 = extr[:3, :3], extr[:3, 3]
+    #     R2, t2 = estimated_extr[:3, :3], estimated_extr[:3, 3]
+    #     rotations = [Rotation.from_matrix(R1), Rotation.from_matrix(R2)]
+    #     rotations_quat = Rotation.from_quat([r.as_quat() for r in rotations])
+    #     slerp = Slerp([0, 1], rotations_quat)
+    #
+    #     if estimation_confidence is None:
+    #         estimation_confidence = 0.5
+    #     R = slerp([estimation_confidence]).as_matrix()[0]
+    #     t = (t1 + t2) / 2
+    #     extr = np.eye(4)
+    #     extr[:3, :3] = R
+    #     extr[:3, 3] = t
+    #
+    # K1 = cam_data1.intrinsic_matrix
+    # K2 = cam_data2.intrinsic_matrix
+    # R1, t1 = np.eye(3), np.zeros((3, 1))
+    # R2, t2 = extr[:3, :3], extr[:3, 3]
+    # est_cam_data1 = CameraData.from_matrices(K1, R1, t1)
+    # est_cam_data2 = CameraData.from_matrices(K2, R2, t2)
+    # err1, err2 = calc_reprojection_errors(
+    #     points1_img, points2_img, est_cam_data1, est_cam_data2
+    # )
+    # mean_err = (err1 + err2) / 2
     return mean_dist
 
 

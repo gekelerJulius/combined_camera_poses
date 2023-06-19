@@ -1,4 +1,3 @@
-import random
 from typing import Dict, List, Tuple, Optional
 
 import cv2
@@ -8,6 +7,8 @@ import seaborn as sns
 from mediapipe.tasks.python.components.containers import Landmark
 from numpy import ndarray
 from scipy.optimize import linear_sum_assignment
+from seaborn.palettes import _ColorPalette
+
 from classes.person import Person
 
 
@@ -18,6 +19,8 @@ class PersonRecorder:
     kalman_prediction_dict: Dict[str, ndarray]
     id: str
     look_back: int
+    color_palette: _ColorPalette
+    palette_index: int
 
     def __init__(self, recorder_id: str, look_back: int = 12):
         self.id = recorder_id
@@ -26,6 +29,8 @@ class PersonRecorder:
         self.kalman_dict = {}
         self.kalman_prediction_dict = {}
         self.look_back = look_back
+        self.color_palette = sns.color_palette("dark", 6)
+        self.palette_index = 0
 
     def add(self, persons: List[Person], frame_num: int, img=None):
         for person in persons:
@@ -76,7 +81,8 @@ class PersonRecorder:
             while self.name_dict.get(name) is not None:
                 name = randomname.get_name(adj="character")
             person.name = name
-            color = sns.color_palette("bright", 10)[random.randint(0, 9)]
+            color = self.color_palette[self.palette_index]
+            self.palette_index = (self.palette_index + 1) % len(self.color_palette)
             color = tuple([int(c * 255) for c in color])
             color = (int(color[0]), int(color[1]), int(color[2]), 0.5)
             person.color = color
