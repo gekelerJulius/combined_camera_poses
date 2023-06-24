@@ -4,19 +4,16 @@ import numpy as np
 import cv2 as cv
 from mediapipe.tasks.python.components.containers.landmark import Landmark
 from numpy import ndarray
-from scipy.spatial.transform import Rotation
 
 from classes.camera_data import CameraData
-from classes.logger import Logger, Divider
+from classes.logger import Logger
 from classes.person import Person
 from classes.person_recorder import PersonRecorder
 from enums.logging_levels import LoggingLevel
 from functions.funcs import (
-    normalize_points,
-    get_dominant_color_patch,
+    get_dominant_colors_patch,
     colors_diff,
 )
-from functions.icp import do_icp_correl
 
 
 def compare_persons(
@@ -38,7 +35,7 @@ def compare_persons(
         recorder1,
         recorder2,
         (frame_count - 6, frame_count),
-        visibility_threshold=0.6,
+        visibility_threshold=0.5,
     )
     lmks1: List[Landmark] = crs[0]
     lmks2: List[Landmark] = crs[1]
@@ -47,17 +44,31 @@ def compare_persons(
 
     points1 = np.array([[lmk.x, lmk.y, lmk.z] for lmk in lmks1], dtype=np.float32)
     points2 = np.array([[lmk.x, lmk.y, lmk.z] for lmk in lmks2], dtype=np.float32)
-    pts1_normalized, T1 = normalize_points(points1)
-    pts2_normalized, T2 = normalize_points(points2)
+    # pts1_normalized, T1 = normalize_points(points1)
+    # pts2_normalized, T2 = normalize_points(points2)
 
-    # a, b, c = cv.estimateAffine3D(pts1_normalized, pts2_normalized)
-    # inliers: ndarray = c
-    # affine_transformation: ndarray = b
+    a, b, c = cv.estimateAffine3D(
+        points1, points2, ransacThreshold=2.0, confidence=0.99
+    )
+    inliers: ndarray = c
+    affine_transformation: ndarray = b
+
+    points1_inliers: ndarray = points1[inliers]
+    points2_inliers: ndarray = points2[inliers]
+
+    # Apply estimated affine transformation to points1
+    points1_affine: ndarray = np.hstack((points1, np.ones((len(points1), 1))))
+    points1_affine = points1_affine @ affine_transformation.T
+    points1_affine = points1_affine[:, :3]
+
+    # Calculate RMSE
+    rmse: float = np.sqrt(np.mean(np.square(points1_affine - points2_inliers)))
+
     # aff_angles = Rotation.from_matrix(affine_transformation[:3, :3]).as_euler(
     #     "xyz", degrees=True
     # )
 
-    icp_translation, rmse = do_icp_correl(pts1_normalized, pts2_normalized)
+    # icp_transformation, rmse = do_icp_correl(pts1_normalized, pts2_normalized)
     # icp_angles = Rotation.from_matrix(icp_translation[:3, :3]).as_euler(
     #     "xyz", degrees=True
     # )
@@ -73,21 +84,18 @@ def compare_persons(
             or lmk1.y is None
             or lmk2.x is None
             or lmk2.y is None
+            or img1 is None
+            or img2 is None
             or lmk1.x < 0
             or lmk1.y < 0
             or lmk2.x < 0
             or lmk2.y < 0
-            or img1 is None
-            or img2 is None
         ):
-            col_diff = 1
+            continue
         else:
-            dom_color_1: ndarray = get_dominant_color_patch(img1, lmk1.x, lmk1.y, 2)
-            dom_color_2: ndarray = get_dominant_color_patch(img2, lmk2.x, lmk2.y, 2)
-            if np.isnan(dom_color_1).any() or np.isnan(dom_color_2).any():
-                col_diff = 1
-            else:
-                col_diff = colors_diff(np.array([dom_color_1]), np.array([dom_color_2]))
+            dom_colors_1: ndarray = get_dominant_colors_patch(img1, lmk1.x, lmk1.y, patch_size=2, color_count=2)
+            dom_colors_2: ndarray = get_dominant_colors_patch(img2, lmk2.x, lmk2.y, patch_size=2, color_count=2)
+            col_diff = colors_diff(dom_colors_1, dom_colors_2)
 
         assert col_diff >= 0 and lmk1.visibility >= 0 and lmk2.visibility >= 0
         factored_dist = (col_diff**2) * (1 - lmk1.visibility) * (1 - lmk2.visibility)
@@ -100,7 +108,6 @@ def compare_persons(
     distances_np = np.array(distances)
     distances_np *= rmse**2
     distances_np = distances_np / np.max(distances_np)
-    assert len(distances_np) == len(lmks1) == len(lmks2)
     mean_dist = float(np.mean(distances_np))
     assert mean_dist >= 0 and not np.isnan(mean_dist)
 

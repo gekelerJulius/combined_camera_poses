@@ -1,1 +1,20 @@
-{"intrinsic" : {"fx" : 623.54, "fy" : 350.74, "cx" : 640.00, "cy" : 360.00, "width" : 1280, "height" : 720}, "eulerAngles" : {"rx" : 0.00, "ry" : 0.00, "rz" : 0.00}, "position" : {"tx" : 0.00, "ty" : 0.00, "tz" : 0.00}}
+{
+  "intrinsic": {
+    "fx": 623.54,
+    "fy": 350.74,
+    "cx": 640.00,
+    "cy": 360.00,
+    "width": 1280,
+    "height": 720
+  },
+  "eulerAngles": {
+    "rx": 0.00,
+    "ry": 0.00,
+    "rz": 0.00
+  },
+  "position": {
+    "tx": 0.00,
+    "ty": 0.00,
+    "tz": 0.00
+  }
+}

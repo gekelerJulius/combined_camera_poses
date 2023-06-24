@@ -1,4 +1,3 @@
-import time
 from typing import List
 
 from ultralytics import YOLO
@@ -8,7 +7,9 @@ from classes.bounding_box import BoundingBox
 
 
 def get_yolo_bounding_boxes(image, model: YOLO):
-    results: Results = model.predict(image, stream=False, conf=0.5, device="cpu", show=False, classes=0)[0]
+    results: Results = model.predict(
+        image, stream=False, conf=0.4, device="cpu", show=False, classes=0
+    )[0]
     person_indexes = []
     boxes: Boxes = results.boxes
     for i, cls in enumerate(boxes.cls):

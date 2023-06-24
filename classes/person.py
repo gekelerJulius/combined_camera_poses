@@ -1,4 +1,4 @@
-from typing import NamedTuple, List, Union, Tuple
+from typing import NamedTuple, List, Tuple
 
 import mediapipe as mp
 import numpy as np
@@ -7,15 +7,13 @@ from numpy import ndarray
 
 from classes.bounding_box import BoundingBox
 from classes.camera_data import CameraData
-from classes.colored_landmark import ColoredLandmark
 from classes.logger import Logger
 from consts.consts import LANDMARK_INDICES_PER_NAME
 from enums.logging_levels import LoggingLevel
 from functions.funcs import (
-    compare_landmarks,
     draw_landmarks_list,
-    get_avg_color,
-    plot_pose_2d, calc_cos_sim, get_dominant_color_patch,
+    plot_pose_2d,
+    calc_cos_sim,
 )
 
 mp_drawing = mp.solutions.drawing_utils
@@ -52,11 +50,11 @@ class Person:
     results: NamedTuple
 
     def __init__(
-            self,
-            person_id: str,
-            frame_count: int,
-            bounding_box: BoundingBox,
-            results: NamedTuple,
+        self,
+        person_id: str,
+        frame_count: int,
+        bounding_box: BoundingBox,
+        results: NamedTuple,
     ):
         self.id = person_id
         self.frame_count = frame_count
@@ -75,7 +73,9 @@ class Person:
     def get_pose_landmarks_numpy(self) -> np.ndarray:
         if self.results is None or self.results.pose_landmarks is None:
             return np.array([])
-        return np.array([[lmk.x, lmk.y, lmk.z] for lmk in self.results.pose_landmarks.landmark])
+        return np.array(
+            [[lmk.x, lmk.y, lmk.z] for lmk in self.results.pose_landmarks.landmark]
+        )
 
     def get_pose_landmarks_numpy_2d(self) -> np.ndarray:
         pts_3d = self.get_pose_landmarks_numpy()
@@ -89,26 +89,12 @@ class Person:
     def get_world_landmarks_numpy(self) -> np.ndarray:
         if self.results is None or self.results.pose_world_landmarks is None:
             return np.array([])
-        return np.array([np.array([lmk.x, lmk.y, lmk.z]) for lmk in self.results.pose_world_landmarks.landmark])
-
-    def get_pose_landmarks_with_color(self, image) -> List[ColoredLandmark]:
-        if self.results is None or self.results.pose_landmarks is None:
-            Logger.log("No results found", LoggingLevel.WARNING)
-            return []
-        if image is None:
-            Logger.log("No image found", LoggingLevel.WARNING)
-            return []
-
-        lmks = [
-            ColoredLandmark(
-                lmk,
-                avg_color=get_avg_color(image, int(lmk.x), int(lmk.y), 3),
-                dom_color=get_dominant_color_patch(image, int(lmk.x), int(lmk.y), 3),
-            )
-            for lmk in self.results.pose_landmarks.landmark
-        ]
-
-        return lmks
+        return np.array(
+            [
+                np.array([lmk.x, lmk.y, lmk.z])
+                for lmk in self.results.pose_world_landmarks.landmark
+            ]
+        )
 
     def draw(self, image, color=(255, 255, 0), title=None):
         if title is None and self.name is not None:
@@ -122,25 +108,13 @@ class Person:
         )
 
     def __str__(self):
-        return f"Name: {self.name if self.name is not None else 'Unnamed'} " \
-               f"| Frame: {self.frame_count} "
+        return (
+            f"Name: {self.name if self.name is not None else 'Unnamed'} "
+            f"| Frame: {self.frame_count} "
+        )
 
     def __repr__(self):
         return self.__str__()
-
-    def get_landmark_sim(self, person2: "Person", img1, img2):
-        if person2 is None:
-            Logger.log("No person found", LoggingLevel.WARNING)
-            return 0
-
-        if img1 is None or img2 is None:
-            Logger.log("No image found", LoggingLevel.WARNING)
-            return 0
-
-        return compare_landmarks(
-            self.get_pose_landmarks_with_color(img1),
-            person2.get_pose_landmarks_with_color(img2),
-        )
 
     def plot_2d(self, plot_id: int = None, title: str = "") -> int:
         return plot_pose_2d(self.get_pose_landmarks_numpy(), title=title)
@@ -176,24 +150,38 @@ class Person:
         return avg_cos_sim
 
     def get_feet_points(self) -> ndarray:
-        feet_indices = [LANDMARK_INDICES_PER_NAME[name] for name in
-                        ["left_heel", "right_heel", "left_foot_index", "right_foot_index"]]
+        feet_indices = [
+            LANDMARK_INDICES_PER_NAME[name]
+            for name in [
+                "left_heel",
+                "right_heel",
+                "left_foot_index",
+                "right_foot_index",
+            ]
+        ]
         return self.get_pose_landmarks_numpy()[feet_indices]
 
     def get_feet_points_real(self, camera_data: CameraData) -> ndarray:
         feet_img = self.get_feet_points()
-        return np.array([get_real_coordinates(feet_img[i], camera_data) for i in range(4)])
+        return np.array(
+            [get_real_coordinates(feet_img[i], camera_data) for i in range(4)]
+        )
 
     @staticmethod
-    def get_common_visible_landmark_indexes(p1: "Person", p2: "Person", vis_tresh: float) -> List[int]:
+    def get_common_visible_landmark_indexes(
+        p1: "Person", p2: "Person", vis_tresh: float
+    ) -> List[int]:
         lmks1 = p1.get_pose_landmarks()
         lmks2 = p2.get_pose_landmarks()
 
-        return Person.get_common_visible_landmark_indexes_landmark_list(lmks1, lmks2, vis_tresh)
+        return Person.get_common_visible_landmark_indexes_landmark_list(
+            lmks1, lmks2, vis_tresh
+        )
 
     @staticmethod
-    def get_common_visible_landmark_indexes_landmark_list(lmks1: List[Landmark], lmks2: List[Landmark],
-                                                          vis_tresh: float) -> List[int]:
+    def get_common_visible_landmark_indexes_landmark_list(
+        lmks1: List[Landmark], lmks2: List[Landmark], vis_tresh: float
+    ) -> List[int]:
         common_lmks = []
         for i in range(len(lmks1)):
             if lmks1[i].visibility > vis_tresh and lmks2[i].visibility > vis_tresh:

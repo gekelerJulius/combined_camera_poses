@@ -59,15 +59,9 @@ def annotate_video_multi(
         (rotation_between_cameras, translation_between_cameras)
     )
 
-    model = YOLO()
+    # model = YOLO("yolov5nu.pt")
+    model = YOLO("yolov8n.pt")
     Logger.log("Starting analysis...", LoggingLevel.INFO)
-
-    # test_joint_names = ['l_wrist', 'l_elbow']
-    # Joint index pairs specifying which ones should be connected with a line (i.e., the bones of
-    # the body, e.g. wrist-elbow, elbow-shoulder)
-    # test_joint_edges = [[0, 1]]
-    # viz = poseviz.PoseViz(NAMES_LIST, CONNECTIONS_LIST)
-    # viz = poseviz.PoseViz(test_joint_names, test_joint_edges)
 
     fourcc = cv.VideoWriter_fourcc(*"mp4v")
     file1_pre, file1_ext = os.path.splitext(file1_name)
@@ -87,6 +81,7 @@ def annotate_video_multi(
     while cap1.isOpened() and cap2.isOpened():
         ret1, img1 = cap1.read()
         ret2, img2 = cap2.read()
+
         if not (ret1 and ret2):
             break
 
@@ -108,7 +103,8 @@ def annotate_video_multi(
             or img2.shape[1] == 0
         ):
             Logger.log(
-                f"Invalid frame size: {img1.shape}, {img2.shape}", LoggingLevel.ERROR
+                f"Invalid frame size: {img1.shape}, {img2.shape}",
+                LoggingLevel.ERROR,
             )
             break
 
@@ -174,21 +170,21 @@ def annotate_video_multi(
 
         pairs = sorted(pairs, key=lambda x: x[0].name)
         for i, (p1, p2) in enumerate(pairs):
-            color1 = p1.color
-            color2 = p2.color
-            blended1, blended2 = blend_colors(color1, color2, 0.5)
-            p1.color = blended1
-            p2.color = blended2
+            # color1 = p1.color
+            # color2 = p2.color
+            # blended1, blended2 = blend_colors(color1, color2, 0.5)
+            # p1.color = blended1
+            # p2.color = blended2
 
-            color = [0, 0, 0]
-            color[0] = 0 if i % 2 == 0 else 255
-            color[1] = 0 if i % 4 < 2 else 255
-            color[2] = 0 if i < 4 else 255
-            color = tuple(color)
+            # color = [0, 0, 0]
+            # color[0] = 0 if i % 2 == 0 else 255
+            # color[1] = 0 if i % 4 < 2 else 255
+            # color[2] = 0 if i < 4 else 255
+            # color = tuple(color)
 
+            p2.color = p1.color
             color = p1.color
             p1.draw(img1, color)
-            color = p2.color
             p2.draw(img2, color)
             confirmed = TruePersonLoader.confirm_pair(
                 (p1, p2), unity_persons, frame_count, img1, img2
@@ -200,8 +196,8 @@ def annotate_video_multi(
             cv.imshow("Frame 2", img2)
             cv.waitKey(1)
 
-        if frame_count == START_FRAME + 1:
-            plt.pause(10)
+        # if frame_count == START_FRAME + 1:
+        #     plt.pause(10)
 
         if out1 is None:
             out1 = cv.VideoWriter(
@@ -227,12 +223,8 @@ def annotate_video_multi(
     out1.release()
     out2.release()
 
-    # plotter: PlotService = PlotService.get_instance()
-    # repr_err_plot = plotter.get_plot("Reprojection Error")
-    # repr_err_plot.savefig("simulation_data/repr_err.png")
-
     score = score_manager.get_score()
-    records_matcher.report()
+    records_matcher.report(cam1_data, cam2_data)
     correct_percentage_str = f"Correct percentage: {score * 100:.2f}%"
     # Save correct percentage to file
     with open("simulation_data/correct_percentage.txt", "w") as f:
@@ -240,7 +232,7 @@ def annotate_video_multi(
 
     Logger.log(correct_percentage_str, LoggingLevel.INFO)
     Logger.log("Done!", LoggingLevel.INFO)
-    plt.pause(500000)
+    # plt.pause(500000)
     cv.waitKey(0)
     cv.destroyAllWindows()
 

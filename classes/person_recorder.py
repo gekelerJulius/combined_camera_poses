@@ -67,7 +67,7 @@ class PersonRecorder:
                 return person
         return None
 
-    def get_latest_frame_for_person(self, name: str) -> Optional[int]:
+    def get_latest_frame_num_for_person(self, name: str) -> Optional[int]:
         max_frame = 0
         for frame_num, persons in self.frame_dict.items():
             for person in persons:
@@ -114,7 +114,11 @@ class PersonRecorder:
             centroids = [person.centroid() for person in persons]
             cost_matrix = np.zeros((len(predictions), len(centroids)))
             for i, (name, prediction) in enumerate(predictions):
-                last_centroid = self.kalman_dict[name][1][-1].centroid()
+                person_past_centroids = [
+                    person_record.centroid()
+                    for person_record in self.kalman_dict[name][1]
+                ]
+                last_centroid = person_past_centroids[-1]
                 last_x, last_y = last_centroid[0], last_centroid[1]
                 x_pred, y_pred = prediction[0], prediction[1]
                 vel_x_pred, vel_y_pred = prediction[2], prediction[3]
@@ -128,12 +132,12 @@ class PersonRecorder:
                     dist1 = np.linalg.norm(np.array([x_pred, y_pred]) - centroid)
                     # dist2 is distance between last centroid and current centroid
                     dist2 = np.linalg.norm(np.array([last_x, last_y]) - centroid)
-                    # vel_dist is distance between predicted velocity and last velocity
+                    # vel_dist is distance between predicted velocity and actual velocity
                     vel_dist = np.linalg.norm(
                         np.array([vel_x_pred, vel_y_pred])
                         - np.array([last_vel_x, last_vel_y])
                     )
-                    dist = dist1 * (vel_dist**2)
+                    dist = dist1 * (vel_dist**8)
                     cost_matrix[i, j] = dist
 
             row_ind, col_ind = linear_sum_assignment(cost_matrix)
@@ -158,8 +162,8 @@ class PersonRecorder:
         # Get all unmatched predictions
         unmatched_predictions = list(filter(lambda x: x[0] not in matched, predictions))
         for name, prediction in unmatched_predictions:
-            last_frame = self.get_latest_frame_for_person(name)
-            if last_frame is None or frame_num - last_frame > self.look_back:
+            last_frame_num = self.get_latest_frame_num_for_person(name)
+            if last_frame_num is None or frame_num - last_frame_num > 6:
                 self.kalman_dict.pop(name)
                 self.kalman_prediction_dict.pop(name)
                 assert self.kalman_dict.get(name) is None
@@ -179,19 +183,36 @@ class PersonRecorder:
         self.kalman_prediction_dict[name] = kalman_prediction
 
         # Plot person trajectory on image
-        # for i in range(1, len(person_list)):
-        #     prev: Person = person_list[i - 1]
-        #     after: Person = person_list[i]
-        #     prev_np = prev.get_pose_landmarks_numpy()
-        #     after_np = after.get_pose_landmarks_numpy()
-        #     for j in range(1, 33):
-        #         cv2.line(
-        #             img,
-        #             (int(prev_np[j, 0]), int(prev_np[j, 1])),
-        #             (int(after_np[j, 0]), int(after_np[j, 1])),
-        #             prev.color,
-        #             2,
-        #         )
+        for i in range(1, len(person_list)):
+            prev: Person = person_list[i - 1]
+            after: Person = person_list[i]
+            prev_np = prev.get_pose_landmarks_numpy()
+            after_np = after.get_pose_landmarks_numpy()
+
+            assert prev_np is not None
+            assert after_np is not None
+            assert prev_np.shape == (33, 3)
+            assert after_np.shape == (33, 3)
+
+            # l_wrist1 = prev_np[LANDMARK_INDICES_PER_NAME["left_wrist"]]
+            # l_wrist2 = after_np[LANDMARK_INDICES_PER_NAME["left_wrist"]]
+            #
+            # cv2.line(
+            #     img,
+            #     (int(l_wrist1[0]), int(l_wrist1[1])),
+            #     (int(l_wrist2[0]), int(l_wrist2[1])),
+            #     prev.color,
+            #     2,
+            # )
+
+            for j in range(1, 33):
+                cv2.line(
+                    img,
+                    (int(prev_np[j, 0]), int(prev_np[j, 1])),
+                    (int(after_np[j, 0]), int(after_np[j, 1])),
+                    prev.color,
+                    1,
+                )
 
     def plot_trajectories(self, img) -> None:
         for name in self.kalman_dict:

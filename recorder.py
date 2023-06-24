@@ -2,7 +2,6 @@
 import os
 
 import cv2
-import numpy as np
 
 # Check if recordings folder exists
 if not os.path.exists("recordings"):

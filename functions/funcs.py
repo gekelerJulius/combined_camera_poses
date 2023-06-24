@@ -199,29 +199,16 @@ def compare_landmarks(
     return res
 
 
-def colors_diff(colors1: ndarray, colors2: ndarray) -> Union[float, None]:
-    """
-    Returns the average color difference between two arrays of colors
-    colors1 and colors2 should be of shape (n, 3)
-    """
-    assert (
-        colors1.shape == colors2.shape
-        and len(colors1.shape) == 2
-        and colors1.shape[1] == 3
-    )
-    if len(colors1) == 0:
-        return None
-
-    avg_color_diff = 0
-    for col1, col2 in zip(colors1, colors2):
-        assert col1.shape == (3,) and col2.shape == (3,)
-        avg_color_diff += np.linalg.norm(col1 - col2)
-    avg_color_diff /= len(colors1)
-
-    max_possible_color_diff = np.linalg.norm(
-        np.array([255, 255, 255]) - np.array([0, 0, 0])
-    )
-    return avg_color_diff / max_possible_color_diff
+def colors_diff(colors1: ndarray, colors2: ndarray) -> float:
+    assert colors1.shape[1] == 3 and colors2.shape[1] == 3
+    min_differences = []
+    for color1 in colors1:
+        diffs = []
+        for color2 in colors2:
+            assert color1.shape == (3,) and color2.shape == (3,)
+            diffs.append(np.linalg.norm(color1 - color2))
+        min_differences.append(min(diffs))
+    return float(np.mean(min_differences))
 
 
 def get_landmarks_as_pixel_coordinates(results, image):
@@ -469,7 +456,8 @@ def get_avg_color(image, x, y, patch_size):
     return avg_color[0], avg_color[1], avg_color[2]
 
 
-def get_dominant_color_patch(image, x: float, y: float, patch_size: int) -> ndarray:
+def get_dominant_colors_patch(image, x: float, y: float, patch_size: int, color_count: int) -> ndarray:
+    assert patch_size > 0
     x = int(x)
     y = int(y)
     patch_size = int(np.abs(patch_size))
@@ -477,26 +465,24 @@ def get_dominant_color_patch(image, x: float, y: float, patch_size: int) -> ndar
     max_x = x + patch_size
     min_y = y - patch_size
     max_y = y + patch_size
-    return get_dominant_color(image, min_x, min_y, max_x, max_y)
+    return get_dominant_colors(image, min_x, min_y, max_x, max_y, color_count)
 
 
-def get_dominant_color_bbox(image, bbox: BoundingBox) -> ndarray:
-    return get_dominant_color(image, bbox.min_x, bbox.min_y, bbox.max_x, bbox.max_y)
+def get_dominant_colors_bbox(image, bbox: BoundingBox, color_count: int) -> ndarray:
+    return get_dominant_colors(image, bbox.min_x, bbox.min_y, bbox.max_x, bbox.max_y, color_count)
 
 
-def get_dominant_color(img, x0: int, y0: int, x1: int, y1: int) -> ndarray:
+def get_dominant_colors(img, x0: int, y0: int, x1: int, y1: int, color_count: int) -> ndarray:
+    assert img is not None
     colors = []
-
     max_y = img.shape[0]
     max_x = img.shape[1]
 
-    x0 = int(max(0, x0))
-    y0 = int(max(0, y0))
-    x1 = int(min(max_x, x1))
-    y1 = int(min(max_y, y1))
-
-    if not (0 <= x0 <= x1 < max_x and 0 <= y0 <= y1 < max_y):
-        return np.array([np.nan, np.nan, np.nan])
+    x0 = limit_number(int(x0), 0, max_x - 1)
+    x1 = limit_number(int(x1), 0 + 1, max_x)
+    y0 = limit_number(int(y0), 0, max_y - 1)
+    y1 = limit_number(int(y1), 0 + 1, max_y)
+    assert 0 <= x0 < x1 <= max_x and 0 <= y0 < y1 <= max_y
 
     for i in range(y0, y1):
         for j in range(x0, x1):
@@ -505,14 +491,16 @@ def get_dominant_color(img, x0: int, y0: int, x1: int, y1: int) -> ndarray:
     assert len(colors) > 0
 
     # Use KMeans to find the dominant color
-    n_colors = 5
-    criteria = (cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, 200, 0.1)
+    n_colors = min(color_count, len(colors))
+    criteria = (cv2.TERM_CRITERIA_EPS or cv2.TERM_CRITERIA_MAX_ITER, 200, 0.1)
     flags = cv2.KMEANS_RANDOM_CENTERS
     pixels = np.float32(colors)
-    _, labels, palette = cv2.kmeans(pixels, n_colors, None, criteria, 10, flags)
-    _, counts = np.unique(labels, return_counts=True)
-    dominant = palette[np.argmax(counts)]
-    return np.array(dominant, dtype=np.uint8)
+    _, labels, palette = cv2.kmeans(pixels, n_colors, None, criteria, 8, flags)
+    return np.uint8(palette)
+
+
+def limit_number(number, min_value, max_value):
+    return max(min(number, max_value), min_value)
 
 
 def triangulate_points(points1, points2, P1, P2) -> ndarray:
