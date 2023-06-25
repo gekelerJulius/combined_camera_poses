@@ -13,14 +13,12 @@ from sksurgerycore.algorithms.averagequaternions import weighted_average_quatern
 
 from classes.PlotService import PlotService
 from classes.camera_data import CameraData
-from classes.logger import Divider
+from classes.logger import Divider, Logger
 from classes.person import Person
 from classes.person_recorder import PersonRecorder
-from functions.calc_repr_errors import calc_reprojection_errors, triangulate_3d_points
+from enums.logging_levels import LoggingLevel
+from functions.calc_repr_errors import calc_reprojection_errors
 from functions.estimate_extrinsic import estimate_extrinsic
-from functions.funcs import (
-    plot_pose_3d,
-)
 from functions.get_person_pairs import compare_persons
 
 
@@ -123,38 +121,39 @@ class RecordMatcher:
         repr_error = 1000
         pairs: List[Tuple[Person, Person]] = []
         limit: int = 10
-        while repr_error > limit and limit < 150:
+        while repr_error > limit:
             row_ind, col_ind = linear_sum_assignment(cost_matrix)
             for i, j in zip(row_ind, col_ind):
                 for pair in pairs:
-                    if pair[0].name == recent_persons1[i].name:
-                        # The person is already paired
-                        print("Duplicate found")
-                        exit(1)
-                    if pair[1].name == recent_persons2[j].name:
-                        # The person is already paired
-                        print("Duplicate found")
-                        exit(1)
+                    assert pair[0].name != recent_persons1[i].name, "Duplicate found"
+                    assert pair[1].name != recent_persons2[j].name, "Duplicate found"
                 pairs.append((recent_persons1[i], recent_persons2[j]))
+
             mat, repr_error = self.get_extrinsic_and_repr_error(
                 frame_num, cam_data1, cam_data2, pairs, False, False, False
             )
             if repr_error > limit:
+                limit *= 1.1
+                repr_error = 1000
+                if limit > 150:
+                    print("Limit exceeded")
+                    break
                 pairs = []
                 cost_matrix[row_ind, col_ind] *= 1.3
-                limit *= 1.1
 
-        print("Reprojection error:", repr_error)
         self.get_frame_record(frame_num).estimated_person_pairs = pairs
-
-        ext_and_err = self.get_extrinsic_and_repr_error(
-            frame_num, cam_data1, cam_data2, None, False, False, False
-        )
-        if ext_and_err is None:
-            return pairs
-        mat, error = ext_and_err
-        self.get_frame_record(frame_num).reprojection_error = error
-        self.get_frame_record(frame_num).estimated_extrinsic_matrix = mat
+        if len(pairs) > 0:
+            self.get_extrinsic_and_repr_error(
+                frame_num, cam_data1, cam_data2, pairs, True, True, True
+            )
+            ext_and_err = self.get_extrinsic_and_repr_error(
+                frame_num, cam_data1, cam_data2, None, False, False, False
+            )
+            if ext_and_err is None:
+                return pairs
+            mat, error = ext_and_err
+            self.get_frame_record(frame_num).estimated_extrinsic_matrix = mat
+            self.get_frame_record(frame_num).reprojection_error = error
         return pairs
 
     def eval_frame(
@@ -317,10 +316,8 @@ class RecordMatcher:
         )
         mean_err = float(np.mean(err1 + err2))
 
-        # true_R = cam_data1.rotation_between_cameras(cam_data2)
-        # true_t = cam_data1.translation_between_cameras(cam_data2)
-        # if print_stuff:
-        #     Logger.log(mean_err, LoggingLevel.DEBUG, "mean_err")
+        if print_stuff:
+            Logger.log(mean_err, LoggingLevel.DEBUG, "mean_err")
 
         if update_plots:
             plotter = PlotService.get_instance()
@@ -340,37 +337,37 @@ class RecordMatcher:
             axis.plot(errs, "b-")
             plotter.add_plot(err_plot, "reprojection_error")
 
-            points3d = triangulate_3d_points(
-                points1_img,
-                points2_img,
-                est_cam_data1.get_projection_matrix(),
-                est_cam_data2.get_projection_matrix(),
-            )
-            assert points3d.shape[0] == points1_img.shape[0]
-
-            points3d_persons = []
-            for i in range(0, points3d.shape[0]):
-                if i % 33 == 0:
-                    points3d_persons.append([])
-                points3d_persons[-1].append(points3d[i])
-
-            scene_plot: Figure = plotter.get_plot("scene")
-            if scene_plot is None:
-                scene_plot = plt.figure()
-                axis: Axes = scene_plot.add_subplot(111, projection="3d")
-                axis.yaxis.axis_name = "Y"
-                axis.xaxis.axis_name = "X"
-                axis.zaxis.axis_name = "Z"
-            else:
-                axis: Axes = scene_plot.axes[0]
-            axis.clear()
-            axis.set_ylim3d(-1, 1)
-            axis.set_xlim3d(-1, 1)
-            axis.set_zlim3d(-1, 1)
-            for points3d_person in points3d_persons:
-                points3d_person = np.array(points3d_person)
-                plot_pose_3d(points3d_person, axis)
-            plotter.add_plot(scene_plot, "scene")
+            # points3d = triangulate_3d_points(
+            #     points1_img,
+            #     points2_img,
+            #     est_cam_data1.get_projection_matrix(),
+            #     est_cam_data2.get_projection_matrix(),
+            # )
+            # assert points3d.shape[0] == points1_img.shape[0]
+            #
+            # points3d_persons = []
+            # for i in range(0, points3d.shape[0]):
+            #     if i % 33 == 0:
+            #         points3d_persons.append([])
+            #     points3d_persons[-1].append(points3d[i])
+            #
+            # scene_plot: Figure = plotter.get_plot("scene")
+            # if scene_plot is None:
+            #     scene_plot = plt.figure()
+            #     axis: Axes = scene_plot.add_subplot(111, projection="3d")
+            #     axis.yaxis.axis_name = "Y"
+            #     axis.xaxis.axis_name = "X"
+            #     axis.zaxis.axis_name = "Z"
+            # else:
+            #     axis: Axes = scene_plot.axes[0]
+            # axis.clear()
+            # axis.set_ylim3d(-1, 1)
+            # axis.set_xlim3d(-1, 1)
+            # axis.set_zlim3d(-1, 1)
+            # for points3d_person in points3d_persons:
+            #     points3d_person = np.array(points3d_person)
+            #     plot_pose_3d(points3d_person, axis)
+            # plotter.add_plot(scene_plot, "scene")
             plt.pause(0.01)
         return ext_frame, mean_err
 

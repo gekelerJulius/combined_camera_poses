@@ -198,8 +198,8 @@ def annotate_video_multi(
             cv.imshow("Frame 2", img2)
             cv.waitKey(1)
 
-        # if frame_count == START_FRAME + 1:
-        #     plt.pause(10)
+        if frame_count == START_FRAME + 1:
+            plt.pause(4)
 
         if out1 is None:
             out1 = cv.VideoWriter(
@@ -238,7 +238,7 @@ def annotate_video_multi(
 
     Logger.log(correct_percentage_str, LoggingLevel.INFO)
     Logger.log("Done!", LoggingLevel.INFO)
-    # plt.pause(500000)
+    plt.pause(500000)
     cv.waitKey(0)
     cv.destroyAllWindows()
 
