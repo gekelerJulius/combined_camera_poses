@@ -22,12 +22,12 @@ class BoundingBox:
     def __repr__(self):
         return self.__str__()
 
-    def draw(self, img) -> ndarray:
+    def draw(self, img, color=(0, 0, 0)) -> ndarray:
         start_x = int(self.min_x)
         start_y = int(self.min_y)
         end_x = int(self.max_x)
         end_y = int(self.max_y)
-        cv2.rectangle(img, (start_x, start_y), (end_x, end_y), (0, 255, 0), thickness=2)
+        cv2.rectangle(img, (start_x, start_y), (end_x, end_y), color, thickness=1)
         return img
 
     def get_center(self):
@@ -35,6 +35,9 @@ class BoundingBox:
 
     def to_numpy(self):
         return np.array([self.min_x, self.min_y, self.max_x, self.max_y])
+
+    def crop_image(self, img: ndarray) -> ndarray:
+        return img[self.min_y : self.max_y, self.min_x : self.max_x]
 
     def calculate_overlap_percentage(self, other: "BoundingBox") -> float:
         if self.min_x > other.max_x or self.max_x < other.min_x:

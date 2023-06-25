@@ -170,19 +170,22 @@ class RecordMatcher:
             self.get_all_previous_reprojection_errors(frame_num),
         )
 
+        # estimated_extr = self.get_median_extrinsic(frame_num)
+
         prev_errs = self.get_all_previous_reprojection_errors(frame_num)
         prev_errs = [x for x in prev_errs if x is not None]
         if len(prev_errs) > 0:
             min_err = np.min(prev_errs)
         else:
             min_err = 1000
-        # Max confidence is <= 1 and min confidence is >=30
-        confidence = 1 - (min_err / 30)
+        # Max confidence is <= 1 and min confidence is >= 15
+        confidence = 1 - (min_err / 15)
         if confidence < 0:
             confidence = 0
         if confidence > 1:
             confidence = 1
-        estimation_confidence = confidence * 0.5
+        estimation_confidence = confidence * 0.8
+
         # if len(self.frame_records) > 6:
         #     estimated_extr = calculate_weighted_extrinsic(
         #         self.get_all_previous_extrinsics(frame_num),
@@ -390,17 +393,17 @@ class RecordMatcher:
         # return min_record.estimated_extrinsic_matrix
 
     def report(self, cam_data1: CameraData, cam_data2: CameraData) -> None:
-        true_R = cam_data1.rotation_between_cameras(cam_data2)
-        true_t = cam_data1.translation_between_cameras(cam_data2)
+        true_R = cam_data2.R
+        true_t = cam_data2.t
         est = self.get_extrinsic_estimation(self.frame_records[-1].frame_num)
         est_R = est[:, :3]
         est_t = est[:, 3]
         with Divider("Extrinsic estimation"):
-            print(Rotation.from_matrix(est_R).as_euler("xyz", degrees=True))
+            print(est_R)
             print(est_t)
 
         with Divider("True extrinsic"):
-            print(Rotation.from_matrix(true_R).as_euler("xyz", degrees=True))
+            print(true_R)
             print(true_t)
 
 

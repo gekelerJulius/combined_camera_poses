@@ -205,14 +205,14 @@ class PersonRecorder:
             #     2,
             # )
 
-            for j in range(1, 33):
-                cv2.line(
-                    img,
-                    (int(prev_np[j, 0]), int(prev_np[j, 1])),
-                    (int(after_np[j, 0]), int(after_np[j, 1])),
-                    prev.color,
-                    1,
-                )
+            # for j in range(1, 33):
+            #     cv2.line(
+            #         img,
+            #         (int(prev_np[j, 0]), int(prev_np[j, 1])),
+            #         (int(after_np[j, 0]), int(after_np[j, 1])),
+            #         prev.color,
+            #         1,
+            #     )
 
     def plot_trajectories(self, img) -> None:
         for name in self.kalman_dict:

@@ -4,12 +4,15 @@ import numpy as np
 import cv2 as cv
 from mediapipe.tasks.python.components.containers.landmark import Landmark
 from numpy import ndarray
+from scipy.spatial.transform import Rotation, Slerp
 
 from classes.camera_data import CameraData
 from classes.logger import Logger
 from classes.person import Person
 from classes.person_recorder import PersonRecorder
 from enums.logging_levels import LoggingLevel
+from functions.calc_repr_errors import calc_reprojection_errors
+from functions.estimate_extrinsic import estimate_extrinsic
 from functions.funcs import (
     get_dominant_colors_patch,
     colors_diff,
@@ -93,8 +96,12 @@ def compare_persons(
         ):
             continue
         else:
-            dom_colors_1: ndarray = get_dominant_colors_patch(img1, lmk1.x, lmk1.y, patch_size=2, color_count=2)
-            dom_colors_2: ndarray = get_dominant_colors_patch(img2, lmk2.x, lmk2.y, patch_size=2, color_count=2)
+            dom_colors_1: ndarray = get_dominant_colors_patch(
+                img1, lmk1.x, lmk1.y, patch_size=2, color_count=2
+            )
+            dom_colors_2: ndarray = get_dominant_colors_patch(
+                img2, lmk2.x, lmk2.y, patch_size=2, color_count=2
+            )
             col_diff = colors_diff(dom_colors_1, dom_colors_2)
 
         assert col_diff >= 0 and lmk1.visibility >= 0 and lmk2.visibility >= 0
@@ -111,41 +118,41 @@ def compare_persons(
     mean_dist = float(np.mean(distances_np))
     assert mean_dist >= 0 and not np.isnan(mean_dist)
 
-    # points1_img = points1[:, :2]
-    # points2_img = points2[:, :2]
-    #
-    # extr = estimate_extrinsic(
-    #     points1_img,
-    #     points2_img,
-    #     K1=cam_data1.intrinsic_matrix,
-    #     K2=cam_data2.intrinsic_matrix,
-    # )
-    # if estimated_extr is not None:
-    #     R1, t1 = extr[:3, :3], extr[:3, 3]
-    #     R2, t2 = estimated_extr[:3, :3], estimated_extr[:3, 3]
-    #     rotations = [Rotation.from_matrix(R1), Rotation.from_matrix(R2)]
-    #     rotations_quat = Rotation.from_quat([r.as_quat() for r in rotations])
-    #     slerp = Slerp([0, 1], rotations_quat)
-    #
-    #     if estimation_confidence is None:
-    #         estimation_confidence = 0.5
-    #     R = slerp([estimation_confidence]).as_matrix()[0]
-    #     t = (t1 + t2) / 2
-    #     extr = np.eye(4)
-    #     extr[:3, :3] = R
-    #     extr[:3, 3] = t
-    #
-    # K1 = cam_data1.intrinsic_matrix
-    # K2 = cam_data2.intrinsic_matrix
-    # R1, t1 = np.eye(3), np.zeros((3, 1))
-    # R2, t2 = extr[:3, :3], extr[:3, 3]
-    # est_cam_data1 = CameraData.from_matrices(K1, R1, t1)
-    # est_cam_data2 = CameraData.from_matrices(K2, R2, t2)
-    # err1, err2 = calc_reprojection_errors(
-    #     points1_img, points2_img, est_cam_data1, est_cam_data2
-    # )
-    # mean_err = (err1 + err2) / 2
-    return mean_dist
+    points1_img = points1[:, :2]
+    points2_img = points2[:, :2]
+
+    extr = estimate_extrinsic(
+        points1_img,
+        points2_img,
+        K1=cam_data1.intrinsic_matrix,
+        K2=cam_data2.intrinsic_matrix,
+    )
+    if estimated_extr is not None:
+        R1, t1 = extr[:3, :3], extr[:3, 3]
+        R2, t2 = estimated_extr[:3, :3], estimated_extr[:3, 3]
+        rotations = [Rotation.from_matrix(R1), Rotation.from_matrix(R2)]
+        rotations_quat = Rotation.from_quat([r.as_quat() for r in rotations])
+        slerp = Slerp([0, 1], rotations_quat)
+
+        if estimation_confidence is None:
+            estimation_confidence = 0.5
+        R = slerp([estimation_confidence]).as_matrix()[0]
+        t = (t1 + t2) / 2
+        extr = np.eye(4)
+        extr[:3, :3] = R
+        extr[:3, 3] = t
+
+    K1 = cam_data1.intrinsic_matrix
+    K2 = cam_data2.intrinsic_matrix
+    R1, t1 = np.eye(3), np.zeros((3, 1))
+    R2, t2 = extr[:3, :3], extr[:3, 3]
+    est_cam_data1 = CameraData.from_matrices(K1, R1, t1)
+    est_cam_data2 = CameraData.from_matrices(K2, R2, t2)
+    err1, err2 = calc_reprojection_errors(
+        points1_img, points2_img, est_cam_data1, est_cam_data2
+    )
+    mean_err = (err1 + err2) / 2
+    return mean_dist * mean_err
 
 
 # def get_person_pairs(

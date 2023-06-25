@@ -1,5 +1,6 @@
 import math
 import os
+import time
 from typing import List, Tuple, Optional
 
 import cv2 as cv
@@ -78,6 +79,7 @@ def annotate_video_multi(
     img1 = None
     img2 = None
     pairs: List[Tuple[Person, Person]] = []
+    start_time = time.time()
     while cap1.isOpened() and cap2.isOpened():
         ret1, img1 = cap1.read()
         ret2, img2 = cap2.read()
@@ -218,6 +220,10 @@ def annotate_video_multi(
         score = score_manager.get_score()
         Logger.log(f"Correct percentage: {score * 100:.2f}%", LoggingLevel.INFO)
 
+    end_time = time.time()
+    time_taken = end_time - start_time
+    frames_per_second = frame_count / time_taken
+    Logger.log(f"Frames per second: {frames_per_second:.2f}", LoggingLevel.INFO)
     cap1.release()
     cap2.release()
     out1.release()
