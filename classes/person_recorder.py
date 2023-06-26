@@ -9,6 +9,7 @@ from numpy import ndarray
 from scipy.optimize import linear_sum_assignment
 from seaborn.palettes import _ColorPalette
 
+from classes.logger import Divider
 from classes.person import Person
 
 
@@ -91,16 +92,20 @@ class PersonRecorder:
 
     def init_kalman_filter(self, person: Person) -> None:
         centroid = person.centroid()
+        kalman = PersonRecorder.create_kalman_filter(centroid)
+        self.kalman_dict[person.name] = (kalman, [person])
+        prediction = kalman.predict()
+        self.kalman_prediction_dict[person.name] = prediction
+
+    @staticmethod
+    def create_kalman_filter(point: ndarray) -> cv2.KalmanFilter:
         kalman = cv2.KalmanFilter(4, 2)
         kalman.measurementMatrix = np.array([[1, 0, 0, 0], [0, 1, 0, 0]], np.float32)
         kalman.transitionMatrix = np.array(
             [[1, 0, 1, 0], [0, 1, 0, 1], [0, 0, 1, 0], [0, 0, 0, 1]], np.float32
         )
-
-        kalman.statePre = np.array([[centroid[0]], [centroid[1]], [0], [0]], np.float32)
-        self.kalman_dict[person.name] = (kalman, [person])
-        prediction = kalman.predict()
-        self.kalman_prediction_dict[person.name] = prediction
+        kalman.statePre = np.array([[point[0]], [point[1]], [0], [0]], np.float32)
+        return kalman
 
     def update_kalman_filter(
         self, persons: List[Person], frame_num: int, img=None
@@ -114,14 +119,10 @@ class PersonRecorder:
             centroids = [person.centroid() for person in persons]
             cost_matrix = np.zeros((len(predictions), len(centroids)))
             for i, (name, prediction) in enumerate(predictions):
-                person_past_centroids = [
-                    person_record.centroid()
-                    for person_record in self.kalman_dict[name][1]
-                ]
-                last_centroid = person_past_centroids[-1]
+                last_centroid = self.kalman_dict[name][1][-1].centroid()
                 last_x, last_y = last_centroid[0], last_centroid[1]
-                x_pred, y_pred = prediction[0], prediction[1]
-                vel_x_pred, vel_y_pred = prediction[2], prediction[3]
+                x_pred, y_pred = prediction[0][0], prediction[1][0]
+                vel_x_pred, vel_y_pred = prediction[2][0], prediction[3][0]
 
                 for j, centroid in enumerate(centroids):
                     centroid = np.array([centroid[0], centroid[1]])
@@ -137,23 +138,54 @@ class PersonRecorder:
                         np.array([vel_x_pred, vel_y_pred])
                         - np.array([last_vel_x, last_vel_y])
                     )
-                    dist = dist1 * (vel_dist**8)
+
+                    # print("dist1: ", dist1)
+                    # print("dist2: ", dist2)
+                    # print("vel_dist: ", vel_dist)
+
+                    dist = dist1 * (vel_dist ** 8)
                     cost_matrix[i, j] = dist
 
             row_ind, col_ind = linear_sum_assignment(cost_matrix)
             # Update kalman filters with best matches
             for i, j in zip(row_ind, col_ind):
                 name, prediction = predictions[i]
-                persons[j].name = name
-                persons[j].color = self.name_dict[name][0].color
-                matched.append(name)
-                self.update_kalman_filter_single(
-                    persons[j].name, persons[j].centroid(), img
-                )
-                kalman, person_list = self.kalman_dict[name]
-                person_list.append(persons[j])
+                assert prediction.shape == (4, 1)
+                pos_prediction = np.array([prediction[0][0], prediction[1][0]])
+                person = persons[j]
+                c = person.centroid()
+                pos_person = np.array([c[0], c[1]])
+                # dist2 = np.linalg.norm(pos_prediction - pos_person)
+                # if img is not None and dist2 > 20 and frame_num > 16:
+                #     with Divider("Actual, Prediction, Distance"):
+                #         print(pos_person)
+                #         print(pos_prediction)
+                #         print(dist2)
+                #     copy = img.copy()
+                #     cv2.circle(
+                #         copy,
+                #         (int(c[0]), int(c[1])),
+                #         2,
+                #         (0, 0, 255),
+                #         -1,
+                #     )
+                #     cv2.circle(
+                #         copy,
+                #         (int(prediction[0][0]), int(prediction[1][0])),
+                #         2,
+                #         (255, 0, 0),
+                #         -1,
+                #     )
+                #     cv2.imshow("Prediction", copy)
+                #     cv2.waitKey(0)
 
-            # Add new persons
+                person.name = name
+                person.color = self.name_dict[name][0].color
+                matched.append(name)
+                self.update_kalman_filter_single(person.name, person.centroid(), img)
+                kalman, person_list = self.kalman_dict[name]
+                person_list.append(person)
+
             self.first_record_persons(list(filter(lambda x: x.name is None, persons)))
 
         else:
@@ -169,7 +201,13 @@ class PersonRecorder:
                 assert self.kalman_dict.get(name) is None
                 assert self.kalman_prediction_dict.get(name) is None
             else:
-                self.update_kalman_filter_single(name, prediction, img, correct=False)
+                update_pos = np.array([prediction[0][0], prediction[1][0]])
+                self.update_kalman_filter_single(
+                    name,
+                    update_pos,
+                    img,
+                    correct=False,
+                )
 
     def update_kalman_filter_single(
         self, name: str, centroid: ndarray, img, correct=True
@@ -182,51 +220,37 @@ class PersonRecorder:
         kalman_prediction = kalman.predict()
         self.kalman_prediction_dict[name] = kalman_prediction
 
-        # Plot person trajectory on image
-        for i in range(1, len(person_list)):
-            prev: Person = person_list[i - 1]
-            after: Person = person_list[i]
-            prev_np = prev.get_pose_landmarks_numpy()
-            after_np = after.get_pose_landmarks_numpy()
-
-            assert prev_np is not None
-            assert after_np is not None
-            assert prev_np.shape == (33, 3)
-            assert after_np.shape == (33, 3)
-
-            # l_wrist1 = prev_np[LANDMARK_INDICES_PER_NAME["left_wrist"]]
-            # l_wrist2 = after_np[LANDMARK_INDICES_PER_NAME["left_wrist"]]
-            #
-            # cv2.line(
-            #     img,
-            #     (int(l_wrist1[0]), int(l_wrist1[1])),
-            #     (int(l_wrist2[0]), int(l_wrist2[1])),
-            #     prev.color,
-            #     2,
-            # )
-
-            # for j in range(1, 33):
-            #     cv2.line(
-            #         img,
-            #         (int(prev_np[j, 0]), int(prev_np[j, 1])),
-            #         (int(after_np[j, 0]), int(after_np[j, 1])),
-            #         prev.color,
-            #         1,
-            #     )
-
     def plot_trajectories(self, img) -> None:
         for name in self.kalman_dict:
-            kalman, centroid_list = self.kalman_dict[name]
-            centroid_list = np.array(centroid_list)
+            kalman, person_list = self.kalman_dict[name]
 
-            # Plot centroid trajectory on image
-            for i in range(1, len(centroid_list)):
-                a = centroid_list[i - 1]
-                b = centroid_list[i]
+            for i in range(1, len(person_list)):
+                prev: Person = person_list[i - 1]
+                after: Person = person_list[i]
+                prev_np = prev.get_pose_landmarks_numpy()
+                after_np = after.get_pose_landmarks_numpy()
+
+                assert prev_np is not None
+                assert after_np is not None
+                assert prev_np.shape == (33, 3)
+                assert after_np.shape == (33, 3)
+
                 cv2.line(
-                    img, (int(a[0]), int(a[1])), (int(b[0]), int(b[1])), (0, 255, 0), 2
+                    img,
+                    (int(prev.centroid()[0]), int(prev.centroid()[1])),
+                    (int(after.centroid()[0]), int(after.centroid()[1])),
+                    prev.color,
+                    1,
                 )
-        cv2.imshow(self.id, img)
+
+                # for j in range(1, 33):
+                #     cv2.line(
+                #         img,
+                #         (int(prev_np[j, 0]), int(prev_np[j, 1])),
+                #         (int(after_np[j, 0]), int(after_np[j, 1])),
+                #         prev.color,
+                #         1,
+                #     )
 
     def get_frame_history(
         self, p: Person, frame_range: Tuple[int, int] = (0, np.inf)

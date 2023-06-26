@@ -392,6 +392,8 @@ class RecordMatcher:
     def report(self, cam_data1: CameraData, cam_data2: CameraData) -> None:
         true_R = cam_data2.R
         true_t = cam_data2.t
+        if len(self.frame_records) == 0:
+            return
         est = self.get_extrinsic_estimation(self.frame_records[-1].frame_num)
         est_R = est[:, :3]
         est_t = est[:, 3]
