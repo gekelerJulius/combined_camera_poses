@@ -42,7 +42,6 @@ def get_real_coordinates(pt: ndarray, camera_data: CameraData) -> ndarray:
 
 
 class Person:
-    id: str
     frame_count: int
     name: str = None
     color: Tuple[int] = None
@@ -51,12 +50,10 @@ class Person:
 
     def __init__(
         self,
-        person_id: str,
         frame_count: int,
         bounding_box: BoundingBox,
         results: NamedTuple,
     ):
-        self.id = person_id
         self.frame_count = frame_count
         self.bounding_box = bounding_box
         self.results = results

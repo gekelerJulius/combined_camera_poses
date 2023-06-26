@@ -20,7 +20,7 @@ from classes.score_manager import ScoreManager
 from classes.true_person_loader import TruePersonLoader
 from classes.unity_person import UnityPerson
 from enums.logging_levels import LoggingLevel
-from functions.funcs import blend_colors, normalize_image, is_in_image
+from functions.funcs import normalize_image, is_in_image
 from functions.get_pose import get_pose
 from functions.get_yolo_boxes import get_yolo_bounding_boxes
 
@@ -56,9 +56,6 @@ def annotate_video_multi(
     translation_between_cameras: ndarray = cam1_data.translation_between_cameras(
         cam2_data
     )
-    extrinsic_truth: ndarray = np.hstack(
-        (rotation_between_cameras, translation_between_cameras)
-    )
 
     # model = YOLO("yolov5nu.pt")
     model = YOLO("yolov8n.pt")
@@ -76,9 +73,6 @@ def annotate_video_multi(
     person_recorder2: PersonRecorder = PersonRecorder("2", 1)
     records_matcher: RecordMatcher = RecordMatcher(person_recorder1, person_recorder2)
     score_manager = ScoreManager()
-    img1 = None
-    img2 = None
-    pairs: List[Tuple[Person, Person]] = []
     start_time = time.time()
     while cap1.isOpened() and cap2.isOpened():
         ret1, img1 = cap1.read()
@@ -88,7 +82,7 @@ def annotate_video_multi(
             break
 
         frame_count += 1
-        START_FRAME = 0
+        START_FRAME = 55
         END_FRAME = math.inf
 
         if frame_count < START_FRAME:
@@ -125,6 +119,7 @@ def annotate_video_multi(
         bounding_boxes2: List[BoundingBox] = get_yolo_bounding_boxes(orig_img2, model)
 
         for box in bounding_boxes1:
+            box.draw(img1)
             img1, results1 = get_pose(orig_img1, box)
             if (
                 results1 is None
@@ -139,6 +134,7 @@ def annotate_video_multi(
                 )
 
         for box in bounding_boxes2:
+            box.draw(img2)
             img2, results2 = get_pose(orig_img2, box)
             if (
                 results2 is None
@@ -153,8 +149,8 @@ def annotate_video_multi(
                 )
 
         person_recorder1.add(persons1, frame_count, img1)
-        person_recorder1.plot_trajectories(img1)
         person_recorder2.add(persons2, frame_count, img2)
+        person_recorder1.plot_trajectories(img1)
         person_recorder2.plot_trajectories(img2)
 
         # Get some records before starting to match
@@ -162,8 +158,10 @@ def annotate_video_multi(
         #     continue
 
         # records_matcher.eval_frame(frame_count, img1, img2, cam1_data, cam2_data)
-        # pairs = records_matcher.get_alignment(frame_count, cam1_data, cam2_data)
-        pairs = []
+        pairs: List[Tuple[Person, Person]] = []
+        # pairs: List[Tuple[Person, Person]] = records_matcher.get_alignment(
+        #     frame_count, cam1_data, cam2_data
+        # )
 
         unity_persons: List[UnityPerson] = TruePersonLoader.load(
             "simulation_data/persons"
@@ -206,7 +204,7 @@ def annotate_video_multi(
         if frame_count > START_FRAME:
             cv.imshow("Frame 1", img1)
             cv.imshow("Frame 2", img2)
-            cv.waitKey(1)
+            cv.waitKey(100)
 
         if frame_count == START_FRAME + 1:
             plt.pause(4)

@@ -456,7 +456,9 @@ def get_avg_color(image, x, y, patch_size):
     return avg_color[0], avg_color[1], avg_color[2]
 
 
-def get_dominant_colors_patch(image, x: float, y: float, patch_size: int, color_count: int) -> ndarray:
+def get_dominant_colors_patch(
+    image, x: float, y: float, patch_size: int, color_count: int
+) -> ndarray:
     assert patch_size > 0
     x = int(x)
     y = int(y)
@@ -469,10 +471,14 @@ def get_dominant_colors_patch(image, x: float, y: float, patch_size: int, color_
 
 
 def get_dominant_colors_bbox(image, bbox: BoundingBox, color_count: int) -> ndarray:
-    return get_dominant_colors(image, bbox.min_x, bbox.min_y, bbox.max_x, bbox.max_y, color_count)
+    return get_dominant_colors(
+        image, bbox.min_x, bbox.min_y, bbox.max_x, bbox.max_y, color_count
+    )
 
 
-def get_dominant_colors(img, x0: int, y0: int, x1: int, y1: int, color_count: int) -> ndarray:
+def get_dominant_colors(
+    img, x0: int, y0: int, x1: int, y1: int, color_count: int
+) -> ndarray:
     assert img is not None
     colors = []
     max_y = img.shape[0]
@@ -507,6 +513,10 @@ def triangulate_points(points1, points2, P1, P2) -> ndarray:
     points_3d_homogeneous = cv2.triangulatePoints(P1, P2, points1.T, points2.T)
     points_3d = cv2.convertPointsFromHomogeneous(points_3d_homogeneous.T)
     return points_3d.reshape(-1, 3)
+
+
+def is_in_image(image: ndarray, x: float, y: float) -> bool:
+    return 0 <= x < image.shape[1] and 0 <= y < image.shape[0]
 
 
 def project_points(points_3d, intrinsic_matrix, extrinsic_matrix):
@@ -813,9 +823,8 @@ def validate_essential_matrix(
         # Check that pt2^T * E * pt1 = 0
         if np.abs(pt2.T @ E @ pt1) > tolerance:
             print(
-                "The epipolar constraint is not satisfied for point pair {} and {}".format(
-                    pt1, pt2
-                )
+                "The epipolar constraint is not satisfied for point pair {} and {}"
+                .format(pt1, pt2)
             )
             return False
     return True
