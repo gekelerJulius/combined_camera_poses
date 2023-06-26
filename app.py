@@ -20,7 +20,7 @@ from classes.score_manager import ScoreManager
 from classes.true_person_loader import TruePersonLoader
 from classes.unity_person import UnityPerson
 from enums.logging_levels import LoggingLevel
-from functions.funcs import blend_colors, normalize_image
+from functions.funcs import blend_colors, normalize_image, is_in_image
 from functions.get_pose import get_pose
 from functions.get_yolo_boxes import get_yolo_bounding_boxes
 
@@ -135,7 +135,7 @@ def annotate_video_multi(
             length = len([x for x in results1.pose_landmarks.landmark])
             if length > 0:
                 persons1.append(
-                    Person(f"Person1 {len(persons1)}", frame_count, box, results1)
+                    Person(frame_count=frame_count, bounding_box=box, results=results1)
                 )
 
         for box in bounding_boxes2:
@@ -149,18 +149,21 @@ def annotate_video_multi(
             length = len([x for x in results2.pose_landmarks.landmark])
             if length > 0:
                 persons2.append(
-                    Person(f"Person2 {len(persons2)}", frame_count, box, results2)
+                    Person(frame_count=frame_count, bounding_box=box, results=results2)
                 )
 
         person_recorder1.add(persons1, frame_count, img1)
+        person_recorder1.plot_trajectories(img1)
         person_recorder2.add(persons2, frame_count, img2)
+        person_recorder2.plot_trajectories(img2)
 
         # Get some records before starting to match
         # if frame_count < START_FRAME + 6:
         #     continue
 
-        records_matcher.eval_frame(frame_count, img1, img2, cam1_data, cam2_data)
-        pairs = records_matcher.get_alignment(frame_count, cam1_data, cam2_data)
+        # records_matcher.eval_frame(frame_count, img1, img2, cam1_data, cam2_data)
+        # pairs = records_matcher.get_alignment(frame_count, cam1_data, cam2_data)
+        pairs = []
 
         unity_persons: List[UnityPerson] = TruePersonLoader.load(
             "simulation_data/persons"
@@ -188,9 +191,16 @@ def annotate_video_multi(
             color = p1.color
             p1.draw(img1, color)
             p2.draw(img2, color)
-            confirmed = TruePersonLoader.confirm_pair(
-                (p1, p2), unity_persons, frame_count, img1, img2
+            centroid1 = p1.centroid()
+            centroid2 = p2.centroid()
+            confirmed = (
+                not is_in_image(img1, centroid1[0], centroid1[1])
+                or not is_in_image(img2, centroid2[0], centroid2[1])
+                or TruePersonLoader.confirm_pair(
+                    (p1, p2), unity_persons, frame_count, img1, img2
+                )
             )
+
             score_manager.add_score(1 if confirmed else 0)
 
         if frame_count > START_FRAME:
