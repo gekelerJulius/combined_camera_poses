@@ -523,6 +523,10 @@ def triangulate_points(points1, points2, P1, P2) -> ndarray:
     return points_3d.reshape(-1, 3)
 
 
+def is_in_image(image: ndarray, x: float, y: float) -> bool:
+    return 0 <= x < image.shape[1] and 0 <= y < image.shape[0]
+
+
 def project_points(points_3d, intrinsic_matrix, extrinsic_matrix):
     points_3d_homogeneous = np.hstack((points_3d, np.ones((points_3d.shape[0], 1)))).T
     points3d_to_camera = np.dot(extrinsic_matrix, points_3d_homogeneous)
