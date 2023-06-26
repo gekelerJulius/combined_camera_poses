@@ -36,6 +36,9 @@ class BoundingBox:
     def to_numpy(self):
         return np.array([self.min_x, self.min_y, self.max_x, self.max_y])
 
+    def copy_moved(self, x: int, y: int) -> "BoundingBox":
+        return BoundingBox(self.min_x + x, self.min_y + y, self.max_x + x, self.max_y + y)
+
     def crop_image(self, img: ndarray) -> ndarray:
         return img[self.min_y : self.max_y, self.min_x : self.max_x]
 

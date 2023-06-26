@@ -456,7 +456,9 @@ def get_avg_color(image, x, y, patch_size):
     return avg_color[0], avg_color[1], avg_color[2]
 
 
-def get_dominant_colors_patch(image, x: float, y: float, patch_size: int, color_count: int) -> ndarray:
+def get_dominant_colors_patch(
+    image, x: float, y: float, patch_size: int, color_count: int
+) -> ndarray:
     assert patch_size > 0
     x = int(x)
     y = int(y)
@@ -469,10 +471,14 @@ def get_dominant_colors_patch(image, x: float, y: float, patch_size: int, color_
 
 
 def get_dominant_colors_bbox(image, bbox: BoundingBox, color_count: int) -> ndarray:
-    return get_dominant_colors(image, bbox.min_x, bbox.min_y, bbox.max_x, bbox.max_y, color_count)
+    return get_dominant_colors(
+        image, bbox.min_x, bbox.min_y, bbox.max_x, bbox.max_y, color_count
+    )
 
 
-def get_dominant_colors(img, x0: int, y0: int, x1: int, y1: int, color_count: int) -> ndarray:
+def get_dominant_colors(
+    img, x0: int, y0: int, x1: int, y1: int, color_count: int
+) -> ndarray:
     assert img is not None
     colors = []
     max_y = img.shape[0]
@@ -496,7 +502,15 @@ def get_dominant_colors(img, x0: int, y0: int, x1: int, y1: int, color_count: in
     flags = cv2.KMEANS_RANDOM_CENTERS
     pixels = np.float32(colors)
     _, labels, palette = cv2.kmeans(pixels, n_colors, None, criteria, 8, flags)
-    return np.uint8(palette)
+    res = np.uint8(palette)
+    if res.shape[1] == 1:
+        res = np.repeat(res, 3, axis=1)
+
+    return res
+
+
+def is_in_image(image, x, y) -> bool:
+    return 0 <= x < image.shape[1] and 0 <= y < image.shape[0]
 
 
 def limit_number(number, min_value, max_value):
@@ -813,9 +827,8 @@ def validate_essential_matrix(
         # Check that pt2^T * E * pt1 = 0
         if np.abs(pt2.T @ E @ pt1) > tolerance:
             print(
-                "The epipolar constraint is not satisfied for point pair {} and {}".format(
-                    pt1, pt2
-                )
+                "The epipolar constraint is not satisfied for point pair {} and {}"
+                .format(pt1, pt2)
             )
             return False
     return True

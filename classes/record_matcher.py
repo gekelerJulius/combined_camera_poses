@@ -84,39 +84,71 @@ class RecordMatcher:
         self, frame_num: int, cam_data1: CameraData, cam_data2: CameraData
     ) -> List[Tuple[Person, Person]]:
         look_back = 6  # 0.25 seconds for 24 fps
-        recent_persons1 = self.rec1.get_recent_persons(frame_num, look_back)
-        recent_persons2 = self.rec2.get_recent_persons(frame_num, look_back)
-        if len(recent_persons1) == 0 or len(recent_persons2) == 0:
+        recent_person_names1: List[str] = self.rec1.get_recent_person_names(
+            frame_num, look_back
+        )
+        recent_person_names2: List[str] = self.rec2.get_recent_person_names(
+            frame_num, look_back
+        )
+        if len(recent_person_names1) == 0 or len(recent_person_names2) == 0:
             return []
 
         relevant_records = [x for x in self.frame_records if x.frame_num <= frame_num]
         assert len(relevant_records) > 0, "No relevant records found"
 
-        cost_matrix = np.zeros((len(recent_persons1), len(recent_persons2)))
-        for i, a in enumerate(recent_persons1):
-            for j, b in enumerate(recent_persons2):
+        cost_matrix = np.zeros((len(recent_person_names1), len(recent_person_names2)))
+        for i, name1 in enumerate(recent_person_names1):
+            for j, name2 in enumerate(recent_person_names2):
                 costs = []
                 for record in relevant_records:
                     has_person1 = False
                     has_person2 = False
                     for person in record.persons1:
-                        if person.name == a.name:
+                        if person.name == name1:
                             has_person1 = True
                             break
                     for person in record.persons2:
-                        if person.name == b.name:
+                        if person.name == name2:
                             has_person2 = True
                             break
                     if not has_person1 or not has_person2:
                         continue
-                    matr_a = record.cost_matrix.get(a.name)
+                    matr_a = record.cost_matrix.get(name1)
                     if matr_a is None:
                         continue
-                    matr_b = matr_a.get(b.name)
+                    matr_b = matr_a.get(name2)
                     if matr_b is None:
                         continue
                     costs.append(matr_b)
-                cost_matrix[i, j] = np.mean(costs) if len(costs) > 0 else sys.maxsize
+                raw_cost = np.mean(costs) if len(costs) > 0 else sys.maxsize
+
+                # Find out how many past frames the persons were paired
+                # If they were paired in previous frames, reduce the cost
+                # This is to avoid switching between persons too often
+
+                # pairing_look_back = 48
+                #
+                # last_pairs: List[List[Tuple[Person, Person]]] = [
+                #     x.estimated_person_pairs
+                #     for x in self.frame_records
+                #     if frame_num - pairing_look_back < x.frame_num < frame_num
+                # ]
+                #
+                # flattened_pairs: List[Tuple[Person, Person]] = list(
+                #     itertools.chain.from_iterable(last_pairs)
+                # )
+                #
+                # count = 0
+                # for pair in flattened_pairs:
+                #     if pair[0].name == name1 and pair[1].name == name2:
+                #         count += 1
+                #
+                # pairing_score = 0.5
+                # if len(last_pairs) > 0:
+                #     pairing_score = count / len(last_pairs)
+                #
+                # cost_matrix[i, j] = raw_cost * (1 - (pairing_score * 1))
+                cost_matrix[i, j] = raw_cost
 
         repr_error = 1000
         pairs: List[Tuple[Person, Person]] = []
@@ -125,9 +157,14 @@ class RecordMatcher:
             row_ind, col_ind = linear_sum_assignment(cost_matrix)
             for i, j in zip(row_ind, col_ind):
                 for pair in pairs:
-                    assert pair[0].name != recent_persons1[i].name, "Duplicate found"
-                    assert pair[1].name != recent_persons2[j].name, "Duplicate found"
-                pairs.append((recent_persons1[i], recent_persons2[j]))
+                    assert pair[0].name != recent_person_names1[i], "Duplicate found"
+                    assert pair[1].name != recent_person_names2[j], "Duplicate found"
+                pairs.append(
+                    (
+                        self.rec1.get_most_recent_record(recent_person_names1[i]),
+                        self.rec2.get_most_recent_record(recent_person_names2[j]),
+                    )
+                )
 
             mat, repr_error = self.get_extrinsic_and_repr_error(
                 frame_num, cam_data1, cam_data2, pairs, False, False, False
@@ -392,6 +429,8 @@ class RecordMatcher:
     def report(self, cam_data1: CameraData, cam_data2: CameraData) -> None:
         true_R = cam_data2.R
         true_t = cam_data2.t
+        if len(self.frame_records) == 0:
+            return
         est = self.get_extrinsic_estimation(self.frame_records[-1].frame_num)
         est_R = est[:, :3]
         est_t = est[:, 3]

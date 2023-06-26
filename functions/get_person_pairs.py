@@ -563,7 +563,10 @@ def test_fundamental_matrix(F: ndarray, pts1: ndarray, pts2: ndarray) -> None:
     # Logger.log(pts2, LoggingLevel.DEBUG, label="Points 2")
     assert_custom(
         pts1.shape[0] == pts2.shape[0],
-        f"Number of corresponding points must be equal but are {pts1.shape[0]} and {pts2.shape[0]}.",
+        (
+            f"Number of corresponding points must be equal but are {pts1.shape[0]} and"
+            f" {pts2.shape[0]}."
+        ),
     )
     assert_custom(
         pts1.shape[1] == 2 and pts2.shape[1] == 2,
@@ -602,7 +605,10 @@ def test_essential_matrix(E: ndarray, pts1: ndarray, pts2: ndarray) -> None:
         pts2 = np.hstack((pts2, np.ones((pts2.shape[0], 1))))
     assert_custom(
         pts1.shape[0] == pts2.shape[0],
-        f"Number of corresponding points must be equal but are {pts1.shape[0]} and {pts2.shape[0]}.",
+        (
+            f"Number of corresponding points must be equal but are {pts1.shape[0]} and"
+            f" {pts2.shape[0]}."
+        ),
     )
     assert_custom(
         pts1.shape[1] == 3 and pts2.shape[1] == 3,
@@ -611,16 +617,25 @@ def test_essential_matrix(E: ndarray, pts1: ndarray, pts2: ndarray) -> None:
     assert_custom(E.shape == (3, 3), "Essential matrix must have shape (3, 3).")
     assert_custom(
         np.linalg.det(E) < 1e-4,
-        f"Determinant of the essential matrix must be close to zero. Det: {np.linalg.det(E):.6f}",
+        (
+            "Determinant of the essential matrix must be close to zero. Det:"
+            f" {np.linalg.det(E):.6f}"
+        ),
     )
     _, S, _ = np.linalg.svd(E)
     assert_custom(
         abs(S[0] - S[1]) < 1,
-        f"Singular values of the essential matrix must be equal. Diff: {abs(S[0] - S[1]):.6f}",
+        (
+            "Singular values of the essential matrix must be equal. Diff:"
+            f" {abs(S[0] - S[1]):.6f}"
+        ),
     )
     assert_custom(
         abs(S[2]) < 1e-3,
-        f"Third singular value of the essential matrix must be close to zero. Singular value: {S[2]:.6f}",
+        (
+            "Third singular value of the essential matrix must be close to zero."
+            f" Singular value: {S[2]:.6f}"
+        ),
     )
 
     for pt1, pt2 in zip(pts1, pts2):

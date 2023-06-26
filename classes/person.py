@@ -1,4 +1,4 @@
-from typing import NamedTuple, List, Tuple
+from typing import NamedTuple, List, Tuple, Optional
 
 import mediapipe as mp
 import numpy as np
@@ -42,39 +42,47 @@ def get_real_coordinates(pt: ndarray, camera_data: CameraData) -> ndarray:
 
 
 class Person:
-    id: str
     frame_count: int
     name: str = None
     color: Tuple[int] = None
-    bounding_box: BoundingBox
-    results: NamedTuple
+    bounding_box: BoundingBox = None
+    pose_landmarks: List[Landmark] = None
+    pose_world_landmarks: List[Landmark] = None
 
     def __init__(
         self,
-        person_id: str,
         frame_count: int,
         bounding_box: BoundingBox,
-        results: NamedTuple,
+        results: Optional[NamedTuple] = None,
+        pose_landmarks: Optional[List[Landmark]] = None,
+        pose_world_landmarks: Optional[List[Landmark]] = None,
     ):
-        self.id = person_id
         self.frame_count = frame_count
         self.bounding_box = bounding_box
-        self.results = results
+        if results is not None:
+            self.pose_landmarks = results.pose_landmarks.landmark
+            self.pose_world_landmarks = results.pose_world_landmarks.landmark
+        else:
+            if pose_landmarks is not None:
+                self.pose_landmarks = pose_landmarks
+            if pose_world_landmarks is not None:
+                self.pose_world_landmarks = pose_world_landmarks
 
     @staticmethod
     def get_landmark_ids():
         return [mp.solutions.pose.PoseLandmark(i) for i in range(33)]
 
     def get_pose_landmarks(self) -> List[Landmark]:
-        if self.results is None or self.results.pose_landmarks is None:
+        if self.pose_landmarks is None:
             return []
-        return [lmk for lmk in self.results.pose_landmarks.landmark]
+        return [lmk for lmk in self.pose_landmarks]
 
     def get_pose_landmarks_numpy(self) -> np.ndarray:
-        if self.results is None or self.results.pose_landmarks is None:
+        if self.pose_landmarks is None:
             return np.array([])
+
         return np.array(
-            [[lmk.x, lmk.y, lmk.z] for lmk in self.results.pose_landmarks.landmark]
+            [[lmk.x, lmk.y, lmk.z] for lmk in self.pose_landmarks]
         )
 
     def get_pose_landmarks_numpy_2d(self) -> np.ndarray:
@@ -82,17 +90,17 @@ class Person:
         return np.array([[pt[0], pt[1]] for pt in pts_3d])
 
     def get_world_landmarks(self) -> List[Landmark]:
-        if self.results is None or self.results.pose_world_landmarks is None:
+        if self.pose_world_landmarks is None:
             return []
-        return [lmk for lmk in self.results.pose_world_landmarks.landmark]
+        return [lmk for lmk in self.pose_world_landmarks]
 
     def get_world_landmarks_numpy(self) -> np.ndarray:
-        if self.results is None or self.results.pose_world_landmarks is None:
+        if self.pose_world_landmarks is None:
             return np.array([])
         return np.array(
             [
                 np.array([lmk.x, lmk.y, lmk.z])
-                for lmk in self.results.pose_world_landmarks.landmark
+                for lmk in self.pose_world_landmarks
             ]
         )
 
