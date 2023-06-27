@@ -5,6 +5,7 @@ from typing import List, Tuple, Optional
 
 import cv2 as cv
 import matplotlib.pyplot as plt
+import numpy as np
 from cv2 import VideoWriter
 from numpy import ndarray
 from ultralytics import YOLO
@@ -72,7 +73,7 @@ def annotate_video_multi(
     person_recorder2: PersonRecorder = PersonRecorder("2", 1)
     records_matcher: RecordMatcher = RecordMatcher(person_recorder1, person_recorder2)
     score_manager = ScoreManager()
-    start_time = time.time()
+    frame_times = []
     while cap1.isOpened() and cap2.isOpened():
         ret1, img1 = cap1.read()
         ret2, img2 = cap2.read()
@@ -147,6 +148,10 @@ def annotate_video_multi(
                     Person(frame_count=frame_count, bounding_box=box, results=results2)
                 )
 
+        # In the real scenario, the car and camera get poses separately, then camera sends pose data to car
+        # This means the calculation happens from this point onwards in the car
+        start_time = time.time()
+
         person_recorder1.add(persons1, frame_count, img1)
         person_recorder2.add(persons2, frame_count, img2)
 
@@ -166,6 +171,11 @@ def annotate_video_multi(
         pairs: List[Tuple[Person, Person]] = records_matcher.get_alignment(
             frame_count, cam1_data, cam2_data
         )
+
+        end_time = time.time()
+        frame_times.append(end_time - start_time)
+        frames_per_second = np.mean(frame_times)
+        Logger.log(f"Frames per second: {frames_per_second:.2f}", LoggingLevel.INFO)
 
         unity_persons: List[UnityPerson] = TruePersonLoader.load(
             "simulation_data/persons"
@@ -231,10 +241,6 @@ def annotate_video_multi(
         score = score_manager.get_score()
         Logger.log(f"Correct percentage: {score * 100:.2f}%", LoggingLevel.INFO)
 
-    end_time = time.time()
-    time_taken = end_time - start_time
-    frames_per_second = frame_count / time_taken
-    Logger.log(f"Frames per second: {frames_per_second:.2f}", LoggingLevel.INFO)
     cap1.release()
     cap2.release()
     out1.release()

@@ -5,18 +5,12 @@
   </component>
   <component name="BlackConnectSettings" previewMode="true" triggerOnEachSave="true" />
   <component name="ChangeListManager">
-    <list default="true" id="40988f4c-01ec-45fe-b18f-f32cd2a9889c" name="Changes" comment="fix recorder">
+    <list default="true" id="40988f4c-01ec-45fe-b18f-f32cd2a9889c" name="Changes" comment="some fixes, 75">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/app.py" beforeDir="false" afterPath="$PROJECT_DIR$/app.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/classes/person.py" beforeDir="false" afterPath="$PROJECT_DIR$/classes/person.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/classes/person_recorder.py" beforeDir="false" afterPath="$PROJECT_DIR$/classes/person_recorder.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/classes/record_matcher.py" beforeDir="false" afterPath="$PROJECT_DIR$/classes/record_matcher.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/cropped_0.jpg" beforeDir="false" afterPath="$PROJECT_DIR$/cropped_0.jpg" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/cropped_1.jpg" beforeDir="false" afterPath="$PROJECT_DIR$/cropped_1.jpg" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/cropped_2.jpg" beforeDir="false" afterPath="$PROJECT_DIR$/cropped_2.jpg" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/functions/funcs.py" beforeDir="false" afterPath="$PROJECT_DIR$/functions/funcs.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/functions/get_person_pairs.py" beforeDir="false" afterPath="$PROJECT_DIR$/functions/get_person_pairs.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/functions/get_pose.py" beforeDir="false" afterPath="$PROJECT_DIR$/functions/get_pose.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/functions/get_yolo_boxes.py" beforeDir="false" afterPath="$PROJECT_DIR$/functions/get_yolo_boxes.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/simulation_data/sim1_annotated.mp4" beforeDir="false" afterPath="$PROJECT_DIR$/simulation_data/sim1_annotated.mp4" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/simulation_data/sim2_annotated.mp4" beforeDir="false" afterPath="$PROJECT_DIR$/simulation_data/sim2_annotated.mp4" afterDir="false" />
@@ -332,7 +326,7 @@
       <workItem from="1687776375480" duration="13960000" />
       <workItem from="1687792096166" duration="5329000" />
       <workItem from="1687803844564" duration="4357000" />
-      <workItem from="1687874248828" duration="7711000" />
+      <workItem from="1687874248828" duration="18200000" />
     </task>
     <task id="LOCAL-00001" summary="start triangulation and reprojection tries">
       <created>1683191605703</created>
@@ -607,7 +601,15 @@
       <option name="project" value="LOCAL" />
       <updated>1687808316465</updated>
     </task>
-    <option name="localTasksCounter" value="39" />
+    <task id="LOCAL-00039" summary="some fixes, 75">
+      <option name="closed" value="true" />
+      <created>1687883460040</created>
+      <option name="number" value="00039" />
+      <option name="presentableId" value="LOCAL-00039" />
+      <option name="project" value="LOCAL" />
+      <updated>1687883460040</updated>
+    </task>
+    <option name="localTasksCounter" value="40" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -629,7 +631,6 @@
     <ignored-roots>
       <path value="$PROJECT_DIR$/open-reid" />
     </ignored-roots>
-    <MESSAGE value="projection prog" />
     <MESSAGE value="some bugfixing" />
     <MESSAGE value="add kalman filter" />
     <MESSAGE value="started using icp, needs fix" />
@@ -654,7 +655,8 @@
     <MESSAGE value="better app" />
     <MESSAGE value="other changes" />
     <MESSAGE value="fix recorder" />
-    <option name="LAST_COMMIT_MESSAGE" value="fix recorder" />
+    <MESSAGE value="some fixes, 75" />
+    <option name="LAST_COMMIT_MESSAGE" value="some fixes, 75" />
   </component>
   <component name="com.intellij.coverage.CoverageDataManagerImpl">
     <SUITE FILE_PATH="coverage/combined_camera_poses$poseviz_demo.coverage" NAME="poseviz_demo Coverage Results" MODIFIED="1683243488802" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
@@ -662,7 +664,7 @@
     <SUITE FILE_PATH="coverage/combined_camera_poses$testing.coverage" NAME="testing Coverage Results" MODIFIED="1685044993509" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
     <SUITE FILE_PATH="coverage/combined_camera_poses$demo.coverage" NAME="demo Coverage Results" MODIFIED="1686577170315" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/demo" />
     <SUITE FILE_PATH="coverage/combined_camera_poses$mayavi_demo.coverage" NAME="mayavi_demo Coverage Results" MODIFIED="1683243461662" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
-    <SUITE FILE_PATH="coverage/combined_camera_poses$app.coverage" NAME="app Coverage Results" MODIFIED="1687883039436" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
+    <SUITE FILE_PATH="coverage/combined_camera_poses$app.coverage" NAME="app Coverage Results" MODIFIED="1687894444750" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
     <SUITE FILE_PATH="coverage/combined_camera_poses$istvansarandi.coverage" NAME="istvansarandi Coverage Results" MODIFIED="1683107967232" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
     <SUITE FILE_PATH="coverage/combined_camera_poses$.coverage" NAME=" Coverage Results" MODIFIED="1685018675750" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/functions" />
   </component>

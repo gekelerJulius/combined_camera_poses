@@ -37,7 +37,7 @@ def compare_persons(
         p2,
         recorder1,
         recorder2,
-        (frame_count - 1, frame_count),
+        (frame_count - 12, frame_count),
         visibility_threshold=0.5,
     )
     lmks1: List[Landmark] = crs[0]
@@ -75,7 +75,7 @@ def compare_persons(
     #     print("#" * 10)
     #     print(icp_angles)
 
-    distances: List[float] = []
+    color_distances: List[float] = []
     for lmk1, lmk2 in zip(lmks1, lmks2):
         if (
             lmk1.x is None
@@ -107,16 +107,15 @@ def compare_persons(
             and factored_dist >= 0
             and not np.isnan(factored_dist)
         )
-        distances.append(factored_dist)
-    distances_np = np.array(distances)
-    distances_np *= rmse**8
-    max_distance = np.max(distances_np)
+        color_distances.append(factored_dist)
+    color_distances_np = np.array(color_distances)
+    max_distance = np.max(color_distances_np)
     if max_distance > 0:
-        distances_np = distances_np / max_distance
+        color_distances_np = color_distances_np / max_distance
     else:
-        distances_np = np.zeros_like(distances_np)
-    mean_dist = float(np.mean(distances_np))
-    assert mean_dist >= 0 and not np.isnan(mean_dist)
+        color_distances_np = np.zeros_like(color_distances_np)
+    mean_color_dist = float(np.mean(color_distances_np))
+    assert mean_color_dist >= 0 and not np.isnan(mean_color_dist)
 
     points1_img = points1[:, :2]
     points2_img = points2[:, :2]
@@ -152,7 +151,7 @@ def compare_persons(
         points1_img, points2_img, est_cam_data1, est_cam_data2
     )
     mean_err = (err1 + err2) / 2
-    return rmse * mean_dist * mean_err
+    return (rmse ** 2) * (mean_color_dist ** 8) * (mean_err ** 2)
 
 
 # def get_person_pairs(

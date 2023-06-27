@@ -83,7 +83,7 @@ class RecordMatcher:
     def get_alignment(
         self, frame_num: int, cam_data1: CameraData, cam_data2: CameraData
     ) -> List[Tuple[Person, Person]]:
-        look_back = 48
+        look_back = 12
         recent_person_names1: List[str] = self.rec1.get_recent_person_names(
             frame_num, look_back
         )
@@ -125,30 +125,28 @@ class RecordMatcher:
                 # Find out how many past frames the persons were paired
                 # If they were paired in previous frames, reduce the cost
                 # This is to avoid switching between persons too often
+                pairing_look_back = 12
+                last_pairs: List[List[Tuple[Person, Person]]] = [
+                    x.estimated_person_pairs
+                    for x in self.frame_records
+                    if frame_num - pairing_look_back < x.frame_num < frame_num
+                ]
 
-                # pairing_look_back = 24
-                #
-                # last_pairs: List[List[Tuple[Person, Person]]] = [
-                #     x.estimated_person_pairs
-                #     for x in self.frame_records
-                #     if frame_num - pairing_look_back < x.frame_num < frame_num
-                # ]
-                #
-                # flattened_pairs: List[Tuple[Person, Person]] = list(
-                #     itertools.chain.from_iterable(last_pairs)
-                # )
-                #
-                # count = 0
-                # for pair in flattened_pairs:
-                #     if pair[0].name == name1 and pair[1].name == name2:
-                #         count += 1
-                #
-                # pairing_score = 0.5
-                # if len(last_pairs) > 0:
-                #     pairing_score = count / len(last_pairs)
-                #
-                # cost_matrix[i, j] = raw_cost * (1 - (pairing_score * 0.5))
-                cost_matrix[i, j] = raw_cost
+                flattened_pairs: List[Tuple[Person, Person]] = list(
+                    itertools.chain.from_iterable(last_pairs)
+                )
+
+                count = 0
+                for pair in flattened_pairs:
+                    if pair[0].name == name1 and pair[1].name == name2:
+                        count += 1
+
+                pairing_score = 0.5
+                if len(last_pairs) > 0:
+                    pairing_score = count / len(last_pairs)
+
+                cost_matrix[i, j] = raw_cost * (1 - (pairing_score * 1))
+                # cost_matrix[i, j] = raw_cost
 
         if cost_matrix.shape[0] == 0 or cost_matrix.shape[1] == 0:
             return []
@@ -160,13 +158,13 @@ class RecordMatcher:
         for i in range(cost_matrix.shape[0]):
             for j in range(cost_matrix.shape[1]):
                 if cost_matrix[i, j] == -1:
-                    cost_matrix[i, j] = max_val
+                    cost_matrix[i, j] = max_val + 1
         cost_matrix = cost_matrix / max_val
 
         mat = None
         repr_error = 1000000000
         pairs: List[Tuple[Person, Person]] = []
-        limit: int = 5
+        limit: int = 3
         while repr_error > limit:
             row_ind, col_ind = linear_sum_assignment(cost_matrix)
             for i, j in zip(row_ind, col_ind):
@@ -187,12 +185,12 @@ class RecordMatcher:
                 frame_num, cam_data1, cam_data2, pairs, False, False, False
             )
             if repr_error > limit:
-                limit += 1
-                cost_matrix[row_ind, col_ind] *= 1.2
+                limit *= 1.1
+                cost_matrix[row_ind, col_ind] *= 1.25
                 if limit > 100:
                     print("Limit exceeded")
                     break
-                repr_error = 1000
+                repr_error = 1000000000
                 pairs = []
 
         self.get_frame_record(frame_num).estimated_person_pairs = pairs
@@ -212,29 +210,33 @@ class RecordMatcher:
         cam_data1: CameraData = None,
         cam_data2: CameraData = None,
     ) -> None:
-        estimated_extr = calculate_weighted_extrinsic(
-            self.get_all_previous_extrinsics(frame_num),
-            self.get_all_previous_reprojection_errors(frame_num),
-        )
+        estimated_extr = None
+        estimation_confidence = None
 
-        # estimated_extr = self.get_median_extrinsic(frame_num)
+        if frame_num > 24:
+            estimated_extr = calculate_weighted_extrinsic(
+                self.get_all_previous_extrinsics(frame_num),
+                self.get_all_previous_reprojection_errors(frame_num),
+            )
 
-        prev_errs = self.get_all_previous_reprojection_errors(frame_num)
-        prev_errs = [x for x in prev_errs if x is not None]
-        prev_errs.sort()
-        if len(prev_errs) > 0:
-            min_err = np.min(prev_errs)
-            if len(prev_errs) > 5:
-                min_err = np.mean(prev_errs[:5])
-        else:
-            min_err = 1000
-        # Max confidence is <= 1 and min confidence is >= 20
-        confidence = 1 - (min_err / 20)
-        if confidence < 0:
-            confidence = 0
-        if confidence > 1:
-            confidence = 1
-        estimation_confidence = confidence * 0.5
+            # estimated_extr = self.get_median_extrinsic(frame_num)
+
+            prev_errs = self.get_all_previous_reprojection_errors(frame_num)
+            prev_errs = [x for x in prev_errs if x is not None]
+            prev_errs.sort()
+            if len(prev_errs) > 0:
+                min_err = np.min(prev_errs)
+                if len(prev_errs) > 5:
+                    min_err = np.mean(prev_errs[:5])
+            else:
+                min_err = 1000
+            # Max confidence is <= 1 and min confidence is >= 20
+            confidence = 1 - (min_err / 20)
+            if confidence < 0:
+                confidence = 0
+            if confidence > 1:
+                confidence = 1
+            estimation_confidence = confidence * 0.5
 
         # estimated_extr = None
         # estimation_confidence = None

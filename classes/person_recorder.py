@@ -9,6 +9,7 @@ from numpy import ndarray
 from scipy.optimize import linear_sum_assignment
 from seaborn.palettes import _ColorPalette
 
+from classes.logger import Divider
 from classes.person import Person
 
 
@@ -38,7 +39,7 @@ class PersonRecorder:
                 self.frame_dict[person.frame_count] = []
             self.frame_dict.get(person.frame_count).append(person)
         self.update_kalman_filter(persons, frame_num, img)
-        # self.plot_trajectories(img, frame_num)
+        # self.plot_trajectories(img)
 
     def get_recent_person_names(
             self, frame_num: int, look_back: int = None
@@ -120,7 +121,8 @@ class PersonRecorder:
             centroids = [person.centroid() for person in persons]
             cost_matrix = np.zeros((len(predictions), len(centroids)))
             for i, (name, prediction) in enumerate(predictions):
-                last_centroid = self.kalman_dict[name][1][-1].centroid()
+                kalman_filter, kalman_persons = self.kalman_dict[name]
+                last_centroid = kalman_persons[-1].centroid()
                 last_x, last_y = last_centroid[0], last_centroid[1]
                 x_pred, y_pred = prediction[0][0], prediction[1][0]
                 vel_x_pred, vel_y_pred = prediction[2][0], prediction[3][0]
@@ -140,30 +142,61 @@ class PersonRecorder:
                         - np.array([last_vel_x, last_vel_y])
                     )
 
-                    # print("dist1: ", dist1)
-                    # print("dist2: ", dist2)
-                    # print("vel_dist: ", vel_dist)
 
-                    dist = dist1 * (vel_dist ** 8)
+                    expected_x_error = np.sqrt(kalman_filter.errorCovPost[0][0])
+                    expected_y_error = np.sqrt(kalman_filter.errorCovPost[1][1])
+                    expected_vel_x_error = np.sqrt(kalman_filter.errorCovPost[2][2])
+                    expected_vel_y_error = np.sqrt(kalman_filter.errorCovPost[3][3])
+
+                    print("expected x error: ", expected_x_error)
+                    print("expected y error: ", expected_y_error)
+                    print("expected vel x error: ", expected_vel_x_error)
+                    print("expected vel y error: ", expected_vel_y_error)
+
+                    expected_dist1 = np.linalg.norm(np.array([expected_x_error, expected_y_error]))
+                    expected_vel_dist = np.linalg.norm(np.array([expected_vel_x_error, expected_vel_y_error]))
+
+                    print("expected dist1: ", expected_dist1)
+                    print("expected vel dist: ", expected_vel_dist)
+
+                    dist1_diff = float(np.abs(dist1 - expected_dist1))
+                    vel_dist_diff = float(np.abs(vel_dist - expected_vel_dist))
+
+                    print("dist1 diff: ", dist1_diff)
+                    print("vel dist diff: ", vel_dist_diff)
+
+                    dist = (dist1 ** 1) * (dist2 ** 8) * (vel_dist ** 1) * (dist1_diff ** 1) * (vel_dist_diff ** 1)
                     cost_matrix[i, j] = dist
 
             if cost_matrix.shape[0] > 0 and cost_matrix.shape[1] > 0:
-                cost_matrix = cost_matrix / np.max(cost_matrix)
+                max_val = np.max(cost_matrix)
+
+                for i in range(cost_matrix.shape[0]):
+                    for j in range(cost_matrix.shape[1]):
+                        if cost_matrix[i, j] == -1:
+                            cost_matrix[i, j] = max_val + 1
+
+                cost_matrix = cost_matrix / max_val
+
+            avg_cost = np.mean(cost_matrix)
+            std = np.std(cost_matrix)
+
+            # print(avg_cost)
+            # print(std)
+            # print(cost_matrix)
 
             row_ind, col_ind = linear_sum_assignment(cost_matrix)
             # Update kalman filters with best matches
             for i, j in zip(row_ind, col_ind):
-                cost = cost_matrix[i, j]
-                if cost > 0.5:
-                    continue
                 name, prediction = predictions[i]
                 assert prediction.shape == (4, 1)
                 pos_prediction = np.array([prediction[0][0], prediction[1][0]])
                 person = persons[j]
                 c = person.centroid()
                 pos_person = np.array([c[0], c[1]])
-                # dist2 = np.linalg.norm(pos_prediction - pos_person)
+                dist2 = np.linalg.norm(pos_prediction - pos_person)
                 # if img is not None and dist2 > 20 and frame_num > 16:
+                #     continue
                 #     with Divider("Actual, Prediction, Distance"):
                 #         print(pos_person)
                 #         print(pos_prediction)
@@ -203,43 +236,12 @@ class PersonRecorder:
         for name, prediction in unmatched_predictions:
             last_frame_num = self.get_latest_frame_num_for_person(name)
             frames_since_last_seen = frame_num - last_frame_num
-            if last_frame_num is None or frames_since_last_seen > 24 or frame_num < 24:
+            if last_frame_num is None or frames_since_last_seen > 12 or frame_num < 12:
                 self.kalman_dict.pop(name)
                 self.kalman_prediction_dict.pop(name)
                 assert self.kalman_dict.get(name) is None
                 assert self.kalman_prediction_dict.get(name) is None
             else:
-                # new_pred: ndarray = self.kalman_prediction_dict[name]
-                # last_person_recorded: Optional[Person] = self.kalman_dict[name][1][-1]
-                # last_centroid: ndarray = last_person_recorded.centroid()
-                # last_x: float = last_centroid[0]
-                # last_y: float = last_centroid[1]
-                # x_pred: float = new_pred[0][0]
-                # y_pred: float = new_pred[1][0]
-                # centroid_diff_x: int = int(x_pred - last_x)
-                # centroid_diff_y: int = int(y_pred - last_y)
-                #
-                # new_landmark_list: List[Landmark] = [
-                #     Landmark(
-                #         x=landmark.x + centroid_diff_x,
-                #         y=landmark.y + centroid_diff_y,
-                #         z=landmark.z,
-                #         visibility=last_person_recorded.pose_landmarks[i].visibility,
-                #     )
-                #     for i, landmark in enumerate(last_person_recorded.pose_landmarks)
-                # ]
-                #
-                # predicted_person: Person = Person(
-                #     frame_count=frame_num,
-                #     bounding_box=last_person_recorded.bounding_box.copy_moved(
-                #         centroid_diff_x, centroid_diff_y
-                #     ),
-                #     pose_landmarks=new_landmark_list,
-                #     pose_world_landmarks=[],
-                # )
-                # predicted_person.name = name
-                # predicted_person.color = self.name_dict[name][0].color
-                # self.kalman_dict[name][1].append(predicted_person)
                 self.predict_kalman(name)
 
     def predict_kalman(self, name: str) -> None:
