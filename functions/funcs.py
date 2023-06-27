@@ -10,7 +10,6 @@ from matplotlib.axes import Axes
 from matplotlib.figure import Figure
 from mediapipe.python.solutions.pose_connections import POSE_CONNECTIONS
 from numpy import ndarray
-from pyhull.simplex import Simplex
 from scipy.linalg import orthogonal_procrustes
 from mpl_toolkits.mplot3d import Axes3D
 
@@ -642,28 +641,6 @@ def sampson_distance_derivative(x1, x2, F):
 #     # Perform the bundle adjustment using the least_squares function from SciPy
 #     result = least_squares(error_func, params_initial, method='lm', verbose=2)
 #     return result
-
-
-def get_simplex_normal(simplex: Simplex):
-    """
-    Calculates the normal vector of the plane defined by the given simplex in 3D space.
-
-    Args:
-        simplex (Simplex): A Simplex object representing the simplex.
-
-    Returns:
-        A numpy array representing the normal vector of the plane.
-    """
-    # Check that the simplex is a triangle (i.e., 3 vertices)
-    if simplex.simplex_dim != 3:
-        raise ValueError("Simplex is not a triangle")
-
-    # Calculate the normal vector using the cross product of two edge vectors
-    coords = simplex.coords
-    u = coords[1] - coords[0]
-    v = coords[2] - coords[0]
-    normal = np.cross(u, v)
-    return normal / np.linalg.norm(normal)
 
 
 def plot_pose_2d(points: ndarray, plot_id: int = None, title: str = "") -> int:
