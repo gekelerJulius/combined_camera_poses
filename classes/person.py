@@ -104,7 +104,9 @@ class Person:
             ]
         )
 
-    def draw(self, image, color=(255, 255, 0), title=None):
+    def draw(self, image, color=None, title=None):
+        if color is None:
+            color = self.color if self.color is not None else (255, 255, 0)
         if title is None and self.name is not None:
             title = self.name
         return draw_landmarks_list(

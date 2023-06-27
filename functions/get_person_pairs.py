@@ -37,7 +37,7 @@ def compare_persons(
         p2,
         recorder1,
         recorder2,
-        (frame_count - 6, frame_count),
+        (frame_count - 1, frame_count),
         visibility_threshold=0.5,
     )
     lmks1: List[Landmark] = crs[0]
@@ -55,16 +55,11 @@ def compare_persons(
     )
     inliers: ndarray = c
     affine_transformation: ndarray = b
-
     points1_inliers: ndarray = points1[inliers]
     points2_inliers: ndarray = points2[inliers]
-
-    # Apply estimated affine transformation to points1
     points1_affine: ndarray = np.hstack((points1, np.ones((len(points1), 1))))
     points1_affine = points1_affine @ affine_transformation.T
     points1_affine = points1_affine[:, :3]
-
-    # Calculate RMSE
     rmse: float = np.sqrt(np.mean(np.square(points1_affine - points2_inliers)))
 
     # aff_angles = Rotation.from_matrix(affine_transformation[:3, :3]).as_euler(
@@ -105,7 +100,8 @@ def compare_persons(
             col_diff = colors_diff(dom_colors_1, dom_colors_2)
 
         assert col_diff >= 0 and lmk1.visibility >= 0 and lmk2.visibility >= 0
-        factored_dist = (col_diff**2) * (1 - lmk1.visibility) * (1 - lmk2.visibility)
+        col_diff /= 255
+        factored_dist = col_diff * (1 - lmk1.visibility) * (1 - lmk2.visibility)
         assert (
             factored_dist is not None
             and factored_dist >= 0
@@ -113,8 +109,12 @@ def compare_persons(
         )
         distances.append(factored_dist)
     distances_np = np.array(distances)
-    distances_np *= rmse**2
-    distances_np = distances_np / np.max(distances_np)
+    distances_np *= rmse**8
+    max_distance = np.max(distances_np)
+    if max_distance > 0:
+        distances_np = distances_np / max_distance
+    else:
+        distances_np = np.zeros_like(distances_np)
     mean_dist = float(np.mean(distances_np))
     assert mean_dist >= 0 and not np.isnan(mean_dist)
 
@@ -152,7 +152,7 @@ def compare_persons(
         points1_img, points2_img, est_cam_data1, est_cam_data2
     )
     mean_err = (err1 + err2) / 2
-    return mean_dist * mean_err
+    return rmse * mean_dist * mean_err
 
 
 # def get_person_pairs(

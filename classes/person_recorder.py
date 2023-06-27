@@ -1,4 +1,4 @@
-from typing import Dict, List, Tuple, Optional, NamedTuple, Any
+from typing import Dict, List, Tuple, Optional
 
 import cv2
 import numpy as np
@@ -9,7 +9,6 @@ from numpy import ndarray
 from scipy.optimize import linear_sum_assignment
 from seaborn.palettes import _ColorPalette
 
-from classes.logger import Divider
 from classes.person import Person
 
 
@@ -39,9 +38,10 @@ class PersonRecorder:
                 self.frame_dict[person.frame_count] = []
             self.frame_dict.get(person.frame_count).append(person)
         self.update_kalman_filter(persons, frame_num, img)
+        # self.plot_trajectories(img, frame_num)
 
     def get_recent_person_names(
-        self, frame_num: int, look_back: int = None
+            self, frame_num: int, look_back: int = None
     ) -> List[str]:
         if look_back is None:
             look_back = self.look_back
@@ -109,7 +109,7 @@ class PersonRecorder:
         return kalman
 
     def update_kalman_filter(
-        self, persons: List[Person], frame_num: int, img=None
+            self, persons: List[Person], frame_num: int, img=None
     ) -> None:
         predictions = [
             (name, pred) for name, pred in self.kalman_prediction_dict.items()
@@ -128,7 +128,7 @@ class PersonRecorder:
                 for j, centroid in enumerate(centroids):
                     centroid = np.array([centroid[0], centroid[1]])
                     last_vel_x, last_vel_y = (centroid[0] - last_x), (
-                        centroid[1] - last_y
+                            centroid[1] - last_y
                     )
                     # dist1 is distance between predicted centroid and current centroid
                     dist1 = np.linalg.norm(np.array([x_pred, y_pred]) - centroid)
@@ -147,9 +147,15 @@ class PersonRecorder:
                     dist = dist1 * (vel_dist ** 8)
                     cost_matrix[i, j] = dist
 
+            if cost_matrix.shape[0] > 0 and cost_matrix.shape[1] > 0:
+                cost_matrix = cost_matrix / np.max(cost_matrix)
+
             row_ind, col_ind = linear_sum_assignment(cost_matrix)
             # Update kalman filters with best matches
             for i, j in zip(row_ind, col_ind):
+                cost = cost_matrix[i, j]
+                if cost > 0.5:
+                    continue
                 name, prediction = predictions[i]
                 assert prediction.shape == (4, 1)
                 pos_prediction = np.array([prediction[0][0], prediction[1][0]])
@@ -197,13 +203,12 @@ class PersonRecorder:
         for name, prediction in unmatched_predictions:
             last_frame_num = self.get_latest_frame_num_for_person(name)
             frames_since_last_seen = frame_num - last_frame_num
-            if last_frame_num is None or frames_since_last_seen > 6:
+            if last_frame_num is None or frames_since_last_seen > 24 or frame_num < 24:
                 self.kalman_dict.pop(name)
                 self.kalman_prediction_dict.pop(name)
                 assert self.kalman_dict.get(name) is None
                 assert self.kalman_prediction_dict.get(name) is None
             else:
-                self.predict_kalman(name)
                 # new_pred: ndarray = self.kalman_prediction_dict[name]
                 # last_person_recorded: Optional[Person] = self.kalman_dict[name][1][-1]
                 # last_centroid: ndarray = last_person_recorded.centroid()
@@ -235,6 +240,7 @@ class PersonRecorder:
                 # predicted_person.name = name
                 # predicted_person.color = self.name_dict[name][0].color
                 # self.kalman_dict[name][1].append(predicted_person)
+                self.predict_kalman(name)
 
     def predict_kalman(self, name: str) -> None:
         kalman, person_list = self.kalman_dict[name]
@@ -247,15 +253,19 @@ class PersonRecorder:
         self.kalman_prediction_dict[name] = kalman_prediction
 
     def correct_and_predict_kalman(
-        self, name: str, centroid: Optional[ndarray]
+            self, name: str, centroid: Optional[ndarray]
     ) -> None:
         if centroid is not None:
             self.correct_kalman(name, centroid)
         self.predict_kalman(name)
 
-    def plot_trajectories(self, img) -> None:
+    def plot_trajectories(self, img, frame_num=None) -> None:
         for name in self.kalman_dict:
             kalman, person_list = self.kalman_dict[name]
+            if frame_num is not None:
+                last_frame_num = self.get_latest_frame_num_for_person(name)
+                if last_frame_num is None or frame_num < last_frame_num:
+                    continue
 
             for i in range(1, len(person_list)):
                 prev: Person = person_list[i - 1]
@@ -296,7 +306,7 @@ class PersonRecorder:
                     )
 
     def get_frame_history(
-        self, p: Person, frame_range: Tuple[int, int] = (0, np.inf)
+            self, p: Person, frame_range: Tuple[int, int] = (0, np.inf)
     ) -> Dict[int, Person]:
         all_records = self.kalman_dict[p.name][1]
         return {
@@ -307,12 +317,12 @@ class PersonRecorder:
 
     @staticmethod
     def get_all_corresponding_frame_recordings(
-        p1: Person,
-        p2: Person,
-        recorder1: "Recorder",
-        recorder2: "Recorder",
-        frame_range: Tuple[int, int] = (0, np.inf),
-        visibility_threshold: float = 0.5,
+            p1: Person,
+            p2: Person,
+            recorder1: "Recorder",
+            recorder2: "Recorder",
+            frame_range: Tuple[int, int] = (0, np.inf),
+            visibility_threshold: float = 0.5,
     ) -> Tuple[List[Landmark], List[Landmark], List[int]]:
         p1_rec_positions: Dict[int, Person] = recorder1.get_frame_history(
             p1, frame_range

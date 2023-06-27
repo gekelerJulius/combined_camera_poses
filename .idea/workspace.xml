@@ -6,265 +6,19 @@
   <component name="BlackConnectSettings" previewMode="true" triggerOnEachSave="true" />
   <component name="ChangeListManager">
     <list default="true" id="40988f4c-01ec-45fe-b18f-f32cd2a9889c" name="Changes" comment="fix recorder">
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/app.py" beforeDir="false" afterPath="$PROJECT_DIR$/app.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/classes/person.py" beforeDir="false" afterPath="$PROJECT_DIR$/classes/person.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/classes/person_recorder.py" beforeDir="false" afterPath="$PROJECT_DIR$/classes/person_recorder.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/classes/record_matcher.py" beforeDir="false" afterPath="$PROJECT_DIR$/classes/record_matcher.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/cropped_0.jpg" beforeDir="false" afterPath="$PROJECT_DIR$/cropped_0.jpg" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/cropped_1.jpg" beforeDir="false" afterPath="$PROJECT_DIR$/cropped_1.jpg" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/cropped_2.jpg" beforeDir="false" afterPath="$PROJECT_DIR$/cropped_2.jpg" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/functions/funcs.py" beforeDir="false" afterPath="$PROJECT_DIR$/functions/funcs.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/simulation_data/Reprojection_Error.png" beforeDir="false" afterPath="$PROJECT_DIR$/simulation_data/Reprojection_Error.png" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/simulation_data/cam2.json" beforeDir="false" afterPath="$PROJECT_DIR$/simulation_data/cam2.json" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/simulation_data/correct_percentage.txt" beforeDir="false" afterPath="$PROJECT_DIR$/simulation_data/correct_percentage.txt" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/simulation_data/persons/red_shirt_man/0.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/simulation_data/persons/red_shirt_man/1.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/simulation_data/persons/red_shirt_man/10.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/simulation_data/persons/red_shirt_man/100.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/simulation_data/persons/red_shirt_man/101.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/simulation_data/persons/red_shirt_man/102.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/simulation_data/persons/red_shirt_man/103.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/simulation_data/persons/red_shirt_man/104.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/simulation_data/persons/red_shirt_man/105.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/simulation_data/persons/red_shirt_man/106.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/simulation_data/persons/red_shirt_man/107.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/simulation_data/persons/red_shirt_man/108.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/simulation_data/persons/red_shirt_man/109.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/simulation_data/persons/red_shirt_man/11.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/simulation_data/persons/red_shirt_man/110.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/simulation_data/persons/red_shirt_man/111.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/simulation_data/persons/red_shirt_man/112.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/simulation_data/persons/red_shirt_man/113.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/simulation_data/persons/red_shirt_man/114.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/simulation_data/persons/red_shirt_man/115.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/simulation_data/persons/red_shirt_man/116.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/simulation_data/persons/red_shirt_man/117.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/simulation_data/persons/red_shirt_man/118.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/simulation_data/persons/red_shirt_man/119.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/simulation_data/persons/red_shirt_man/12.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/simulation_data/persons/red_shirt_man/120.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/simulation_data/persons/red_shirt_man/121.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/simulation_data/persons/red_shirt_man/122.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/simulation_data/persons/red_shirt_man/123.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/simulation_data/persons/red_shirt_man/124.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/simulation_data/persons/red_shirt_man/13.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/simulation_data/persons/red_shirt_man/14.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/simulation_data/persons/red_shirt_man/15.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/simulation_data/persons/red_shirt_man/16.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/simulation_data/persons/red_shirt_man/17.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/simulation_data/persons/red_shirt_man/18.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/simulation_data/persons/red_shirt_man/19.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/simulation_data/persons/red_shirt_man/2.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/simulation_data/persons/red_shirt_man/20.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/simulation_data/persons/red_shirt_man/21.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/simulation_data/persons/red_shirt_man/22.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/simulation_data/persons/red_shirt_man/23.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/simulation_data/persons/red_shirt_man/24.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/simulation_data/persons/red_shirt_man/25.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/simulation_data/persons/red_shirt_man/26.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/simulation_data/persons/red_shirt_man/27.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/simulation_data/persons/red_shirt_man/28.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/simulation_data/persons/red_shirt_man/29.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/simulation_data/persons/red_shirt_man/3.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/simulation_data/persons/red_shirt_man/30.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/simulation_data/persons/red_shirt_man/31.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/simulation_data/persons/red_shirt_man/32.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/simulation_data/persons/red_shirt_man/33.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/simulation_data/persons/red_shirt_man/34.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/simulation_data/persons/red_shirt_man/35.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/simulation_data/persons/red_shirt_man/36.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/simulation_data/persons/red_shirt_man/37.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/simulation_data/persons/red_shirt_man/38.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/simulation_data/persons/red_shirt_man/39.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/simulation_data/persons/red_shirt_man/4.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/simulation_data/persons/red_shirt_man/40.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/simulation_data/persons/red_shirt_man/41.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/simulation_data/persons/red_shirt_man/42.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/simulation_data/persons/red_shirt_man/43.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/simulation_data/persons/red_shirt_man/44.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/simulation_data/persons/red_shirt_man/45.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/simulation_data/persons/red_shirt_man/46.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/simulation_data/persons/red_shirt_man/47.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/simulation_data/persons/red_shirt_man/48.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/simulation_data/persons/red_shirt_man/49.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/simulation_data/persons/red_shirt_man/5.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/simulation_data/persons/red_shirt_man/50.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/simulation_data/persons/red_shirt_man/51.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/simulation_data/persons/red_shirt_man/52.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/simulation_data/persons/red_shirt_man/53.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/simulation_data/persons/red_shirt_man/54.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/simulation_data/persons/red_shirt_man/55.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/simulation_data/persons/red_shirt_man/56.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/simulation_data/persons/red_shirt_man/57.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/simulation_data/persons/red_shirt_man/58.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/simulation_data/persons/red_shirt_man/59.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/simulation_data/persons/red_shirt_man/6.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/simulation_data/persons/red_shirt_man/60.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/simulation_data/persons/red_shirt_man/61.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/simulation_data/persons/red_shirt_man/62.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/simulation_data/persons/red_shirt_man/63.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/simulation_data/persons/red_shirt_man/64.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/simulation_data/persons/red_shirt_man/65.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/simulation_data/persons/red_shirt_man/66.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/simulation_data/persons/red_shirt_man/67.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/simulation_data/persons/red_shirt_man/68.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/simulation_data/persons/red_shirt_man/69.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/simulation_data/persons/red_shirt_man/7.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/simulation_data/persons/red_shirt_man/70.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/simulation_data/persons/red_shirt_man/71.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/simulation_data/persons/red_shirt_man/72.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/simulation_data/persons/red_shirt_man/73.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/simulation_data/persons/red_shirt_man/74.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/simulation_data/persons/red_shirt_man/75.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/simulation_data/persons/red_shirt_man/76.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/simulation_data/persons/red_shirt_man/77.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/simulation_data/persons/red_shirt_man/78.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/simulation_data/persons/red_shirt_man/79.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/simulation_data/persons/red_shirt_man/8.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/simulation_data/persons/red_shirt_man/80.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/simulation_data/persons/red_shirt_man/81.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/simulation_data/persons/red_shirt_man/82.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/simulation_data/persons/red_shirt_man/83.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/simulation_data/persons/red_shirt_man/84.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/simulation_data/persons/red_shirt_man/85.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/simulation_data/persons/red_shirt_man/86.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/simulation_data/persons/red_shirt_man/87.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/simulation_data/persons/red_shirt_man/88.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/simulation_data/persons/red_shirt_man/89.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/simulation_data/persons/red_shirt_man/9.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/simulation_data/persons/red_shirt_man/90.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/simulation_data/persons/red_shirt_man/91.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/simulation_data/persons/red_shirt_man/92.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/simulation_data/persons/red_shirt_man/93.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/simulation_data/persons/red_shirt_man/94.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/simulation_data/persons/red_shirt_man/95.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/simulation_data/persons/red_shirt_man/96.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/simulation_data/persons/red_shirt_man/97.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/simulation_data/persons/red_shirt_man/98.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/simulation_data/persons/red_shirt_man/99.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/simulation_data/persons/white_blouse_woman/0.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/simulation_data/persons/white_blouse_woman/1.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/simulation_data/persons/white_blouse_woman/10.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/simulation_data/persons/white_blouse_woman/100.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/simulation_data/persons/white_blouse_woman/101.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/simulation_data/persons/white_blouse_woman/102.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/simulation_data/persons/white_blouse_woman/103.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/simulation_data/persons/white_blouse_woman/104.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/simulation_data/persons/white_blouse_woman/105.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/simulation_data/persons/white_blouse_woman/106.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/simulation_data/persons/white_blouse_woman/107.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/simulation_data/persons/white_blouse_woman/108.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/simulation_data/persons/white_blouse_woman/109.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/simulation_data/persons/white_blouse_woman/11.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/simulation_data/persons/white_blouse_woman/110.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/simulation_data/persons/white_blouse_woman/111.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/simulation_data/persons/white_blouse_woman/112.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/simulation_data/persons/white_blouse_woman/113.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/simulation_data/persons/white_blouse_woman/114.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/simulation_data/persons/white_blouse_woman/115.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/simulation_data/persons/white_blouse_woman/116.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/simulation_data/persons/white_blouse_woman/117.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/simulation_data/persons/white_blouse_woman/118.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/simulation_data/persons/white_blouse_woman/119.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/simulation_data/persons/white_blouse_woman/12.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/simulation_data/persons/white_blouse_woman/120.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/simulation_data/persons/white_blouse_woman/121.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/simulation_data/persons/white_blouse_woman/122.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/simulation_data/persons/white_blouse_woman/123.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/simulation_data/persons/white_blouse_woman/124.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/simulation_data/persons/white_blouse_woman/13.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/simulation_data/persons/white_blouse_woman/14.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/simulation_data/persons/white_blouse_woman/15.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/simulation_data/persons/white_blouse_woman/16.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/simulation_data/persons/white_blouse_woman/17.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/simulation_data/persons/white_blouse_woman/18.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/simulation_data/persons/white_blouse_woman/19.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/simulation_data/persons/white_blouse_woman/2.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/simulation_data/persons/white_blouse_woman/20.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/simulation_data/persons/white_blouse_woman/21.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/simulation_data/persons/white_blouse_woman/22.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/simulation_data/persons/white_blouse_woman/23.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/simulation_data/persons/white_blouse_woman/24.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/simulation_data/persons/white_blouse_woman/25.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/simulation_data/persons/white_blouse_woman/26.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/simulation_data/persons/white_blouse_woman/27.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/simulation_data/persons/white_blouse_woman/28.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/simulation_data/persons/white_blouse_woman/29.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/simulation_data/persons/white_blouse_woman/3.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/simulation_data/persons/white_blouse_woman/30.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/simulation_data/persons/white_blouse_woman/31.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/simulation_data/persons/white_blouse_woman/32.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/simulation_data/persons/white_blouse_woman/33.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/simulation_data/persons/white_blouse_woman/34.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/simulation_data/persons/white_blouse_woman/35.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/simulation_data/persons/white_blouse_woman/36.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/simulation_data/persons/white_blouse_woman/37.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/simulation_data/persons/white_blouse_woman/38.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/simulation_data/persons/white_blouse_woman/39.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/simulation_data/persons/white_blouse_woman/4.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/simulation_data/persons/white_blouse_woman/40.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/simulation_data/persons/white_blouse_woman/41.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/simulation_data/persons/white_blouse_woman/42.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/simulation_data/persons/white_blouse_woman/43.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/simulation_data/persons/white_blouse_woman/44.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/simulation_data/persons/white_blouse_woman/45.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/simulation_data/persons/white_blouse_woman/46.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/simulation_data/persons/white_blouse_woman/47.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/simulation_data/persons/white_blouse_woman/48.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/simulation_data/persons/white_blouse_woman/49.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/simulation_data/persons/white_blouse_woman/5.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/simulation_data/persons/white_blouse_woman/50.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/simulation_data/persons/white_blouse_woman/51.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/simulation_data/persons/white_blouse_woman/52.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/simulation_data/persons/white_blouse_woman/53.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/simulation_data/persons/white_blouse_woman/54.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/simulation_data/persons/white_blouse_woman/55.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/simulation_data/persons/white_blouse_woman/56.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/simulation_data/persons/white_blouse_woman/57.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/simulation_data/persons/white_blouse_woman/58.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/simulation_data/persons/white_blouse_woman/59.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/simulation_data/persons/white_blouse_woman/6.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/simulation_data/persons/white_blouse_woman/60.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/simulation_data/persons/white_blouse_woman/61.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/simulation_data/persons/white_blouse_woman/62.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/simulation_data/persons/white_blouse_woman/63.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/simulation_data/persons/white_blouse_woman/64.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/simulation_data/persons/white_blouse_woman/65.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/simulation_data/persons/white_blouse_woman/66.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/simulation_data/persons/white_blouse_woman/67.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/simulation_data/persons/white_blouse_woman/68.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/simulation_data/persons/white_blouse_woman/69.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/simulation_data/persons/white_blouse_woman/7.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/simulation_data/persons/white_blouse_woman/70.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/simulation_data/persons/white_blouse_woman/71.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/simulation_data/persons/white_blouse_woman/72.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/simulation_data/persons/white_blouse_woman/73.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/simulation_data/persons/white_blouse_woman/74.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/simulation_data/persons/white_blouse_woman/75.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/simulation_data/persons/white_blouse_woman/76.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/simulation_data/persons/white_blouse_woman/77.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/simulation_data/persons/white_blouse_woman/78.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/simulation_data/persons/white_blouse_woman/79.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/simulation_data/persons/white_blouse_woman/8.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/simulation_data/persons/white_blouse_woman/80.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/simulation_data/persons/white_blouse_woman/81.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/simulation_data/persons/white_blouse_woman/82.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/simulation_data/persons/white_blouse_woman/83.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/simulation_data/persons/white_blouse_woman/84.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/simulation_data/persons/white_blouse_woman/85.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/simulation_data/persons/white_blouse_woman/86.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/simulation_data/persons/white_blouse_woman/87.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/simulation_data/persons/white_blouse_woman/88.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/simulation_data/persons/white_blouse_woman/89.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/simulation_data/persons/white_blouse_woman/9.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/simulation_data/persons/white_blouse_woman/90.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/simulation_data/persons/white_blouse_woman/91.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/simulation_data/persons/white_blouse_woman/92.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/simulation_data/persons/white_blouse_woman/93.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/simulation_data/persons/white_blouse_woman/94.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/simulation_data/persons/white_blouse_woman/95.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/simulation_data/persons/white_blouse_woman/96.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/simulation_data/persons/white_blouse_woman/97.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/simulation_data/persons/white_blouse_woman/98.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/simulation_data/persons/white_blouse_woman/99.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/simulation_data/sim1.mp4" beforeDir="false" afterPath="$PROJECT_DIR$/simulation_data/sim1.mp4" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/functions/get_person_pairs.py" beforeDir="false" afterPath="$PROJECT_DIR$/functions/get_person_pairs.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/functions/get_pose.py" beforeDir="false" afterPath="$PROJECT_DIR$/functions/get_pose.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/functions/get_yolo_boxes.py" beforeDir="false" afterPath="$PROJECT_DIR$/functions/get_yolo_boxes.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/simulation_data/sim1_annotated.mp4" beforeDir="false" afterPath="$PROJECT_DIR$/simulation_data/sim1_annotated.mp4" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/simulation_data/sim2.mp4" beforeDir="false" afterPath="$PROJECT_DIR$/simulation_data/sim2.mp4" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/simulation_data/sim2_annotated.mp4" beforeDir="false" afterPath="$PROJECT_DIR$/simulation_data/sim2_annotated.mp4" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
@@ -327,7 +81,7 @@
   &quot;keyToString&quot;: {
     &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
     &quot;WebServerToolWindowFactoryState&quot;: &quot;false&quot;,
-    &quot;git-widget-placeholder&quot;: &quot;master&quot;,
+    &quot;git-widget-placeholder&quot;: &quot;weird__branch&quot;,
     &quot;ignore.virus.scanning.warn.message&quot;: &quot;true&quot;,
     &quot;last_opened_file_path&quot;: &quot;G:/Uni/Bachelor/Project/combined_camera_poses/simulation_data&quot;,
     &quot;node.js.detected.package.eslint&quot;: &quot;true&quot;,
@@ -578,6 +332,7 @@
       <workItem from="1687776375480" duration="13960000" />
       <workItem from="1687792096166" duration="5329000" />
       <workItem from="1687803844564" duration="4357000" />
+      <workItem from="1687874248828" duration="7711000" />
     </task>
     <task id="LOCAL-00001" summary="start triangulation and reprojection tries">
       <created>1683191605703</created>
@@ -907,7 +662,7 @@
     <SUITE FILE_PATH="coverage/combined_camera_poses$testing.coverage" NAME="testing Coverage Results" MODIFIED="1685044993509" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
     <SUITE FILE_PATH="coverage/combined_camera_poses$demo.coverage" NAME="demo Coverage Results" MODIFIED="1686577170315" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/demo" />
     <SUITE FILE_PATH="coverage/combined_camera_poses$mayavi_demo.coverage" NAME="mayavi_demo Coverage Results" MODIFIED="1683243461662" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
-    <SUITE FILE_PATH="coverage/combined_camera_poses$app.coverage" NAME="app Coverage Results" MODIFIED="1687808037513" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
+    <SUITE FILE_PATH="coverage/combined_camera_poses$app.coverage" NAME="app Coverage Results" MODIFIED="1687883039436" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
     <SUITE FILE_PATH="coverage/combined_camera_poses$istvansarandi.coverage" NAME="istvansarandi Coverage Results" MODIFIED="1683107967232" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
     <SUITE FILE_PATH="coverage/combined_camera_poses$.coverage" NAME=" Coverage Results" MODIFIED="1685018675750" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/functions" />
   </component>

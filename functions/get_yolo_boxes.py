@@ -8,8 +8,9 @@ from classes.bounding_box import BoundingBox
 
 
 def get_yolo_bounding_boxes(image, model: YOLO):
+    converted = cv2.cvtColor(image.copy(), cv2.COLOR_BGR2RGB)
     results: Results = model.predict(
-        image, stream=False, conf=0.4, device="cpu", show=False, classes=0
+        converted, stream=False, conf=0.4, device="cpu", show=False, classes=0
     )[0]
     person_indexes = []
     boxes: Boxes = results.boxes
@@ -24,10 +25,5 @@ def get_yolo_bounding_boxes(image, model: YOLO):
         min_y = int(box[1])
         max_x = int(box[2])
         max_y = int(box[3])
-        box = BoundingBox(min_x, min_y, max_x, max_y)
-
-        cropped = box.crop_image(image)
-        cv2.imwrite(f"cropped_{i}.jpg", cropped)
-        bounding_boxes.append(box)
-
+        bounding_boxes.append(BoundingBox(min_x, min_y, max_x, max_y))
     return bounding_boxes

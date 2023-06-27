@@ -949,9 +949,15 @@ def normalize_image(image):
         normalized_channel = (channel - mean) / std_dev
         normalized_channels.append(normalized_channel)
     normalized_image = cv2.merge(normalized_channels)
-    return (normalized_image - normalized_image.min()) / (
+    image = (normalized_image - normalized_image.min()) / (
         normalized_image.max() - normalized_image.min()
     )
+
+    # As bgr between 0 and 255
+    image = image * 255
+    image = image.astype("uint8")
+    return image
+
 
 
 # TODO: Fix this or drop the changes to the original code

@@ -5,7 +5,6 @@ from typing import List, Tuple, Optional
 
 import cv2 as cv
 import matplotlib.pyplot as plt
-import numpy as np
 from cv2 import VideoWriter
 from numpy import ndarray
 from ultralytics import YOLO
@@ -20,7 +19,7 @@ from classes.score_manager import ScoreManager
 from classes.true_person_loader import TruePersonLoader
 from classes.unity_person import UnityPerson
 from enums.logging_levels import LoggingLevel
-from functions.funcs import blend_colors, normalize_image, is_in_image
+from functions.funcs import normalize_image, is_in_image
 from functions.get_pose import get_pose
 from functions.get_yolo_boxes import get_yolo_bounding_boxes
 
@@ -82,7 +81,7 @@ def annotate_video_multi(
             break
 
         frame_count += 1
-        START_FRAME = 55
+        START_FRAME = 0
         END_FRAME = math.inf
 
         if frame_count < START_FRAME:
@@ -119,8 +118,8 @@ def annotate_video_multi(
         bounding_boxes2: List[BoundingBox] = get_yolo_bounding_boxes(orig_img2, model)
 
         for box in bounding_boxes1:
-            box.draw(img1)
-            img1, results1 = get_pose(orig_img1, box)
+            # box.draw(img1)
+            results1 = get_pose(orig_img1, box)
             if (
                 results1 is None
                 or results1.pose_landmarks is None
@@ -134,8 +133,8 @@ def annotate_video_multi(
                 )
 
         for box in bounding_boxes2:
-            box.draw(img2)
-            img2, results2 = get_pose(orig_img2, box)
+            # box.draw(img2)
+            results2 = get_pose(orig_img2, box)
             if (
                 results2 is None
                 or results2.pose_landmarks is None
@@ -149,20 +148,24 @@ def annotate_video_multi(
                 )
 
         person_recorder1.add(persons1, frame_count, img1)
-        person_recorder1.plot_trajectories(img1)
         person_recorder2.add(persons2, frame_count, img2)
-        person_recorder1.plot_trajectories(img1)
-        person_recorder2.plot_trajectories(img2)
+
+        # copy1 = img1.copy()
+        # copy2 = img2.copy()
+        # person_recorder1.plot_trajectories(img1)
+        # person_recorder2.plot_trajectories(img2)
+        # cv.imshow("Recorder1", copy1)
+        # cv.imshow("Recorder2", copy2)
 
         # Get some records before starting to match
-        # if frame_count < START_FRAME + 6:
-        #     continue
+        if frame_count < START_FRAME + 6:
+            continue
 
-        # records_matcher.eval_frame(frame_count, img1, img2, cam1_data, cam2_data)
-        pairs: List[Tuple[Person, Person]] = []
-        # pairs: List[Tuple[Person, Person]] = records_matcher.get_alignment(
-        #     frame_count, cam1_data, cam2_data
-        # )
+        records_matcher.eval_frame(frame_count, img1, img2, cam1_data, cam2_data)
+        # pairs: List[Tuple[Person, Person]] = []
+        pairs: List[Tuple[Person, Person]] = records_matcher.get_alignment(
+            frame_count, cam1_data, cam2_data
+        )
 
         unity_persons: List[UnityPerson] = TruePersonLoader.load(
             "simulation_data/persons"
@@ -199,7 +202,6 @@ def annotate_video_multi(
                     (p1, p2), unity_persons, frame_count, img1, img2
                 )
             )
-
             score_manager.add_score(1 if confirmed else 0)
 
         if frame_count > START_FRAME:
