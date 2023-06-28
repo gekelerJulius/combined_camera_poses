@@ -120,9 +120,9 @@ class RecordMatcher:
                     costs.append(matr_b)
                 cost_matrix[i, j] = np.mean(costs) if len(costs) > 0 else sys.maxsize
 
-        repr_error = 1000
+        repr_error = 1000000
         pairs: List[Tuple[Person, Person]] = []
-        limit: int = 15
+        limit: int = 10
         while repr_error > limit:
             row_ind, col_ind = linear_sum_assignment(cost_matrix)
             for i, j in zip(row_ind, col_ind):
@@ -141,14 +141,18 @@ class RecordMatcher:
             )
             print("Reprojection error:", repr_error)
             if repr_error > limit:
+                limit *= 1.25
+                if limit > 100:
+                    break
                 pairs = []
                 cost_matrix[row_ind, col_ind] *= 1.5
-                limit *= 1.25
+                repr_error = 1000000
 
         self.get_frame_record(frame_num).estimated_person_pairs = pairs
-        self.get_frame_record(frame_num).reprojection_error = self.get_mean_err(
-            frame_num, cam_data1, cam_data2, None, False, False, False
-        )
+        self.get_frame_record(frame_num).reprojection_error = repr_error
+        # self.get_frame_record(frame_num).reprojection_error = self.get_mean_err(
+        #     frame_num, cam_data1, cam_data2, None, False, False, False
+        # )
         self.get_mean_err(frame_num, cam_data1, cam_data2, None, True, True, True)
         return pairs
 
@@ -316,34 +320,34 @@ class RecordMatcher:
             axis.plot([r.reprojection_error for r in self.frame_records], "b-")
             plotter.add_plot(err_plot, "reprojection_error")
 
-            points3d = triangulate_3d_points(
-                points1_img,
-                points2_img,
-                est_cam_data1.get_projection_matrix(),
-                est_cam_data2.get_projection_matrix(),
-            )
-            assert points3d.shape[0] == points1_img.shape[0]
-
-            points3d_persons = []
-            for i in range(0, points3d.shape[0]):
-                if i % 33 == 0:
-                    points3d_persons.append([])
-                points3d_persons[-1].append(points3d[i])
-
-            scene_plot: Figure = plotter.get_plot("scene")
-            if scene_plot is None:
-                scene_plot = plt.figure()
-                axis: Axes = scene_plot.add_subplot(111, projection="3d")
-                axis.yaxis.axis_name = "Y"
-                axis.xaxis.axis_name = "X"
-                axis.zaxis.axis_name = "Z"
-            else:
-                axis: Axes = scene_plot.axes[0]
-            axis.clear()
-            for points3d_person in points3d_persons:
-                points3d_person = np.array(points3d_person)
-                plot_pose_3d(points3d_person, axis)
-            plotter.add_plot(scene_plot, "scene")
+            # points3d = triangulate_3d_points(
+            #     points1_img,
+            #     points2_img,
+            #     est_cam_data1.get_projection_matrix(),
+            #     est_cam_data2.get_projection_matrix(),
+            # )
+            # assert points3d.shape[0] == points1_img.shape[0]
+            #
+            # points3d_persons = []
+            # for i in range(0, points3d.shape[0]):
+            #     if i % 33 == 0:
+            #         points3d_persons.append([])
+            #     points3d_persons[-1].append(points3d[i])
+            #
+            # scene_plot: Figure = plotter.get_plot("scene")
+            # if scene_plot is None:
+            #     scene_plot = plt.figure()
+            #     axis: Axes = scene_plot.add_subplot(111, projection="3d")
+            #     axis.yaxis.axis_name = "Y"
+            #     axis.xaxis.axis_name = "X"
+            #     axis.zaxis.axis_name = "Z"
+            # else:
+            #     axis: Axes = scene_plot.axes[0]
+            # axis.clear()
+            # for points3d_person in points3d_persons:
+            #     points3d_person = np.array(points3d_person)
+            #     plot_pose_3d(points3d_person, axis)
+            # plotter.add_plot(scene_plot, "scene")
             plt.pause(0.01)
         return mean_err
 
@@ -366,6 +370,8 @@ class RecordMatcher:
         # return min_record.estimated_extrinsic_matrix
 
     def report(self) -> None:
+        if len(self.frame_records) == 0:
+            return
         print(
             self.get_extrinsic_estimation(
                 np.max([r.frame_num for r in self.frame_records])

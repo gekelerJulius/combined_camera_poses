@@ -127,7 +127,7 @@ def annotate_video_multi(
         bounding_boxes2: List[BoundingBox] = get_yolo_bounding_boxes(orig_img2, model)
 
         for box in bounding_boxes1:
-            img1, results1 = get_pose(orig_img1, box)
+            results1 = get_pose(orig_img1, box)
             if (
                 results1 is None
                 or results1.pose_landmarks is None
@@ -141,7 +141,7 @@ def annotate_video_multi(
                 )
 
         for box in bounding_boxes2:
-            img2, results2 = get_pose(orig_img2, box)
+            results2 = get_pose(orig_img2, box)
             if (
                 results2 is None
                 or results2.pose_landmarks is None
@@ -158,11 +158,12 @@ def annotate_video_multi(
         person_recorder2.add(persons2, frame_count, img2)
 
         # Get some records before starting to match
-        # if frame_count < START_FRAME + 6:
-        #     continue
+        if frame_count < START_FRAME + 6:
+            continue
 
         records_matcher.eval_frame(frame_count, img1, img2, cam1_data, cam2_data)
         pairs = records_matcher.get_alignment(frame_count, cam1_data, cam2_data)
+        # pairs = []
 
         unity_persons: List[UnityPerson] = TruePersonLoader.load(
             "simulation_data/persons"
@@ -174,18 +175,19 @@ def annotate_video_multi(
 
         pairs = sorted(pairs, key=lambda x: x[0].name)
         for i, (p1, p2) in enumerate(pairs):
-            color1 = p1.color
-            color2 = p2.color
-            blended1, blended2 = blend_colors(color1, color2, 0.5)
-            p1.color = blended1
-            p2.color = blended2
-            color = [0, 0, 0]
-
-            color[0] = 0 if i % 2 == 0 else 255
-            color[1] = 0 if i % 4 < 2 else 255
-            color[2] = 0 if i < 4 else 255
-
-            color = tuple(color)
+            # color1 = p1.color
+            # color2 = p2.color
+            # blended1, blended2 = blend_colors(color1, color2, 0.5)
+            # p1.color = blended1
+            # p2.color = blended2
+            # color = [0, 0, 0]
+            #
+            # color[0] = 0 if i % 2 == 0 else 255
+            # color[1] = 0 if i % 4 < 2 else 255
+            # color[2] = 0 if i < 4 else 255
+            # color = tuple(color)
+            p2.color = p1.color
+            color = p1.color
             p1.draw(img1, color)
             p2.draw(img2, color)
             confirmed = TruePersonLoader.confirm_pair(
@@ -218,7 +220,11 @@ def annotate_video_multi(
         out1.write(img1)
         out2.write(img2)
         score = score_manager.get_score()
-        Logger.log(f"Correct percentage: {score * 100:.2f}%", LoggingLevel.INFO)
+        perc_string = f"Correct percentage: {score * 100:.2f}%"
+        # Save to file
+        with open("simulation_data/score.txt", "w") as f:
+            f.write(perc_string)
+        Logger.log(perc_string, LoggingLevel.INFO)
 
     cap1.release()
     cap2.release()

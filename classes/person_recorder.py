@@ -33,6 +33,7 @@ class PersonRecorder:
                 self.frame_dict[person.frame_count] = []
             self.frame_dict.get(person.frame_count).append(person)
         self.update_kalman_filter(persons, frame_num, img)
+        # self.plot_trajectories(img)
 
     def get_recent_persons(self, frame_num: int, look_back: int = None) -> List[Person]:
         if look_back is None:
@@ -108,10 +109,11 @@ class PersonRecorder:
             centroids = [person.centroid() for person in persons]
             cost_matrix = np.zeros((len(predictions), len(centroids)))
             for i, (name, prediction) in enumerate(predictions):
-                last_centroid = self.kalman_dict[name][1][-1].centroid()
+                kalman, kalman_persons = self.kalman_dict.get(name)
+                last_centroid = kalman_persons[-1].centroid()
                 last_x, last_y = last_centroid[0], last_centroid[1]
-                x_pred, y_pred = prediction[0], prediction[1]
-                vel_x_pred, vel_y_pred = prediction[2], prediction[3]
+                x_pred, y_pred = prediction[0][0], prediction[1][0]
+                vel_x_pred, vel_y_pred = prediction[2][0], prediction[3][0]
 
                 for j, centroid in enumerate(centroids):
                     centroid = np.array([centroid[0], centroid[1]])
@@ -127,8 +129,37 @@ class PersonRecorder:
                         np.array([vel_x_pred, vel_y_pred])
                         - np.array([last_vel_x, last_vel_y])
                     )
-                    dist = dist1 * (vel_dist**2)
+
+                    expected_x_error = np.sqrt(kalman.errorCovPost[0][0])
+                    expected_y_error = np.sqrt(kalman.errorCovPost[1][1])
+                    expected_vel_x_error = np.sqrt(kalman.errorCovPost[2][2])
+                    expected_vel_y_error = np.sqrt(kalman.errorCovPost[3][3])
+
+                    dist1_diff_to_expected = np.linalg.norm(
+                        np.array([expected_x_error, expected_y_error])
+                    )
+                    vel_dist_diff_to_expected = np.linalg.norm(
+                        np.array([expected_vel_x_error, expected_vel_y_error])
+                    )
+
+                    dist = (
+                        (dist1**2)
+                        * (vel_dist**2)
+                        * (dist2**2)
+                        * (dist1_diff_to_expected**2)
+                        * (vel_dist_diff_to_expected**2)
+                    )
                     cost_matrix[i, j] = dist
+
+            if cost_matrix.shape[0] > 0 and cost_matrix.shape[1] > 0:
+                max_val = np.max(cost_matrix)
+
+                for i in range(cost_matrix.shape[0]):
+                    for j in range(cost_matrix.shape[1]):
+                        if cost_matrix[i, j] == -1:
+                            cost_matrix[i, j] = max_val + 1
+
+                cost_matrix = cost_matrix / max_val
 
             row_ind, col_ind = linear_sum_assignment(cost_matrix)
             # Update kalman filters with best matches
@@ -153,7 +184,7 @@ class PersonRecorder:
         unmatched_predictions = list(filter(lambda x: x[0] not in matched, predictions))
         for name, prediction in unmatched_predictions:
             last_frame = self.get_latest_frame_for_person(name)
-            if last_frame is None or frame_num - last_frame > self.look_back:
+            if last_frame is None or frame_num - last_frame > 6:
                 self.kalman_dict.pop(name)
                 self.kalman_prediction_dict.pop(name)
                 assert self.kalman_dict.get(name) is None
@@ -189,17 +220,21 @@ class PersonRecorder:
 
     def plot_trajectories(self, img) -> None:
         for name in self.kalman_dict:
-            kalman, centroid_list = self.kalman_dict[name]
-            centroid_list = np.array(centroid_list)
+            kalman, person_list = self.kalman_dict[name]
 
-            # Plot centroid trajectory on image
-            for i in range(1, len(centroid_list)):
-                a = centroid_list[i - 1]
-                b = centroid_list[i]
-                cv2.line(
-                    img, (int(a[0]), int(a[1])), (int(b[0]), int(b[1])), (0, 255, 0), 2
-                )
-        cv2.imshow(self.id, img)
+            for i in range(1, len(person_list)):
+                prev: Person = person_list[i - 1]
+                after: Person = person_list[i]
+                prev_np = prev.get_pose_landmarks_numpy()
+                after_np = after.get_pose_landmarks_numpy()
+                for j in range(1, 33):
+                    cv2.line(
+                        img,
+                        (int(prev_np[j, 0]), int(prev_np[j, 1])),
+                        (int(after_np[j, 0]), int(after_np[j, 1])),
+                        prev.color,
+                        1,
+                    )
 
     def get_frame_history(
         self, p: Person, frame_range: Tuple[int, int] = (0, np.inf)
