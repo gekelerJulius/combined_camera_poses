@@ -112,7 +112,6 @@ def compare_persons(
         )
         distances.append(factored_dist)
     distances_np = np.array(distances)
-    distances_np *= rmse**2
     distances_np = distances_np / np.max(distances_np)
     assert len(distances_np) == len(lmks1) == len(lmks2)
 
@@ -149,8 +148,9 @@ def compare_persons(
     err1, err2 = calc_reprojection_errors(
         points1_img, points2_img, est_cam_data1, est_cam_data2
     )
-    mean_dist = float(np.mean(distances_np))
-    return mean_dist
+    mean_err = (err1 + err2) / 2
+    mean_color_dist = float(np.mean(distances_np))
+    return (mean_color_dist**2) * (mean_err**2) * (rmse**2)
 
 
 # def get_person_pairs(

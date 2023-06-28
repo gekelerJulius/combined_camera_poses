@@ -1,5 +1,4 @@
 import itertools
-import sys
 from typing import Dict, List, Tuple, Optional
 
 import numpy as np
@@ -46,7 +45,7 @@ class FrameRecord:
         self.cost_matrix = cost_matrix
         self.estimated_person_pairs = []
         self.estimated_extrinsic_matrix = None
-        self.reprojection_error = sys.float_info.max
+        self.reprojection_error = None
 
 
 class RecordMatcher:
@@ -118,8 +117,45 @@ class RecordMatcher:
                     if matr_b is None:
                         continue
                     costs.append(matr_b)
-                cost_matrix[i, j] = np.mean(costs) if len(costs) > 0 else sys.maxsize
+                    raw_cost = np.mean(costs) if len(costs) > 0 else -1
 
+                    # Find out how many past frames the persons were paired
+                    # If they were paired in previous frames, reduce the cost
+                    # This is to avoid switching between persons too often
+                    pairing_look_back = 12
+                    last_pairs: List[List[Tuple[Person, Person]]] = [
+                        x.estimated_person_pairs
+                        for x in self.frame_records
+                        if frame_num - pairing_look_back < x.frame_num < frame_num
+                    ]
+                    flattened_pairs: List[Tuple[Person, Person]] = list(
+                        itertools.chain.from_iterable(last_pairs)
+                    )
+                    count = 0
+                    for pair in flattened_pairs:
+                        if pair[0].name == a.name and pair[1].name == b.name:
+                            count += 1
+
+                    pairing_score = 0.5
+                    if len(last_pairs) > 0:
+                        pairing_score = count / len(last_pairs)
+
+                    cost_matrix[i, j] = raw_cost * (1 - (pairing_score * 1))
+                    # cost_matrix[i, j] = raw_cost
+
+        if len(cost_matrix) == 0:
+            return []
+
+        max_val = np.max(cost_matrix)
+        if max_val == 0:
+            return []
+
+        for i in range(len(cost_matrix)):
+            for j in range(len(cost_matrix[i])):
+                if cost_matrix[i, j] == -1:
+                    cost_matrix[i, j] = max_val + 1
+
+        cost_matrix = cost_matrix / np.max(cost_matrix)
         repr_error = 1000000
         pairs: List[Tuple[Person, Person]] = []
         limit: int = 10
@@ -168,7 +204,7 @@ class RecordMatcher:
             self.get_all_previous_extrinsics(frame_num),
             self.get_all_previous_reprojection_errors(frame_num),
         )
-        estimation_confidence = 0.3
+        estimation_confidence = 0.2
         # if len(self.frame_records) > 6:
         #     estimated_extr = calculate_weighted_extrinsic(
         #         self.get_all_previous_extrinsics(frame_num),
@@ -244,14 +280,14 @@ class RecordMatcher:
         use_weighted_mean: bool = True,
         update_plots=False,
         print_stuff=False,
-    ) -> float:
+    ) -> Optional[float]:
         frame_record = self.get_frame_record(frame_num)
         if frame_record is None:
-            return sys.float_info.max
+            return None
         if pairs is None:
             pairs = frame_record.estimated_person_pairs
             if pairs is None or len(pairs) == 0:
-                return sys.float_info.max
+                return None
         points1_img = []
         points2_img = []
         for pair in pairs:
@@ -311,13 +347,19 @@ class RecordMatcher:
             if err_plot is None:
                 err_plot = plt.figure()
                 axis: Axes = err_plot.add_subplot(111)
-                axis.yaxis.axis_name = "Reprojection error"
-                axis.xaxis.axis_name = "Frame number"
             else:
                 axis: Axes = err_plot.axes[0]
 
             axis.clear()
-            axis.plot([r.reprojection_error for r in self.frame_records], "b-")
+            axis.yaxis.axis_name = "Reprojection error in pixels"
+            axis.xaxis.axis_name = "Frame number"
+            axis.set_xlabel(axis.xaxis.axis_name)
+            axis.set_ylabel(axis.yaxis.axis_name)
+            errs = [r.reprojection_error for r in self.frame_records if r is not None]
+            axis.plot(
+                errs,
+                "b-",
+            )
             plotter.add_plot(err_plot, "reprojection_error")
 
             # points3d = triangulate_3d_points(
@@ -399,7 +441,10 @@ def calculate_weighted_extrinsic(
         return None
 
     for i in range(num_frames):
-        error_weight = 1 / (reprojection_errors[i])
+        err = reprojection_errors[i]
+        if err is None or err == 0:
+            err = 10000
+        error_weight = 1 / err
         n = num_frames - i - 1
         recency_weight = 1 / (decay_base * n + 1)
         weights[i] = error_weight * recency_weight
