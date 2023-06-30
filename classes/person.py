@@ -1,4 +1,4 @@
-from typing import NamedTuple, List, Union, Tuple
+from typing import NamedTuple, List, Tuple
 
 import mediapipe as mp
 import numpy as np
@@ -7,15 +7,12 @@ from numpy import ndarray
 
 from classes.bounding_box import BoundingBox
 from classes.camera_data import CameraData
-from classes.colored_landmark import ColoredLandmark
 from classes.logger import Logger
 from consts.consts import LANDMARK_INDICES_PER_NAME
 from enums.logging_levels import LoggingLevel
 from functions.funcs import (
-    compare_landmarks,
     draw_landmarks_list,
-    get_avg_color,
-    plot_pose_2d, calc_cos_sim, get_dominant_color_patch,
+    calc_cos_sim,
 )
 
 mp_drawing = mp.solutions.drawing_utils
@@ -91,25 +88,6 @@ class Person:
             return np.array([])
         return np.array([np.array([lmk.x, lmk.y, lmk.z]) for lmk in self.results.pose_world_landmarks.landmark])
 
-    def get_pose_landmarks_with_color(self, image) -> List[ColoredLandmark]:
-        if self.results is None or self.results.pose_landmarks is None:
-            Logger.log("No results found", LoggingLevel.WARNING)
-            return []
-        if image is None:
-            Logger.log("No image found", LoggingLevel.WARNING)
-            return []
-
-        lmks = [
-            ColoredLandmark(
-                lmk,
-                avg_color=get_avg_color(image, int(lmk.x), int(lmk.y), 3),
-                dom_color=get_dominant_color_patch(image, int(lmk.x), int(lmk.y), 3),
-            )
-            for lmk in self.results.pose_landmarks.landmark
-        ]
-
-        return lmks
-
     def draw(self, image, color=(255, 255, 0), title=None):
         if title is None and self.name is not None:
             title = self.name
@@ -127,23 +105,6 @@ class Person:
 
     def __repr__(self):
         return self.__str__()
-
-    def get_landmark_sim(self, person2: "Person", img1, img2):
-        if person2 is None:
-            Logger.log("No person found", LoggingLevel.WARNING)
-            return 0
-
-        if img1 is None or img2 is None:
-            Logger.log("No image found", LoggingLevel.WARNING)
-            return 0
-
-        return compare_landmarks(
-            self.get_pose_landmarks_with_color(img1),
-            person2.get_pose_landmarks_with_color(img2),
-        )
-
-    def plot_2d(self, plot_id: int = None, title: str = "") -> int:
-        return plot_pose_2d(self.get_pose_landmarks_numpy(), title=title)
 
     def pose_distance(self, person2: "Person"):
         if person2 is None:

@@ -8,19 +8,18 @@ from matplotlib.figure import Figure
 from numpy import ndarray
 from scipy.optimize import linear_sum_assignment
 
-from classes.PlotService import PlotService
 from classes.camera_data import CameraData
 from classes.logger import Logger
 from classes.person import Person
 from classes.person_recorder import PersonRecorder
+from classes.plot_service import PlotService
 from enums.logging_levels import LoggingLevel
 from functions.calc_repr_errors import calc_reprojection_errors, triangulate_3d_points
 from functions.estimate_extrinsic import estimate_extrinsic
 from functions.funcs import (
-    plot_pose_3d,
     rotation_matrices_angles_differences,
 )
-from functions.get_person_pairs import compare_persons
+from functions.compare_persons import compare_persons
 
 
 class FrameRecord:

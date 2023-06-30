@@ -19,11 +19,9 @@ from classes.score_manager import ScoreManager
 from classes.true_person_loader import TruePersonLoader
 from classes.unity_person import UnityPerson
 from enums.logging_levels import LoggingLevel
-from functions.funcs import blend_colors, normalize_image
+from functions.funcs import normalize_image
 from functions.get_pose import get_pose
 from functions.get_yolo_boxes import get_yolo_bounding_boxes
-
-resolution = (1280, 720)
 
 
 def annotate_video_multi(
@@ -173,19 +171,7 @@ def annotate_video_multi(
         #     unity_persons, [img1, img2], [cam1_data, cam2_data], frame_count
         # )
 
-        pairs = sorted(pairs, key=lambda x: x[0].name)
-        for i, (p1, p2) in enumerate(pairs):
-            # color1 = p1.color
-            # color2 = p2.color
-            # blended1, blended2 = blend_colors(color1, color2, 0.5)
-            # p1.color = blended1
-            # p2.color = blended2
-            # color = [0, 0, 0]
-            #
-            # color[0] = 0 if i % 2 == 0 else 255
-            # color[1] = 0 if i % 4 < 2 else 255
-            # color[2] = 0 if i < 4 else 255
-            # color = tuple(color)
+        for (p1, p2) in pairs:
             p2.color = p1.color
             color = p1.color
             p1.draw(img1, color)

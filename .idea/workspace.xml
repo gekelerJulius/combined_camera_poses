@@ -1,0 +1,252 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="AutoImportSettings">
+    <option name="autoReloadType" value="SELECTIVE" />
+  </component>
+  <component name="ChangeListManager">
+    <list default="true" id="ee3a849e-2963-4b35-bcd8-164fc59fdab2" name="Changes" comment="">
+      <change afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/functions/compare_persons.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/simulation_data/persons/black_hoodie_man/0.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/simulation_data/persons/black_hoodie_man/1.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/simulation_data/persons/black_hoodie_man/10.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/simulation_data/persons/black_hoodie_man/100.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/simulation_data/persons/black_hoodie_man/101.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/simulation_data/persons/black_hoodie_man/102.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/simulation_data/persons/black_hoodie_man/103.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/simulation_data/persons/black_hoodie_man/104.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/simulation_data/persons/black_hoodie_man/105.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/simulation_data/persons/black_hoodie_man/106.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/simulation_data/persons/black_hoodie_man/107.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/simulation_data/persons/black_hoodie_man/108.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/simulation_data/persons/black_hoodie_man/109.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/simulation_data/persons/black_hoodie_man/11.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/simulation_data/persons/black_hoodie_man/110.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/simulation_data/persons/black_hoodie_man/111.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/simulation_data/persons/black_hoodie_man/112.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/simulation_data/persons/black_hoodie_man/113.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/simulation_data/persons/black_hoodie_man/114.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/simulation_data/persons/black_hoodie_man/115.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/simulation_data/persons/black_hoodie_man/116.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/simulation_data/persons/black_hoodie_man/117.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/simulation_data/persons/black_hoodie_man/118.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/simulation_data/persons/black_hoodie_man/119.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/simulation_data/persons/black_hoodie_man/12.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/simulation_data/persons/black_hoodie_man/120.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/simulation_data/persons/black_hoodie_man/121.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/simulation_data/persons/black_hoodie_man/122.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/simulation_data/persons/black_hoodie_man/123.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/simulation_data/persons/black_hoodie_man/124.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/simulation_data/persons/black_hoodie_man/13.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/simulation_data/persons/black_hoodie_man/14.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/simulation_data/persons/black_hoodie_man/15.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/simulation_data/persons/black_hoodie_man/16.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/simulation_data/persons/black_hoodie_man/17.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/simulation_data/persons/black_hoodie_man/18.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/simulation_data/persons/black_hoodie_man/19.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/simulation_data/persons/black_hoodie_man/2.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/simulation_data/persons/black_hoodie_man/20.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/simulation_data/persons/black_hoodie_man/21.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/simulation_data/persons/black_hoodie_man/22.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/simulation_data/persons/black_hoodie_man/23.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/simulation_data/persons/black_hoodie_man/24.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/simulation_data/persons/black_hoodie_man/25.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/simulation_data/persons/black_hoodie_man/26.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/simulation_data/persons/black_hoodie_man/27.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/simulation_data/persons/black_hoodie_man/28.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/simulation_data/persons/black_hoodie_man/29.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/simulation_data/persons/black_hoodie_man/3.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/simulation_data/persons/black_hoodie_man/30.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/simulation_data/persons/black_hoodie_man/31.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/simulation_data/persons/black_hoodie_man/32.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/simulation_data/persons/black_hoodie_man/33.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/simulation_data/persons/black_hoodie_man/34.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/simulation_data/persons/black_hoodie_man/35.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/simulation_data/persons/black_hoodie_man/36.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/simulation_data/persons/black_hoodie_man/37.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/simulation_data/persons/black_hoodie_man/38.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/simulation_data/persons/black_hoodie_man/39.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/simulation_data/persons/black_hoodie_man/4.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/simulation_data/persons/black_hoodie_man/40.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/simulation_data/persons/black_hoodie_man/41.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/simulation_data/persons/black_hoodie_man/42.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/simulation_data/persons/black_hoodie_man/43.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/simulation_data/persons/black_hoodie_man/44.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/simulation_data/persons/black_hoodie_man/45.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/simulation_data/persons/black_hoodie_man/46.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/simulation_data/persons/black_hoodie_man/47.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/simulation_data/persons/black_hoodie_man/48.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/simulation_data/persons/black_hoodie_man/49.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/simulation_data/persons/black_hoodie_man/5.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/simulation_data/persons/black_hoodie_man/50.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/simulation_data/persons/black_hoodie_man/51.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/simulation_data/persons/black_hoodie_man/52.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/simulation_data/persons/black_hoodie_man/53.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/simulation_data/persons/black_hoodie_man/54.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/simulation_data/persons/black_hoodie_man/55.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/simulation_data/persons/black_hoodie_man/56.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/simulation_data/persons/black_hoodie_man/57.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/simulation_data/persons/black_hoodie_man/58.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/simulation_data/persons/black_hoodie_man/59.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/simulation_data/persons/black_hoodie_man/6.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/simulation_data/persons/black_hoodie_man/60.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/simulation_data/persons/black_hoodie_man/61.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/simulation_data/persons/black_hoodie_man/62.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/simulation_data/persons/black_hoodie_man/63.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/simulation_data/persons/black_hoodie_man/64.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/simulation_data/persons/black_hoodie_man/65.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/simulation_data/persons/black_hoodie_man/66.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/simulation_data/persons/black_hoodie_man/67.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/simulation_data/persons/black_hoodie_man/68.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/simulation_data/persons/black_hoodie_man/69.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/simulation_data/persons/black_hoodie_man/7.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/simulation_data/persons/black_hoodie_man/70.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/simulation_data/persons/black_hoodie_man/71.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/simulation_data/persons/black_hoodie_man/72.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/simulation_data/persons/black_hoodie_man/73.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/simulation_data/persons/black_hoodie_man/74.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/simulation_data/persons/black_hoodie_man/75.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/simulation_data/persons/black_hoodie_man/76.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/simulation_data/persons/black_hoodie_man/77.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/simulation_data/persons/black_hoodie_man/78.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/simulation_data/persons/black_hoodie_man/79.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/simulation_data/persons/black_hoodie_man/8.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/simulation_data/persons/black_hoodie_man/80.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/simulation_data/persons/black_hoodie_man/81.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/simulation_data/persons/black_hoodie_man/82.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/simulation_data/persons/black_hoodie_man/83.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/simulation_data/persons/black_hoodie_man/84.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/simulation_data/persons/black_hoodie_man/85.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/simulation_data/persons/black_hoodie_man/86.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/simulation_data/persons/black_hoodie_man/87.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/simulation_data/persons/black_hoodie_man/88.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/simulation_data/persons/black_hoodie_man/89.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/simulation_data/persons/black_hoodie_man/9.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/simulation_data/persons/black_hoodie_man/90.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/simulation_data/persons/black_hoodie_man/91.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/simulation_data/persons/black_hoodie_man/92.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/simulation_data/persons/black_hoodie_man/93.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/simulation_data/persons/black_hoodie_man/94.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/simulation_data/persons/black_hoodie_man/95.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/simulation_data/persons/black_hoodie_man/96.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/simulation_data/persons/black_hoodie_man/97.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/simulation_data/persons/black_hoodie_man/98.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/simulation_data/persons/black_hoodie_man/99.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/simulation_data/score.txt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/ActivateEnv.ps1" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/README.md" beforeDir="false" afterPath="$PROJECT_DIR$/README.md" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app.py" beforeDir="false" afterPath="$PROJECT_DIR$/app.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/classes/PlotService.py" beforeDir="false" afterPath="$PROJECT_DIR$/classes/plot_service.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/classes/bounding_box.py" beforeDir="false" afterPath="$PROJECT_DIR$/classes/bounding_box.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/classes/custom_point.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/classes/person.py" beforeDir="false" afterPath="$PROJECT_DIR$/classes/person.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/classes/person_recorder.py" beforeDir="false" afterPath="$PROJECT_DIR$/classes/person_recorder.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/classes/record_matcher.py" beforeDir="false" afterPath="$PROJECT_DIR$/classes/record_matcher.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/classes/true_person_loader.py" beforeDir="false" afterPath="$PROJECT_DIR$/classes/true_person_loader.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/demo/demo.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/demo/test.jpg" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/demo/test1.jpg" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/functions/estimate_extrinsic.py" beforeDir="false" afterPath="$PROJECT_DIR$/functions/estimate_extrinsic.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/functions/funcs.py" beforeDir="false" afterPath="$PROJECT_DIR$/functions/funcs.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/functions/get_person_pairs.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/functions/get_pose.py" beforeDir="false" afterPath="$PROJECT_DIR$/functions/get_pose.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/functions/get_yolo_boxes.py" beforeDir="false" afterPath="$PROJECT_DIR$/functions/get_yolo_boxes.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/functions/icp.py" beforeDir="false" afterPath="$PROJECT_DIR$/functions/icp.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/mediapipe_pose.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/recorder.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/requirements.txt" beforeDir="false" afterPath="$PROJECT_DIR$/requirements.txt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/simulation_data/Reprojection_Error.png" beforeDir="false" afterPath="$PROJECT_DIR$/simulation_data/Reprojection_Error.png" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/simulation_data/cam1.json" beforeDir="false" afterPath="$PROJECT_DIR$/simulation_data/cam1.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/simulation_data/cam2.json" beforeDir="false" afterPath="$PROJECT_DIR$/simulation_data/cam2.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/simulation_data/correct_percentage.txt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/simulation_data/sim1.mp4" beforeDir="false" afterPath="$PROJECT_DIR$/simulation_data/sim1.mp4" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/simulation_data/sim1_annotated.mp4" beforeDir="false" afterPath="$PROJECT_DIR$/simulation_data/sim1_annotated.mp4" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/simulation_data/sim2.mp4" beforeDir="false" afterPath="$PROJECT_DIR$/simulation_data/sim2.mp4" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/simulation_data/sim2_annotated.mp4" beforeDir="false" afterPath="$PROJECT_DIR$/simulation_data/sim2_annotated.mp4" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/testing.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/yolov5nu.pt" beforeDir="false" />
+    </list>
+    <option name="SHOW_DIALOG" value="false" />
+    <option name="HIGHLIGHT_CONFLICTS" value="true" />
+    <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
+    <option name="LAST_RESOLUTION" value="IGNORE" />
+  </component>
+  <component name="Git.Settings">
+    <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
+  </component>
+  <component name="MarkdownSettingsMigration">
+    <option name="stateVersion" value="1" />
+  </component>
+  <component name="ProjectId" id="2Rv1E9rPjXOEJbPFGAtdDbADtFS" />
+  <component name="ProjectViewState">
+    <option name="hideEmptyMiddlePackages" value="true" />
+    <option name="showLibraryContents" value="true" />
+  </component>
+  <component name="PropertiesComponent">{
+  &quot;keyToString&quot;: {
+    &quot;RunOnceActivity.OpenProjectViewOnStart&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
+    &quot;WebServerToolWindowFactoryState&quot;: &quot;false&quot;,
+    &quot;git-widget-placeholder&quot;: &quot;master&quot;,
+    &quot;ignore.virus.scanning.warn.message&quot;: &quot;true&quot;,
+    &quot;node.js.detected.package.eslint&quot;: &quot;true&quot;,
+    &quot;node.js.detected.package.tslint&quot;: &quot;true&quot;,
+    &quot;node.js.selected.package.eslint&quot;: &quot;(autodetect)&quot;,
+    &quot;node.js.selected.package.tslint&quot;: &quot;(autodetect)&quot;,
+    &quot;nodejs_package_manager_path&quot;: &quot;npm&quot;,
+    &quot;vue.rearranger.settings.migration&quot;: &quot;true&quot;
+  }
+}</component>
+  <component name="RecentsManager">
+    <key name="MoveFile.RECENT_KEYS">
+      <recent name="G:\Programming\Cleanup\combined_camera_poses" />
+    </key>
+  </component>
+  <component name="RunManager">
+    <configuration name="app" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
+      <module name="combined_camera_poses" />
+      <option name="INTERPRETER_OPTIONS" value="" />
+      <option name="PARENT_ENVS" value="true" />
+      <envs>
+        <env name="PYTHONUNBUFFERED" value="1" />
+      </envs>
+      <option name="SDK_HOME" value="" />
+      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$" />
+      <option name="IS_MODULE_SDK" value="true" />
+      <option name="ADD_CONTENT_ROOTS" value="true" />
+      <option name="ADD_SOURCE_ROOTS" value="true" />
+      <EXTENSION ID="PythonCoverageRunConfigurationExtension" runner="coverage.py" />
+      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/app.py" />
+      <option name="PARAMETERS" value="" />
+      <option name="SHOW_COMMAND_LINE" value="false" />
+      <option name="EMULATE_TERMINAL" value="false" />
+      <option name="MODULE_MODE" value="false" />
+      <option name="REDIRECT_INPUT" value="false" />
+      <option name="INPUT_FILE" value="" />
+      <method v="2" />
+    </configuration>
+    <recent_temporary>
+      <list>
+        <item itemvalue="Python.app" />
+      </list>
+    </recent_temporary>
+  </component>
+  <component name="SpellCheckerSettings" RuntimeDictionaries="0" Folders="0" CustomDictionaries="0" DefaultDictionary="application-level" UseSingleDictionary="true" transferred="true" />
+  <component name="TaskManager">
+    <task active="true" id="Default" summary="Default task">
+      <changelist id="ee3a849e-2963-4b35-bcd8-164fc59fdab2" name="Changes" comment="" />
+      <created>1688115627724</created>
+      <option name="number" value="Default" />
+      <option name="presentableId" value="Default" />
+      <updated>1688115627724</updated>
+      <workItem from="1688115631549" duration="1456000" />
+    </task>
+    <servers />
+  </component>
+  <component name="TypeScriptGeneratedFilesManager">
+    <option name="version" value="3" />
+  </component>
+  <component name="com.intellij.coverage.CoverageDataManagerImpl">
+    <SUITE FILE_PATH="coverage/combined_camera_poses$app.coverage" NAME="app Coverage Results" MODIFIED="1688116851896" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
+  </component>
+</project>
