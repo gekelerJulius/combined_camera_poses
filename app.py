@@ -20,18 +20,16 @@ from classes.score_manager import ScoreManager
 from classes.true_person_loader import TruePersonLoader
 from classes.unity_person import UnityPerson
 from enums.logging_levels import LoggingLevel
-from functions.funcs import blend_colors, normalize_image
+from functions.funcs import normalize_image
 from functions.get_pose import get_pose
 from functions.get_yolo_boxes import get_yolo_bounding_boxes
 
-resolution = (1280, 720)
-
 
 def annotate_video_multi(
-    file1_name: str,
-    file2_name: str,
-    cam1_data_path: str = None,
-    cam2_data_path: str = None,
+        file1_name: str,
+        file2_name: str,
+        cam1_data_path: str = None,
+        cam2_data_path: str = None,
 ):
     if cam1_data_path is None:
         raise ValueError("cam1_data_path must be specified")
@@ -99,10 +97,10 @@ def annotate_video_multi(
         print(f"Frame {frame_count}")
 
         if (
-            img1.shape[0] == 0
-            or img1.shape[1] == 0
-            or img2.shape[0] == 0
-            or img2.shape[1] == 0
+                img1.shape[0] == 0
+                or img1.shape[1] == 0
+                or img2.shape[0] == 0
+                or img2.shape[1] == 0
         ):
             Logger.log(
                 f"Invalid frame size: {img1.shape}, {img2.shape}",
@@ -125,11 +123,11 @@ def annotate_video_multi(
         bounding_boxes2: List[BoundingBox] = get_yolo_bounding_boxes(orig_img2, model)
 
         for box in bounding_boxes1:
-            img1, results1 = get_pose(orig_img1, box)
+            results1 = get_pose(orig_img1, box)
             if (
-                results1 is None
-                or results1.pose_landmarks is None
-                or results1.pose_world_landmarks is None
+                    results1 is None
+                    or results1.pose_landmarks is None
+                    or results1.pose_world_landmarks is None
             ):
                 continue
             length = len([x for x in results1.pose_landmarks.landmark])
@@ -139,11 +137,11 @@ def annotate_video_multi(
                 )
 
         for box in bounding_boxes2:
-            img2, results2 = get_pose(orig_img2, box)
+            results2 = get_pose(orig_img2, box)
             if (
-                results2 is None
-                or results2.pose_landmarks is None
-                or results2.pose_world_landmarks is None
+                    results2 is None
+                    or results2.pose_landmarks is None
+                    or results2.pose_world_landmarks is None
             ):
                 continue
             length = len([x for x in results2.pose_landmarks.landmark])
@@ -151,6 +149,21 @@ def annotate_video_multi(
                 persons2.append(
                     Person(f"Person2 {len(persons2)}", frame_count, box, results2)
                 )
+
+        for i in range(len(persons1)):
+            person = persons1[i]
+            points_img1 = person.get_pose_landmarks_numpy_2d()
+            points_cam1 = cam1_data.points_from_image_to_camera(points_img1)
+            points_world = cam1_data.points_from_camera_to_world(points_cam1)
+            points_cam2 = cam2_data.points_from_world_to_camera(points_world)
+            points_img2 = cam2_data.points_from_camera_to_image(points_cam2)
+            print(points_img2)
+            for pt in points_img2:
+                cv.circle(img2, (int(pt[0]), int(pt[1])), 1, (0, 0, 0), -1)
+
+        cv.imshow("img2", img2)
+        cv.waitKey(1)
+        continue
 
         person_recorder1.add(persons1, frame_count, img1)
         person_recorder2.add(persons2, frame_count, img2)

@@ -75,12 +75,15 @@ def do_icp(
     return result_icp
 
 
-def do_icp_correl(pts1: ndarray, pts2: ndarray) -> Tuple[ndarray, float]:
+def do_icp_correl(
+    pts1: ndarray, pts2: ndarray, corresponding_by_index=False
+) -> Tuple[ndarray, float]:
     """
     The Iterative Closest Point method. Finds the best-fit transform that maps points A on to points B.
     :param pts1: (N, 3) or (N, 6) numpy ndarray, where the first 3 columns are
                  the xyz coordinates and the last 3 columns are the rgb values.
     :param pts2: Same as pts1.
+    :param corresponding_by_index: If True, the points are assumed to be in correspondence by index.
     :return: P: (4, 4) numpy ndarray
     """
     pts1 = np.copy(pts1)
@@ -107,28 +110,6 @@ def do_icp_correl(pts1: ndarray, pts2: ndarray) -> Tuple[ndarray, float]:
     cloned.points = Vector3dVector(pts1cloned)
     rmse = TransformationEstimationPointToPoint().compute_rmse(cloned, cloud2, corr_set)
     return transformation, rmse
-
-
-def calculate_rmse(pts1: ndarray, pts2: ndarray) -> float:
-    """
-    :param pts1: (N, 3) numpy ndarray, where the 3 columns are
-                 the xyz coordinates
-    :param pts2: Same as pts1.
-    :return: rmse: float
-    """
-    pts1 = np.copy(pts1)
-    pts2 = np.copy(pts2)
-    assert (
-        pts1.shape == pts2.shape and pts1.shape[1] == 3
-    ), "pts1 and pts2 must be (N, 3) ndarrays."
-
-    cloud1 = PointCloud()
-    cloud1.points = Vector3dVector(pts1)
-    cloud2 = PointCloud()
-    cloud2.points = Vector3dVector(pts2)
-    correspondences = np.array([[i, i] for i in range(pts1.shape[0])])
-    corr_set = o3d.utility.Vector2iVector(correspondences)
-    return TransformationEstimationPointToPoint().compute_rmse(cloud1, cloud2, corr_set)
 
 
 # CURRENTLY NOT WORKING

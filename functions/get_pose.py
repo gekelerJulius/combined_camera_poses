@@ -1,4 +1,3 @@
-import sys
 from typing import NamedTuple
 
 import cv2
@@ -11,7 +10,7 @@ from classes.bounding_box import BoundingBox
 
 def get_pose(image, box: BoundingBox) -> (ndarray, NamedTuple):
     mp_pose = mp.solutions.pose
-    cropped_image = image[box.min_y : box.max_y, box.min_x : box.max_x]
+    cropped_image = image[box.min_y: box.max_y, box.min_x: box.max_x]
     pose: Pose = mp_pose.Pose(
         static_image_mode=True,
         min_detection_confidence=0.5,
@@ -26,4 +25,4 @@ def get_pose(image, box: BoundingBox) -> (ndarray, NamedTuple):
             landmark.x = landmark.x * box.get_width() + box.min_x
             landmark.y = landmark.y * box.get_height() + box.min_y
 
-    return image, results
+    return results

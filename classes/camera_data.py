@@ -1,19 +1,16 @@
 import json
-from typing import Optional
-
 import numpy as np
 from numpy import ndarray
 from scipy.spatial.transform import Rotation
 
 
 class CameraData:
-    def __init__(self, fx, fy, cx, cy, aspect_ratio, R, t):
+    def __init__(self, fx: float, fy: float, cx: float, cy: float, aspect_ratio: float, R: ndarray, t: ndarray):
         self.fx = fx
         self.fy = fy
         self.cx = cx
         self.cy = cy
         self.aspect_ratio = aspect_ratio
-
         self.intrinsic_matrix = np.array(
             [
                 [fx, 0, cx],
@@ -65,26 +62,23 @@ class CameraData:
         # Extract the intrinsic and extrinsic parameters
         json_data = CameraData.load_json(json_path)
         intrinsic = json_data["intrinsic"]
-        euler_unity = np.array(
+        quaternion_unity = np.array(
             [
-                json_data["eulerAngles"]["rx"],
-                json_data["eulerAngles"]["ry"],
-                json_data["eulerAngles"]["rz"],
+                json_data["quaternion"]["x"],
+                json_data["quaternion"]["y"],
+                -json_data["quaternion"]["z"],
+                json_data["quaternion"]["w"],
             ]
         )
-        # euler_cv = unity_to_cv_euler(euler_unity)
-        # euler_cv = euler_unity
-        t_unity = np.array(
+        t = np.array(
             [
                 json_data["position"]["tx"],
                 json_data["position"]["ty"],
-                json_data["position"]["tz"],
+                -json_data["position"]["tz"],
             ]
         )
-        # t_cv = unity_to_cv(t_unity)
-        t_cv = t_unity
-        # R_cv = Rotation.from_euler("xyz", euler_cv).as_matrix()
-        R_cv = Rotation.from_euler("xyz", euler_unity).as_matrix()
+        rot = Rotation.from_quat(quaternion_unity)
+        R = rot.as_matrix()
 
         # Extract the individual parameters from intrinsic
         fx = intrinsic["fx"]
@@ -94,7 +88,7 @@ class CameraData:
         width = intrinsic["width"]
         height = intrinsic["height"]
         aspect_ratio = width / height
-        return CameraData(fx, fy, cx, cy, aspect_ratio, R_cv, t_cv)
+        return CameraData(fx, fy, cx, cy, aspect_ratio, R, t)
 
     @staticmethod
     def load_json(json_path):
@@ -184,11 +178,3 @@ class CameraData:
         """Calculates the translation vector between the two cameras as a (3x1) vector"""
         t = np.dot(self.R, cam2_data.t - self.t)
         return t.reshape((3, 1))
-
-
-def unity_to_cv_euler(euler_unity: ndarray) -> ndarray:
-    euler_cv = np.array(
-        [euler_unity[0], euler_unity[2], euler_unity[1]]
-    )  # swap Y and Z
-    euler_cv[1:] = -euler_cv[1:]  # negate Y and Z
-    return euler_cv
