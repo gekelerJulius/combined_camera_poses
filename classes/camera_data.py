@@ -78,6 +78,8 @@ class CameraData:
             ]
         )
         rot = Rotation.from_quat(quaternion_unity)
+        euler = rot.as_euler("xyz", degrees=True)
+        rot = Rotation.from_euler("xyz", [euler[0], euler[1], euler[2]], degrees=True)
         R = rot.as_matrix()
 
         # Extract the individual parameters from intrinsic

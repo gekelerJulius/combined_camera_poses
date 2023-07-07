@@ -150,20 +150,20 @@ def annotate_video_multi(
                     Person(f"Person2 {len(persons2)}", frame_count, box, results2)
                 )
 
-        for i in range(len(persons1)):
-            person = persons1[i]
-            points_img1 = person.get_pose_landmarks_numpy_2d()
-            points_cam1 = cam1_data.points_from_image_to_camera(points_img1)
-            points_world = cam1_data.points_from_camera_to_world(points_cam1)
-            points_cam2 = cam2_data.points_from_world_to_camera(points_world)
-            points_img2 = cam2_data.points_from_camera_to_image(points_cam2)
-            print(points_img2)
-            for pt in points_img2:
-                cv.circle(img2, (int(pt[0]), int(pt[1])), 1, (0, 0, 0), -1)
-
-        cv.imshow("img2", img2)
-        cv.waitKey(1)
-        continue
+        # for i in range(len(persons1)):
+        #     person = persons1[i]
+        #     points_img1 = person.get_pose_landmarks_numpy_2d()
+        #     points_cam1 = cam1_data.points_from_image_to_camera(points_img1)
+        #     points_world = cam1_data.points_from_camera_to_world(points_cam1)
+        #     points_cam2 = cam2_data.points_from_world_to_camera(points_world)
+        #     points_img2 = cam2_data.points_from_camera_to_image(points_cam2)
+        #     print(points_img2)
+        #     for pt in points_img2:
+        #         cv.circle(img2, (int(pt[0]), int(pt[1])), 1, (0, 0, 0), -1)
+        #
+        # cv.imshow("img2", img2)
+        # cv.waitKey(1)
+        # continue
 
         person_recorder1.add(persons1, frame_count, img1)
         person_recorder2.add(persons2, frame_count, img2)
