@@ -2,6 +2,7 @@ import itertools
 from typing import Dict, List, Tuple, Optional
 
 import numpy as np
+import matplotlib
 from matplotlib import pyplot as plt
 from matplotlib.axes import Axes
 from matplotlib.figure import Figure
@@ -9,17 +10,16 @@ from numpy import ndarray
 from scipy.optimize import linear_sum_assignment
 
 from classes.camera_data import CameraData
-from classes.logger import Logger
 from classes.person import Person
 from classes.person_recorder import PersonRecorder
 from classes.plot_service import PlotService
-from enums.logging_levels import LoggingLevel
-from functions.calc_repr_errors import calc_reprojection_errors
 from functions.estimate_extrinsic import refine_extrinsic_estimation
 from functions.funcs import (
-    rotation_matrices_angles_differences, plot_pose_3d,
+    plot_pose_3d,
 )
 from functions.get_person_pairs import compare_persons
+
+matplotlib.use("TkAgg")
 
 
 class FrameRecord:
@@ -259,9 +259,21 @@ class RecordMatcher:
                 return None
         points1_img = []
         points2_img = []
-        for pair in pairs:
-            points1_img.extend(pair[0].get_pose_landmarks_numpy_2d())
-            points2_img.extend(pair[1].get_pose_landmarks_numpy_2d())
+        for person1, person2 in pairs:
+            past_persons1 = self.rec1.get_frame_history(person1, (frame_num - 12, frame_num))
+            past_persons2 = self.rec2.get_frame_history(person2, (frame_num - 12, frame_num))
+            for i in range(len(past_persons1)):
+                if past_persons1.get(i) is None or past_persons2.get(i) is None:
+                    continue
+                visible_indices: List[int] = Person.get_common_visible_landmark_indices(past_persons1[i],
+                                                                                        past_persons2[i], 0.5)
+                np1 = past_persons1[i].get_pose_landmarks_numpy_2d()[visible_indices]
+                np2 = past_persons2[i].get_pose_landmarks_numpy_2d()[visible_indices]
+                points1_img.extend(np1)
+                points2_img.extend(np2)
+
+            points1_img.extend(person1.get_pose_landmarks_numpy_2d())
+            points2_img.extend(person2.get_pose_landmarks_numpy_2d())
 
         points1_img = np.array(points1_img)
         points2_img = np.array(points2_img)
@@ -293,28 +305,28 @@ class RecordMatcher:
             )
             plotter.add_plot(err_plot, "reprojection_error")
 
-            assert points3d.shape[0] == points1_img.shape[0]
-            points3d_persons = []
-            for i in range(0, points3d.shape[0]):
-                if i % 33 == 0:
-                    points3d_persons.append([])
-                points3d_persons[-1].append(points3d[i])
-
-            scene_plot: Figure = plotter.get_plot("scene")
-            if scene_plot is None:
-                scene_plot = plt.figure()
-                axis: Axes = scene_plot.add_subplot(111, projection="3d")
-                axis.yaxis.axis_name = "Y"
-                axis.xaxis.axis_name = "X"
-                axis.zaxis.axis_name = "Z"
-            else:
-                axis: Axes = scene_plot.axes[0]
-            axis.clear()
-            for points3d_person in points3d_persons:
-                points3d_person = np.array(points3d_person)
-                plot_pose_3d(points3d_person, axis)
-            plotter.add_plot(scene_plot, "scene")
-            plt.pause(0.01)
+            # assert points3d.shape[0] == points1_img.shape[0]
+            # points3d_persons = []
+            # for i in range(0, points3d.shape[0]):
+            #     if i % 33 == 0:
+            #         points3d_persons.append([])
+            #     points3d_persons[-1].append(points3d[i])
+            #
+            # scene_plot: Figure = plotter.get_plot("scene")
+            # if scene_plot is None:
+            #     scene_plot = plt.figure()
+            #     axis: Axes = scene_plot.add_subplot(111, projection="3d")
+            #     axis.yaxis.axis_name = "Y"
+            #     axis.xaxis.axis_name = "X"
+            #     axis.zaxis.axis_name = "Z"
+            # else:
+            #     axis: Axes = scene_plot.axes[0]
+            # axis.clear()
+            # for points3d_person in points3d_persons:
+            #     points3d_person = np.array(points3d_person)
+            #     plot_pose_3d(points3d_person, axis)
+            # plotter.add_plot(scene_plot, "scene")
+            # plt.pause(0.01)
         return error, updated_estimation, points3d
 
     # def get_extrinsic_estimation(self, frame_num: int) -> Optional[ndarray]:

@@ -13,6 +13,7 @@ from ultralytics import YOLO
 from classes.bounding_box import BoundingBox
 from classes.camera_data import CameraData
 from classes.logger import Logger
+from classes.mean_shift_tracker import MeanShiftTracker
 from classes.person import Person
 from classes.person_recorder import PersonRecorder
 from classes.record_matcher import RecordMatcher
@@ -77,6 +78,17 @@ def annotate_video_multi(
     img1 = None
     img2 = None
     pairs: List[Tuple[Person, Person]] = []
+    bounding_boxes1: List[BoundingBox] = []
+    bounding_boxes2: List[BoundingBox] = []
+
+    mean_shift_trackers1: List[MeanShiftTracker] = []
+    mean_shift_trackers2: List[MeanShiftTracker] = []
+
+    # ///////////////////////////// Mean Shift /////////////////////////////
+    # Set up the termination criteria: 10 iteration 1 pxl movement
+    term_crit = (cv.TERM_CRITERIA_EPS | cv.TERM_CRITERIA_COUNT, 10, 1)
+    # ///////////////////////////// Mean Shift /////////////////////////////
+
     start_time = time.time()
     while cap1.isOpened() and cap2.isOpened():
         ret1, img1 = cap1.read()
@@ -116,11 +128,31 @@ def annotate_video_multi(
         orig_img2 = img2.copy()
         img1 = normalize_image(img1)
         img2 = normalize_image(img2)
-
         persons1: List[Person] = []
         persons2: List[Person] = []
-        bounding_boxes1: List[BoundingBox] = get_yolo_bounding_boxes(orig_img1, model)
-        bounding_boxes2: List[BoundingBox] = get_yolo_bounding_boxes(orig_img2, model)
+
+        if frame_count % 5 == 0:
+            bounding_boxes1 = get_yolo_bounding_boxes(orig_img1, model)
+            bounding_boxes2 = get_yolo_bounding_boxes(orig_img2, model)
+            mean_shift_trackers1 = []
+            mean_shift_trackers2 = []
+            
+            for box1 in bounding_boxes1:
+                mean_shift_trackers1.append(MeanShiftTracker(orig_img1, box1))
+
+            for box2 in bounding_boxes2:
+                mean_shift_trackers2.append(MeanShiftTracker(orig_img2, box2))
+
+        for i in range(len(mean_shift_trackers1)):
+            mean_shift_trackers1[i].track(orig_img1)
+
+        for i in range(len(mean_shift_trackers2)):
+            mean_shift_trackers2[i].track(orig_img2)
+
+        cv.imshow("img1", orig_img1)
+        cv.imshow("img2", orig_img2)
+        cv.waitKey(1)
+        continue
 
         for box in bounding_boxes1:
             results1 = get_pose(orig_img1, box)
@@ -211,8 +243,8 @@ def annotate_video_multi(
             cv.imshow("Frame 2", img2)
             cv.waitKey(1)
 
-        # if frame_count == START_FRAME + 1:
-        #     plt.pause(4)
+        if frame_count == START_FRAME + 1:
+            plt.pause(4)
 
         if out1 is None:
             out1 = cv.VideoWriter(

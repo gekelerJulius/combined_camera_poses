@@ -1,3 +1,5 @@
+from typing import Tuple
+
 import cv2
 import numpy as np
 from numpy import ndarray
@@ -22,6 +24,14 @@ class BoundingBox:
     def __repr__(self):
         return self.__str__()
 
+    def increase_size(self, increase_factor: float) -> None:
+        width_increase = int(self.get_width() * increase_factor)
+        height_increase = int(self.get_height() * increase_factor)
+        self.min_x -= width_increase
+        self.min_y -= height_increase
+        self.max_x += width_increase
+        self.max_y += height_increase
+
     def draw(self, img) -> ndarray:
         start_x = int(self.min_x)
         start_y = int(self.min_y)
@@ -35,6 +45,15 @@ class BoundingBox:
 
     def to_numpy(self):
         return np.array([self.min_x, self.min_y, self.max_x, self.max_y])
+
+    def get_area(self):
+        return self.get_width() * self.get_height()
+
+    def as_tracking_window(self) -> Tuple[int, int, int, int]:
+        return self.min_x, self.min_y, self.get_width(), self.get_height()
+
+    def crop_image(self, img: ndarray) -> ndarray:
+        return img.copy()[self.min_y:self.max_y, self.min_x:self.max_x]
 
     def calculate_overlap_percentage(self, other: "BoundingBox") -> float:
         if self.min_x > other.max_x or self.max_x < other.min_x:
