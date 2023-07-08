@@ -211,8 +211,8 @@ def annotate_video_multi(
             cv.imshow("Frame 2", img2)
             cv.waitKey(1)
 
-        if frame_count == START_FRAME + 1:
-            plt.pause(4)
+        # if frame_count == START_FRAME + 1:
+        #     plt.pause(4)
 
         if out1 is None:
             out1 = cv.VideoWriter(
@@ -243,7 +243,7 @@ def annotate_video_multi(
     out2.release()
 
     score = score_manager.get_score()
-    records_matcher.report(cam1_data, cam2_data)
+    records_matcher.report()
     correct_percentage_str = f"Correct percentage: {score * 100:.2f}%"
     # Save correct percentage to file
     with open("simulation_data/correct_percentage.txt", "w") as f:
