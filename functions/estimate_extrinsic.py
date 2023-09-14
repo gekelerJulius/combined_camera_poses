@@ -7,11 +7,11 @@ from functions.bundle import do_bundle
 
 
 def refine_extrinsic_estimation(
-        estimated_extrinsic: Optional[ndarray],
-        points1_img: ndarray,
-        points2_img: ndarray,
-        K1: ndarray,
-        K2: ndarray,
+    estimated_extrinsic: Optional[ndarray],
+    points1_img: ndarray,
+    points2_img: ndarray,
+    K1: ndarray,
+    K2: ndarray,
 ) -> Optional[Tuple[ndarray, ndarray, float]]:
     """
     Refines the extrinsic estimation by using bundle adjustment.
@@ -53,9 +53,37 @@ def refine_extrinsic_estimation(
         estimated_extrinsic = np.hstack((R, t))
     assert estimated_extrinsic.shape == (3, 4)
 
-    R = estimated_extrinsic[:, :3]
-    t = estimated_extrinsic[:, 3]
-    E1, E2, points_3d, error = do_bundle(points1_img, points2_img, K1, K2, R, t.reshape((3,)))
+    # R = estimated_extrinsic[:, :3]
+    # t = estimated_extrinsic[:, 3]
+    # E1, E2, points_3d, error = do_bundle(
+    #     points1_img, points2_img, K1, K2, R, t.reshape((3,))
+    # )
+
+    # ///////////////////////////////
+    E = np.zeros((3, 3))
+    R = np.zeros((3, 3))
+    t = np.zeros((3, 1))
+    mask = np.zeros((len(points1_img), 1))
+    cv2.recoverPose(
+        points1=points1_img,
+        points2=points2_img,
+        cameraMatrix1=K1,
+        cameraMatrix2=K2,
+        distCoeffs1=None,
+        distCoeffs2=None,
+        method=cv2.RANSAC,
+        prob=0.99999,
+        threshold=1,
+        E=E,
+        R=R,
+        t=t,
+        mask=mask,
+    )
+    E2 = np.hstack((R, t))
+    points_3d = np.zeros((points1_img.shape[0], 3))
+    error = 0
+    # ///////////////////////////////
+
     # Plot points 3d
     # fig: Figure = PlotService.get_instance().get_plot("3d points") if PlotService.get_instance().plot_exists(
     #     "3d points") else plt.figure()

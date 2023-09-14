@@ -13,7 +13,6 @@ from ultralytics import YOLO
 from classes.bounding_box import BoundingBox
 from classes.camera_data import CameraData
 from classes.logger import Logger
-from classes.mean_shift_tracker import MeanShiftTracker
 from classes.person import Person
 from classes.person_recorder import PersonRecorder
 from classes.record_matcher import RecordMatcher
@@ -73,21 +72,13 @@ def annotate_video_multi(
     frame_count = 0
     person_recorder1: PersonRecorder = PersonRecorder("1", 1)
     person_recorder2: PersonRecorder = PersonRecorder("2", 1)
-    records_matcher: RecordMatcher = RecordMatcher(person_recorder1, person_recorder2)
+    records_matcher: RecordMatcher = RecordMatcher([person_recorder1, person_recorder2])
     score_manager = ScoreManager()
     img1 = None
     img2 = None
     pairs: List[Tuple[Person, Person]] = []
     bounding_boxes1: List[BoundingBox] = []
     bounding_boxes2: List[BoundingBox] = []
-
-    mean_shift_trackers1: List[MeanShiftTracker] = []
-    mean_shift_trackers2: List[MeanShiftTracker] = []
-
-    # ///////////////////////////// Mean Shift /////////////////////////////
-    # Set up the termination criteria: 10 iteration 1 pxl movement
-    term_crit = (cv.TERM_CRITERIA_EPS | cv.TERM_CRITERIA_COUNT, 10, 1)
-    # ///////////////////////////// Mean Shift /////////////////////////////
 
     start_time = time.time()
     while cap1.isOpened() and cap2.isOpened():
@@ -131,28 +122,8 @@ def annotate_video_multi(
         persons1: List[Person] = []
         persons2: List[Person] = []
 
-        if frame_count % 5 == 0:
-            bounding_boxes1 = get_yolo_bounding_boxes(orig_img1, model)
-            bounding_boxes2 = get_yolo_bounding_boxes(orig_img2, model)
-            mean_shift_trackers1 = []
-            mean_shift_trackers2 = []
-            
-            for box1 in bounding_boxes1:
-                mean_shift_trackers1.append(MeanShiftTracker(orig_img1, box1))
-
-            for box2 in bounding_boxes2:
-                mean_shift_trackers2.append(MeanShiftTracker(orig_img2, box2))
-
-        for i in range(len(mean_shift_trackers1)):
-            mean_shift_trackers1[i].track(orig_img1)
-
-        for i in range(len(mean_shift_trackers2)):
-            mean_shift_trackers2[i].track(orig_img2)
-
-        cv.imshow("img1", orig_img1)
-        cv.imshow("img2", orig_img2)
-        cv.waitKey(1)
-        continue
+        bounding_boxes1 = get_yolo_bounding_boxes(img1, model)
+        bounding_boxes2 = get_yolo_bounding_boxes(img2, model)
 
         for box in bounding_boxes1:
             results1 = get_pose(orig_img1, box)
@@ -201,8 +172,8 @@ def annotate_video_multi(
         person_recorder2.add(persons2, frame_count, img2)
 
         # Get some records before starting to match
-        # if frame_count < START_FRAME + 6:
-        #     continue
+        if frame_count < START_FRAME + 6:
+            continue
 
         records_matcher.eval_frame(frame_count, img1, img2, cam1_data, cam2_data)
         pairs = records_matcher.get_alignment(frame_count, cam1_data, cam2_data)
@@ -217,18 +188,6 @@ def annotate_video_multi(
 
         pairs = sorted(pairs, key=lambda x: x[0].name)
         for i, (p1, p2) in enumerate(pairs):
-            # color1 = p1.color
-            # color2 = p2.color
-            # blended1, blended2 = blend_colors(color1, color2, 0.5)
-            # p1.color = blended1
-            # p2.color = blended2
-
-            # color = [0, 0, 0]
-            # color[0] = 0 if i % 2 == 0 else 255
-            # color[1] = 0 if i % 4 < 2 else 255
-            # color[2] = 0 if i < 4 else 255
-            # color = tuple(color)
-
             p2.color = p1.color
             color = p1.color
             p1.draw(img1, color)

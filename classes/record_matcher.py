@@ -14,9 +14,6 @@ from classes.person import Person
 from classes.person_recorder import PersonRecorder
 from classes.plot_service import PlotService
 from functions.estimate_extrinsic import refine_extrinsic_estimation
-from functions.funcs import (
-    plot_pose_3d,
-)
 from functions.get_person_pairs import compare_persons
 
 matplotlib.use("TkAgg")
@@ -28,7 +25,6 @@ class FrameRecord:
     persons2: List[Person]
     cost_matrix: Dict[str, Dict[str, float]]
     estimated_person_pairs: List[Tuple[Person, Person]]
-    # estimated_extrinsic_matrix: Optional[np.ndarray]
     reprojection_error: Optional[float]
 
     def __init__(
@@ -43,19 +39,16 @@ class FrameRecord:
         self.persons2 = persons2
         self.cost_matrix = cost_matrix
         self.estimated_person_pairs = []
-        # self.estimated_extrinsic_matrix = None
         self.reprojection_error = None
 
 
 class RecordMatcher:
-    rec1: PersonRecorder
-    rec2: PersonRecorder
+    recorders: List[PersonRecorder]
     frame_records: List[FrameRecord]
     extrinsics_estimation: Optional[ndarray]
 
-    def __init__(self, rec1: PersonRecorder, rec2: PersonRecorder):
-        self.rec1 = rec1
-        self.rec2 = rec2
+    def __init__(self, recorders: List[PersonRecorder]):
+        self.recorders = recorders
         self.frame_records = []
         self.extrinsics_estimation = None
 
@@ -86,13 +79,19 @@ class RecordMatcher:
             self, frame_num: int, cam_data1: CameraData, cam_data2: CameraData
     ) -> List[Tuple[Person, Person]]:
         look_back = 6  # 0.25 seconds for 24 fps
-        recent_persons1 = self.rec1.get_recent_persons(frame_num, look_back)
-        recent_persons2 = self.rec2.get_recent_persons(frame_num, look_back)
-        if len(recent_persons1) == 0 or len(recent_persons2) == 0:
+        recent_persons_lists: List[List[Person]] = [
+            rec.get_recent_persons(frame_num, look_back) for rec in self.recorders
+        ]
+        recent_persons_lengths = [len(x) for x in recent_persons_lists]
+        # Check if any of the lists are empty
+        if any(recent_persons_lengths) == 0:
             return []
 
         relevant_records = [x for x in self.frame_records if x.frame_num <= frame_num]
         assert len(relevant_records) > 0, "No relevant records found"
+
+        recent_persons1 = recent_persons_lists[0]
+        recent_persons2 = recent_persons_lists[1]
 
         cost_matrix = np.zeros((len(recent_persons1), len(recent_persons2)))
         for i, a in enumerate(recent_persons1):
@@ -184,12 +183,15 @@ class RecordMatcher:
                 cost_matrix[row_ind, col_ind] *= 1.5
                 repr_error = 1000000
 
-        err, est, pts3d = self.get_optimized_error(frame_num, cam_data1, cam_data2, pairs, True)
+        err, est, pts3d = self.get_optimized_error(
+            frame_num, cam_data1, cam_data2, pairs, True
+        )
         self.get_frame_record(frame_num).estimated_person_pairs = pairs
         self.get_frame_record(frame_num).reprojection_error = err
         self.get_frame_record(frame_num).estimated_extrinsics = est
         self.get_frame_record(frame_num).estimated_3d_points = pts3d
-        print(f"F{frame_num}: {len(pairs)} pairs, {err} error")
+        print(f"Frame 6 {frame_num}: {len(pairs)} pairs, {err} error")
+        print(pairs)
         return pairs
 
     def eval_frame(
@@ -206,8 +208,10 @@ class RecordMatcher:
         # )
         estimated_extr = self.extrinsics_estimation
         estimation_confidence = 1
-        persons1 = self.rec1.frame_dict.get(frame_num)
-        persons2 = self.rec2.frame_dict.get(frame_num)
+        rec1 = self.recorders[0]
+        rec2 = self.recorders[1]
+        persons1 = rec1.frame_dict.get(frame_num)
+        persons2 = rec2.frame_dict.get(frame_num)
         if (
                 persons1 is None
                 or len(persons1) == 0
@@ -229,8 +233,8 @@ class RecordMatcher:
                     b,
                     img1,
                     img2,
-                    self.rec1,
-                    self.rec2,
+                    rec1,
+                    rec2,
                     frame_num,
                     cam_data1,
                     cam_data2,
@@ -250,6 +254,8 @@ class RecordMatcher:
             pairs: Optional[List[Tuple[Person, Person]]] = None,
             update_plots=False,
     ) -> Optional[Tuple[float, ndarray, ndarray]]:
+        rec1 = self.recorders[0]
+        rec2 = self.recorders[1]
         frame_record = self.get_frame_record(frame_num)
         if frame_record is None:
             return None
@@ -260,13 +266,14 @@ class RecordMatcher:
         points1_img = []
         points2_img = []
         for person1, person2 in pairs:
-            past_persons1 = self.rec1.get_frame_history(person1, (frame_num - 12, frame_num))
-            past_persons2 = self.rec2.get_frame_history(person2, (frame_num - 12, frame_num))
+            past_persons1 = rec1.get_frame_history(person1, (frame_num - 12, frame_num))
+            past_persons2 = rec2.get_frame_history(person2, (frame_num - 12, frame_num))
             for i in range(len(past_persons1)):
                 if past_persons1.get(i) is None or past_persons2.get(i) is None:
                     continue
-                visible_indices: List[int] = Person.get_common_visible_landmark_indices(past_persons1[i],
-                                                                                        past_persons2[i], 0.5)
+                visible_indices: List[int] = Person.get_common_visible_landmark_indices(
+                    past_persons1[i], past_persons2[i], 0.5
+                )
                 np1 = past_persons1[i].get_pose_landmarks_numpy_2d()[visible_indices]
                 np2 = past_persons2[i].get_pose_landmarks_numpy_2d()[visible_indices]
                 points1_img.extend(np1)
@@ -338,9 +345,7 @@ class RecordMatcher:
     def report(self) -> None:
         if len(self.frame_records) == 0:
             return
-        print(
-            self.extrinsics_estimation
-        )
+        print(self.extrinsics_estimation)
 
 
 def calculate_weighted_extrinsic(
