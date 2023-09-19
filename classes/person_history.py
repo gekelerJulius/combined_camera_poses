@@ -50,7 +50,7 @@ class PersonHistory:
         return max_frame if max_frame > 0 else None
 
     def get_frame_history(
-            self, p: Person, frame_range: Tuple[int, int] = (0, np.inf)
+        self, p: Person, frame_range: Tuple[int, int] = (0, np.inf)
     ) -> Dict[int, Person]:
         history = {}
         for frame_num, persons in self.frame_dict.items():
@@ -62,11 +62,11 @@ class PersonHistory:
         return history
 
     def get_common_frames_poses(
-            self,
-            other_history: "PersonHistory",
-            p1_name: str,
-            p2_name: str,
-            frame_range: Tuple[int, int] = (0, np.inf),
+        self,
+        other_history: "PersonHistory",
+        p1_name: str,
+        p2_name: str,
+        frame_range: Tuple[int, int] = (0, np.inf),
     ) -> Tuple[List[int], List[int], List[int]]:
         p1_history = self.get_frame_history(
             self.get_person_at_frame(p1_name, frame_range[0]), frame_range

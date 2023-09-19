@@ -10,7 +10,7 @@ from classes.bounding_box import BoundingBox
 
 def get_pose(image, box: BoundingBox) -> (ndarray, NamedTuple):
     mp_pose = mp.solutions.pose
-    cropped_image = image[box.min_y: box.max_y, box.min_x: box.max_x]
+    cropped_image = image[box.min_y : box.max_y, box.min_x : box.max_x]
 
     pose: Pose = mp_pose.Pose(
         static_image_mode=True,

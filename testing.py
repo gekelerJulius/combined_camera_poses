@@ -76,9 +76,9 @@ def main():
                 bbox = BoundingBox(min_x, min_y, max_x, max_y)
                 pose_result = get_pose(result.orig_img, bbox)
                 if (
-                        pose_result is None
-                        or pose_result.pose_landmarks is None
-                        or pose_result.pose_landmarks.landmark is None
+                    pose_result is None
+                    or pose_result.pose_landmarks is None
+                    or pose_result.pose_landmarks.landmark is None
                 ):
                     continue
                 length = len([x for x in pose_result.pose_landmarks.landmark])
