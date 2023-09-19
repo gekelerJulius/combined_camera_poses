@@ -28,11 +28,11 @@ class FrameRecord:
     reprojection_error: Optional[float]
 
     def __init__(
-            self,
-            frame_num: int,
-            persons1: List[Person],
-            persons2: List[Person],
-            cost_matrix: Dict[str, Dict[str, float]],
+        self,
+        frame_num: int,
+        persons1: List[Person],
+        persons2: List[Person],
+        cost_matrix: Dict[str, Dict[str, float]],
     ):
         self.frame_num = frame_num
         self.persons1 = persons1
@@ -76,7 +76,7 @@ class RecordMatcher:
         return res
 
     def get_alignment(
-            self, frame_num: int, cam_data1: CameraData, cam_data2: CameraData
+        self, frame_num: int, cam_data1: CameraData, cam_data2: CameraData
     ) -> List[Tuple[Person, Person]]:
         look_back = 6  # 0.25 seconds for 24 fps
         recent_persons_lists: List[List[Person]] = [
@@ -195,12 +195,12 @@ class RecordMatcher:
         return pairs
 
     def eval_frame(
-            self,
-            frame_num: int,
-            img1=None,
-            img2=None,
-            cam_data1: CameraData = None,
-            cam_data2: CameraData = None,
+        self,
+        frame_num: int,
+        img1=None,
+        img2=None,
+        cam_data1: CameraData = None,
+        cam_data2: CameraData = None,
     ) -> None:
         # estimated_extr = calculate_weighted_extrinsic(
         #     self.get_all_previous_extrinsics(frame_num),
@@ -213,10 +213,10 @@ class RecordMatcher:
         persons1 = rec1.frame_dict.get(frame_num)
         persons2 = rec2.frame_dict.get(frame_num)
         if (
-                persons1 is None
-                or len(persons1) == 0
-                or persons2 is None
-                or len(persons2) == 0
+            persons1 is None
+            or len(persons1) == 0
+            or persons2 is None
+            or len(persons2) == 0
         ):
             persons1 = []
             persons2 = []
@@ -247,12 +247,12 @@ class RecordMatcher:
         )
 
     def get_optimized_error(
-            self,
-            frame_num: int,
-            cam_data1: CameraData,
-            cam_data2: CameraData,
-            pairs: Optional[List[Tuple[Person, Person]]] = None,
-            update_plots=False,
+        self,
+        frame_num: int,
+        cam_data1: CameraData,
+        cam_data2: CameraData,
+        pairs: Optional[List[Tuple[Person, Person]]] = None,
+        update_plots=False,
     ) -> Optional[Tuple[float, ndarray, ndarray]]:
         rec1 = self.recorders[0]
         rec2 = self.recorders[1]
@@ -349,9 +349,9 @@ class RecordMatcher:
 
 
 def calculate_weighted_extrinsic(
-        past_extrinsics: List[ndarray],
-        reprojection_errors: List[float],
-        decay_base: float = 0.5,
+    past_extrinsics: List[ndarray],
+    reprojection_errors: List[float],
+    decay_base: float = 0.5,
 ) -> Optional[ndarray]:
     """Calculate a weighted average of past camera extrinsics.
     Args:
@@ -384,7 +384,7 @@ def calculate_weighted_extrinsic(
 
 
 def generate_subsets(
-        pairs: List[Tuple[Person, Person]]
+    pairs: List[Tuple[Person, Person]]
 ) -> List[List[Tuple[Person, Person]]]:
     subsets = []
     for r in range(1, len(pairs) + 1):
@@ -393,13 +393,13 @@ def generate_subsets(
 
 
 def generate_pairings_subsets(
-        persons1: List[Person], persons2: List[Person]
+    persons1: List[Person], persons2: List[Person]
 ) -> List[List[Tuple[Person, Person]]]:
     pairs = list(itertools.product(persons1, persons2))
     return generate_subsets(pairs)
 
 
 def generate_unique_pairings(
-        list1: List[Person], list2: List[Person]
+    list1: List[Person], list2: List[Person]
 ) -> List[List[Tuple[Person, Person]]]:
     return [list(zip(list1, p)) for p in itertools.permutations(list2)]

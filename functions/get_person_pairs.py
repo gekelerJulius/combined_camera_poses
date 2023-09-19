@@ -50,7 +50,7 @@ def compare_persons(
     pts1_normalized, T1 = normalize_points(points1)
     pts2_normalized, T2 = normalize_points(points2)
 
-    icp_translation, rmse = do_icp_correl(pts1_normalized, pts2_normalized, True)
+    icp_transformation, rmse = do_icp_correl(pts1_normalized, pts2_normalized)
     distances: List[float] = []
     for lmk1, lmk2 in zip(lmks1, lmks2):
         if (

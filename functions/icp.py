@@ -16,7 +16,7 @@ o3d.utility.set_verbosity_level(o3d.utility.VerbosityLevel.Error)
 
 
 def do_icp(
-    pts1: ndarray, pts2: ndarray, corresponding_by_index=False
+        pts1: ndarray, pts2: ndarray, corresponding_by_index=False
 ) -> RegistrationResult:
     """
     The Iterative Closest Point method. Finds the best-fit transform that maps points A on to points B.
@@ -28,7 +28,7 @@ def do_icp(
     pts1 = np.copy(pts1)
     pts2 = np.copy(pts2)
     assert (
-        pts1.shape == pts2.shape and pts1.shape[1] == 3 or pts1.shape[1] == 6
+            pts1.shape == pts2.shape and pts1.shape[1] == 3 or pts1.shape[1] == 6
     ), "pts1 and pts2 must be (N, 3) or (N, 6) ndarrays."
 
     cloud1 = PointCloud()
@@ -75,9 +75,7 @@ def do_icp(
     return result_icp
 
 
-def do_icp_correl(
-    pts1: ndarray, pts2: ndarray, corresponding_by_index=False
-) -> Tuple[ndarray, float]:
+def do_icp_correl(pts1: ndarray, pts2: ndarray) -> Tuple[ndarray, float]:
     """
     The Iterative Closest Point method. Finds the best-fit transform that maps points A on to points B.
     :param pts1: (N, 3) or (N, 6) numpy ndarray, where the first 3 columns are
@@ -89,7 +87,7 @@ def do_icp_correl(
     pts1 = np.copy(pts1)
     pts2 = np.copy(pts2)
     assert (
-        pts1.shape == pts2.shape and pts1.shape[1] == 3
+            pts1.shape == pts2.shape and pts1.shape[1] == 3
     ), "pts1 and pts2 must be (N, 3) or (N, 6) ndarrays."
 
     cloud1 = PointCloud()
@@ -114,7 +112,7 @@ def do_icp_correl(
 
 # CURRENTLY NOT WORKING
 def colored_registration(
-    source: PointCloud, target: PointCloud, initial_transformation: ndarray
+        source: PointCloud, target: PointCloud, initial_transformation: ndarray
 ) -> RegistrationResult:
     # colored pointcloud registration
     # This is implementation of following paper
@@ -158,7 +156,7 @@ def colored_registration(
 
 
 def preprocess_point_cloud(
-    pcd: PointCloud, voxel_size: float
+        pcd: PointCloud, voxel_size: float
 ) -> Tuple[PointCloud, ndarray]:
     """
     Downsample the point cloud, estimate normals, then compute a FPFH feature for each point.
@@ -181,11 +179,11 @@ def preprocess_point_cloud(
 
 
 def execute_global_registration(
-    source_down: PointCloud,
-    target_down: PointCloud,
-    source_fpfh,
-    target_fpfh,
-    voxel_size,
+        source_down: PointCloud,
+        target_down: PointCloud,
+        source_fpfh,
+        target_fpfh,
+        voxel_size,
 ) -> RegistrationResult:
     """
     Use RANSAC for global registration.
@@ -209,7 +207,7 @@ def execute_global_registration(
 
 
 def refine_registration(
-    source, target, transformation, voxel_size
+        source, target, transformation, voxel_size
 ) -> RegistrationResult:
     result = registration_icp(
         source,
@@ -274,7 +272,7 @@ def test_registration():
 
 
 def draw_registration_result(
-    cloud1: PointCloud, cloud2: PointCloud, transformation: ndarray, as_pose=False
+        cloud1: PointCloud, cloud2: PointCloud, transformation: ndarray, as_pose=False
 ) -> None:
     vis = o3d.visualization.Visualizer()
     vis.create_window()

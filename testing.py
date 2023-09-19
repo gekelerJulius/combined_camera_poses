@@ -4,12 +4,12 @@ import cv2
 from ultralytics import YOLO
 from ultralytics.yolo.engine.results import Boxes, Results
 
+from classes.alignment_matcher import AlignmentMatcher
 from classes.bounding_box import BoundingBox
 from classes.camera_data import CameraData
 from classes.logger import Logger
 from classes.person import Person
-from classes.person_recorder import PersonRecorder
-from classes.record_matcher import RecordMatcher
+from classes.person_history import PersonHistory
 from classes.score_manager import ScoreManager
 from classes.true_person_loader import TruePersonLoader
 from classes.unity_person import UnityPerson
@@ -20,7 +20,6 @@ START_FRAME = 0
 
 
 def main():
-    model: YOLO = YOLO("yolov8n")
     vid_paths: List[str] = [
         "simulation_data/sim1.mp4",
         "simulation_data/sim2.mp4",
@@ -29,77 +28,81 @@ def main():
         "simulation_data/cam1.json",
         "simulation_data/cam2.json",
     ]
+    models: List[YOLO] = [YOLO("yolov8n") for _ in enumerate(vid_paths)]
+
     generators: List[Generator[Results]] = [
-        model.track(vid_path, show=False, conf=0.2, classes=0, stream=True)
-        for vid_path in vid_paths
+        models[i].track(vid_path, show=False, conf=0.2, classes=0, stream=True)
+        for i, vid_path in enumerate(vid_paths)
     ]
     zipped: Generator[Tuple[Results, Results]] = zip(*generators)
-    person_lists: List[List[Person]] = [[], []]
-
-    # TODO: Tracking Persons is now handled better by yolov8,
-    #  so we can remove the tracking part from the person_recorder and use it only to record
-    #  past positions of the person.
-
-    person_recorders: List[PersonRecorder] = [
-        PersonRecorder("1", 1),
-        PersonRecorder("2", 2),
+    person_histories: List[PersonHistory] = [
+        PersonHistory() for _ in enumerate(cam_data_paths)
     ]
-    records_matcher: RecordMatcher = RecordMatcher(person_recorders)
+    alignment_matcher = AlignmentMatcher(person_histories)
     score_manager = ScoreManager()
     pairs: List[Tuple[Person, Person]] = []
-    frame_count = START_FRAME
+    frame_count = 0
 
     print("Starting...")
     for yolo_results in zipped:
         frame_count += 1
+        if frame_count < START_FRAME:
+            continue
 
         for i, result in enumerate(yolo_results):
-            person_list = person_lists[i]
+            i: int = int(i)
+            result: Results = result
+            persons = []
             boxes: Boxes = result.boxes
-            for box in boxes:
-                xyxy = box.xyxy[0]
-                min_x = int(xyxy[0])
-                min_y = int(xyxy[1])
-                max_x = int(xyxy[2])
-                max_y = int(xyxy[3])
-                tracker_id: int = int(box.id)
+            for _ in boxes:
+                xyxy = _.xyxy[0]
+                min_x = max(0, int(xyxy[0]))
+                min_y = max(0, int(xyxy[1]))
+                max_x = min(result.orig_img.shape[1], int(xyxy[2]))
+                max_y = min(result.orig_img.shape[0], int(xyxy[3]))
+
                 # cv2.rectangle(
                 #     result.orig_img, (min_x, min_y), (max_x, max_y), (0, 255, 0), 2
                 # )
                 # cv2.putText(
                 #     result.orig_img,
-                #     str(tracker_id),
+                #     str(int(box.id)),
                 #     (min_x, min_y - 10),
                 #     cv2.FONT_HERSHEY_SIMPLEX,
                 #     0.9,
                 #     (36, 255, 12),
                 #     2,
                 # )
-
-                pose_result1 = get_pose(
-                    result.orig_img, BoundingBox(min_x, min_y, max_x, max_y)
-                )
+                bbox = BoundingBox(min_x, min_y, max_x, max_y)
+                pose_result = get_pose(result.orig_img, bbox)
                 if (
-                        pose_result1 is None
-                        or pose_result1.pose_landmarks is None
-                        or pose_result1.pose_landmarks.landmark is None
+                        pose_result is None
+                        or pose_result.pose_landmarks is None
+                        or pose_result.pose_landmarks.landmark is None
                 ):
                     continue
-                length = len([x for x in pose_result1.pose_landmarks.landmark])
+                length = len([x for x in pose_result.pose_landmarks.landmark])
                 if length > 0:
-                    person_list.append(
-                        Person(
-                            f"Person{i} {len(person_list)}",
-                            frame_count,
-                            box,
-                            pose_result1,
-                        )
+                    person = Person(
+                        f"Image {i + 1}, Box {int(_.id[0])}",
+                        frame_count,
+                        bbox,
+                        pose_result,
                     )
-            person_recorders[i].add(person_list, frame_count, result.orig_img)
+                    persons.append(person)
 
-        # Get some records before starting to match
-        if frame_count < START_FRAME + 6:
-            continue
+                    p_id = _.id
+                    # color depending on id (1 = red, 2 = blue, 3 = green)
+                    color = (0, 0, 0)
+                    if p_id == 1:
+                        color = (0, 0, 255)
+                    elif p_id == 2:
+                        color = (255, 0, 0)
+                    elif p_id == 3:
+                        color = (0, 255, 0)
+                    person.color = color
+
+            person_histories[i].add(persons, frame_count)
 
         img1 = yolo_results[0].orig_img
         img2 = yolo_results[1].orig_img
@@ -108,16 +111,13 @@ def main():
             CameraData.create_from_json(cam_data_path)
             for cam_data_path in cam_data_paths
         ]
-        records_matcher.eval_frame(
-            frame_count,
-            img1,
-            img2,
-            cam_datas[0],
-            cam_datas[1],
-        )
-        pairs = records_matcher.get_alignment(frame_count, cam_datas[0], cam_datas[1])
-        pairs = sorted(pairs, key=lambda x: x[0].name)
 
+        # TODO: Think about how to get pairs in the future
+
+        pairs = alignment_matcher.update_alignments(frame_count)
+        # pairs = records_matcher.get_alignment(frame_count, cam_datas[0], cam_datas[1])
+
+        pairs = sorted(pairs, key=lambda x: x[0].name)
         unity_persons: List[UnityPerson] = TruePersonLoader.load(
             "simulation_data/persons"
         )
@@ -136,7 +136,7 @@ def main():
         Logger.log(f"Correct percentage: {score * 100:.2f}%", LoggingLevel.INFO)
         cv2.imshow("Frame 1", img1)
         cv2.imshow("Frame 2", img2)
-        cv2.waitKey(100)
+        cv2.waitKey(1)
 
     cv2.destroyAllWindows()
 

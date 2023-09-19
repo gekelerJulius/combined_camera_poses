@@ -26,10 +26,10 @@ from functions.get_yolo_boxes import get_yolo_bounding_boxes
 
 
 def annotate_video_multi(
-        file1_name: str,
-        file2_name: str,
-        cam1_data_path: str = None,
-        cam2_data_path: str = None,
+    file1_name: str,
+    file2_name: str,
+    cam1_data_path: str = None,
+    cam2_data_path: str = None,
 ):
     if cam1_data_path is None:
         raise ValueError("cam1_data_path must be specified")
@@ -100,10 +100,10 @@ def annotate_video_multi(
         print(f"Frame {frame_count}")
 
         if (
-                img1.shape[0] == 0
-                or img1.shape[1] == 0
-                or img2.shape[0] == 0
-                or img2.shape[1] == 0
+            img1.shape[0] == 0
+            or img1.shape[1] == 0
+            or img2.shape[0] == 0
+            or img2.shape[1] == 0
         ):
             Logger.log(
                 f"Invalid frame size: {img1.shape}, {img2.shape}",
@@ -128,9 +128,9 @@ def annotate_video_multi(
         for box in bounding_boxes1:
             results1 = get_pose(orig_img1, box)
             if (
-                    results1 is None
-                    or results1.pose_landmarks is None
-                    or results1.pose_world_landmarks is None
+                results1 is None
+                or results1.pose_landmarks is None
+                or results1.pose_world_landmarks is None
             ):
                 continue
             length = len([x for x in results1.pose_landmarks.landmark])
@@ -142,9 +142,9 @@ def annotate_video_multi(
         for box in bounding_boxes2:
             results2 = get_pose(orig_img2, box)
             if (
-                    results2 is None
-                    or results2.pose_landmarks is None
-                    or results2.pose_world_landmarks is None
+                results2 is None
+                or results2.pose_landmarks is None
+                or results2.pose_world_landmarks is None
             ):
                 continue
             length = len([x for x in results2.pose_landmarks.landmark])
