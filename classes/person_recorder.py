@@ -98,7 +98,7 @@ class PersonRecorder:
         self.kalman_prediction_dict[person.name] = prediction
 
     def update_kalman_filter(
-            self, persons: List[Person], frame_num: int, img=None
+        self, persons: List[Person], frame_num: int, img=None
     ) -> None:
         predictions = [
             (name, pred) for name, pred in self.kalman_prediction_dict.items()
@@ -118,7 +118,7 @@ class PersonRecorder:
                 for j, centroid in enumerate(centroids):
                     centroid = np.array([centroid[0], centroid[1]])
                     last_vel_x, last_vel_y = (centroid[0] - last_x), (
-                            centroid[1] - last_y
+                        centroid[1] - last_y
                     )
                     # dist1 is distance between predicted centroid and current centroid
                     dist1 = np.linalg.norm(np.array([x_pred, y_pred]) - centroid)
@@ -143,11 +143,11 @@ class PersonRecorder:
                     )
 
                     dist = (
-                            (dist1 ** 2)
-                            * (vel_dist ** 2)
-                            * (dist2 ** 2)
-                            * (dist1_diff_to_expected ** 2)
-                            * (vel_dist_diff_to_expected ** 2)
+                        (dist1**2)
+                        * (vel_dist**2)
+                        * (dist2**2)
+                        * (dist1_diff_to_expected**2)
+                        * (vel_dist_diff_to_expected**2)
                     )
                     cost_matrix[i, j] = dist
 
@@ -193,7 +193,7 @@ class PersonRecorder:
                 self.update_kalman_filter_single(name, prediction, img, correct=False)
 
     def update_kalman_filter_single(
-            self, name: str, centroid: ndarray, img, correct=True
+        self, name: str, centroid: ndarray, img, correct=True
     ) -> None:
         kalman, person_list = self.kalman_dict[name]
         if correct:
@@ -237,7 +237,7 @@ class PersonRecorder:
                     )
 
     def get_frame_history(
-            self, p: Person, frame_range: Tuple[int, int] = (0, np.inf)
+        self, p: Person, frame_range: Tuple[int, int] = (0, np.inf)
     ) -> Dict[int, Person]:
         all_records = self.kalman_dict[p.name][1]
         return {
@@ -248,12 +248,12 @@ class PersonRecorder:
 
     @staticmethod
     def get_all_corresponding_frame_recordings(
-            p1: Person,
-            p2: Person,
-            recorder1: "Recorder",
-            recorder2: "Recorder",
-            frame_range: Tuple[int, int] = (0, np.inf),
-            visibility_threshold: float = 0.5,
+        p1: Person,
+        p2: Person,
+        recorder1: "Recorder",
+        recorder2: "Recorder",
+        frame_range: Tuple[int, int] = (0, np.inf),
+        visibility_threshold: float = 0.5,
     ) -> Tuple[List[Landmark], List[Landmark], List[int]]:
         p1_rec_positions: Dict[int, Person] = recorder1.get_frame_history(
             p1, frame_range
